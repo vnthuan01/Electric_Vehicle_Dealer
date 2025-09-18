@@ -33,6 +33,8 @@
     "twilio": "^5.9.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
     "eslint": "^9.35.0",
     "husky": "^8.0.0",
     "lint-staged": "^16.1.6",

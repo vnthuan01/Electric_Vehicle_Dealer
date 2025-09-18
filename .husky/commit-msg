@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Chỉ định rõ file config
+npx --no -- commitlint --config commitlint.config.cjs --edit "$1"
