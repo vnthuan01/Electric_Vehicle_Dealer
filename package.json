@@ -7,7 +7,6 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "prepare": "husky install",
-    "test": "jest",
     "lint": "eslint ."
   },
   "lint-staged": {

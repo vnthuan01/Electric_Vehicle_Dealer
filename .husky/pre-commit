@@ -2,4 +2,5 @@
 . "$(dirname -- "$0")/_/husky.sh"
 
 set -e
+npm run lint
 npx lint-staged
