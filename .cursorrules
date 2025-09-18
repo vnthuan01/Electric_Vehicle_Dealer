@@ -1,0 +1,161 @@
+EV Car Sales Management Backend — Cursor Rules (Senior Backend Node.js/Express)
+
+Overview
+- Tech stack: Node.js, Express.js, Mongoose, JWT, Bcrypt, Dotenv
+- Architecture: MVC + feature-based folders under src/
+- AuthN/AuthZ: JWT auth, RBAC via Role model and checkRole middleware
+- Responses: Standard JSON { success, message, data?, error? }
+- Style: Async/await, clean code, short English comments, Prettier-friendly
+
+Global Principles
+- Always return standardized JSON responses from controllers using utils/response helpers
+- Centralize errors via AppError and global errorHandler, log all errors via utils/logger
+- Validate request inputs with utils/validator before hitting controllers
+- Use Mongoose lean queries for read endpoints when mutation is not needed
+- Prefer pagination and filtering for list endpoints; avoid returning huge arrays
+- Do not access process.env directly outside config; load via dotenv early in app.js
+- Keep business logic in controllers/services, not in routes
+- For RBAC, protect routes with authenticate then checkRole([...])
+- For dates, use utils/date helpers; persist ISO dates in DB
+
+File Patterns and Rules
+
+- Pattern: src/models/**/*.js
+  Instruction:
+  - Implement Mongoose schemas per ERD (14 tables): Roles, Users, Customers, Vehicles, Orders, Payments, Debts, Installments, Promotions, TestDrives, Feedbacks, Dealerships, Manufacturers, DealerManufacturerDebts
+  - Keep exact field names, data types, enums, relations as per ERD
+  - Always include { timestamps: true } in schema options
+  - Export using CommonJS form: module.exports = mongoose.model('Name', schema)
+  - Add indexes on frequently queried fields (code, email, status)
+- Pattern: src/controllers/**/*.js
+  Instruction:
+    - Import AppError and utils/response; never send raw res.json directly
+    - Always return JSON in format:
+      { success: boolean, message: string, data?: any, error?: string }
+    - Use appropriate HTTP status codes:
+      - 200 OK for successful GET/PUT/PATCH/DELETE
+      - 201 Created for successful POST
+      - 400 Bad Request for validation errors
+      - 401 Unauthorized if JWT is missing/invalid
+      - 403 Forbidden if role is not allowed
+      - 404 Not Found for missing resources
+      - 500 Internal Server Error for unexpected issues
+    - Implement CRUD and business logic per resource (filters, search, status transitions where applicable)
+    - Use try/catch; on error, call next(new AppError(message, statusCode))
+    - Use async/await; no unhandled promises
+    - Enforce RBAC in routes, not inside controllers (controllers must remain pure)
+    - Use `.lean()` for GET list/detail unless documents are mutated
+    - Support pagination (`page`, `limit`), sorting, and basic search (`q`)
+    - Annotate each controller method with Swagger JSDoc:
+      - @swagger tag for resource
+      - @summary, @description
+      - @param (query/path/body)
+      - @response (with status codes and schemas)
+
+- Pattern: src/routes/**/*.js
+  Instruction:
+    - Define Express routers with prefix `/api/[resource]`
+    - Apply `authenticate` middleware for all protected routes
+    - Apply `checkRole([...])` for role-based access
+    - Wire controller methods to RESTful endpoints (GET/POST/PUT/PATCH/DELETE)
+    - Keep routes thin; no business logic here
+    - Each route must include Swagger JSDoc above definition:
+      - @swagger path for each endpoint
+      - Describe request body schema (if POST/PUT/PATCH)
+      - Describe query parameters (for pagination, search, filters)
+      - Document all possible responses with proper HTTP status codes and ApiResponse schema
+
+
+- Pattern: src/middlewares/**/*.js
+  Instruction:
+  - authMiddleware: verify JWT via utils/jwt, attach payload to req.user, on failure return { success: false, message, error }
+  - checkRole(rolesArray): deny if req.user.roleName not in rolesArray
+  - errorHandler: log via utils/logger, respond with { success: false, message, error }
+  - Ensure no sensitive stack traces are leaked in production
+
+- Pattern: src/config/db.js
+  Instruction:
+  - Connect to MongoDB via mongoose using process.env.MONGO_URI
+  - Implement simple retry/backoff on failure
+  - Log successful connection and errors via utils/logger
+
+- Pattern: src/config/swagger.js
+  Instruction:
+  - Generate Swagger spec; read name/version/description from package.json
+  - Serve via /api-docs in app.js
+
+- Pattern: src/utils/response.js
+  Instruction:
+  - Export success(res, message, data) and error(res, message, code)
+  - Controllers must use these helpers for all responses
+
+- Pattern: src/utils/AppError.js
+  Instruction:
+  - class AppError extends Error { constructor(message, statusCode = 400) }
+  - Include isOperational flag; attach statusCode
+
+- Pattern: src/utils/date.js
+  Instruction:
+  - Export helpers: toISO(date), formatDDMMYYYY(date)
+
+- Pattern: src/utils/logger.js
+  Instruction:
+  - Provide request logger middleware and error logger (console or Winston)
+
+- Pattern: src/utils/jwt.js
+  Instruction:
+  - Export signToken(payload, expiresIn) and verifyToken(token)
+
+- Pattern: src/utils/password.js
+  Instruction:
+  - Export hashPassword(plain) and comparePassword(plain, hash) using bcrypt
+
+- Pattern: src/utils/fileUpload.js
+  Instruction:
+  - Configure multer for vehicle images and contract document uploads; validate MIME and size
+
+- Pattern: src/utils/validator.js
+  Instruction:
+  - Define Joi schemas per route; export validateBody(schema) middleware
+
+- Pattern: src/utils/mailer.js
+  Instruction:
+  - SMTP transport helper for sending emails (contracts, notifications)
+
+- Pattern: src/utils/sms.js
+  Instruction:
+  - Helper function to send SMS confirmations (test drives, payments); mock in dev
+
+- Pattern: src/utils/excelExport.js
+  Instruction:
+  - Export report generation to Excel for sales and debts; stream response
+
+- Pattern: src/app.js
+  Instruction:
+  - Initialize Express, load dotenv, enable cors and JSON parsers
+  - Mount /uploads static, register routes, swagger, notFound and errorHandler
+
+- Pattern: src/server.js
+  Instruction:
+  - Read PORT from .env, start server, and log listening address
+
+RBAC Expectations
+- Dealer Staff/Manager: manage customers, vehicles, orders, payments, feedbacks, test drives
+- EVM Staff/Admin: manage products, dealerships, promotions, inter-company debts, reports
+
+API Status Transitions
+- Orders.status: quote -> confirmed -> contract_signed -> delivered (validate transitions)
+
+Standard Response Examples
+- success: { success: true, message: "Created", data: {...} }
+- error: { success: false, message: "Validation error", error: "details" }
+
+Coding Style
+- Async/await only, no callbacks
+- Short English comments per function describing purpose
+- Use const/let; avoid var
+- Keep functions small and cohesive
+- Use try/catch with early returns; avoid deep nesting
+- Adhere to Prettier defaults (no semicolons preference is project-specific)
+
+

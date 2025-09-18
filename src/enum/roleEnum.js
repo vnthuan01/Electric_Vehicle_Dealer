@@ -1,0 +1,24 @@
+export const ROLE = {
+  DEALER_STAFF: "Dealer Staff",
+  DEALER_MANAGER: "Dealer Manager",
+  EVM_STAFF: "EVM Staff",
+  ADMIN: "Admin",
+};
+
+export const ROLES = [
+  ROLE.DEALER_STAFF,
+  ROLE.DEALER_MANAGER,
+  ROLE.EVM_STAFF,
+  ROLE.ADMIN,
+];
+
+export const DEALER_ROLES = [
+  ROLE.DEALER_STAFF,
+  ROLE.DEALER_MANAGER,
+  ROLE.EVM_STAFF,
+  ROLE.ADMIN,
+];
+
+export const EVM_ADMIN_ROLES = [ROLE.EVM_STAFF, ROLE.ADMIN];
+
+export const MANAGEMENT_ROLES = [ROLE.DEALER_MANAGER, ROLE.ADMIN];
