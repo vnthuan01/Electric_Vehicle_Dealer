@@ -29,42 +29,41 @@ File Patterns and Rules
   - Add indexes on frequently queried fields (code, email, status)
 - Pattern: src/controllers/**/*.js
   Instruction:
-    - Import AppError and utils/response; never send raw res.json directly
-    - Always return JSON in format:
-      { success: boolean, message: string, data?: any, error?: string }
-    - Use appropriate HTTP status codes:
-      - 200 OK for successful GET/PUT/PATCH/DELETE
-      - 201 Created for successful POST
-      - 400 Bad Request for validation errors
-      - 401 Unauthorized if JWT is missing/invalid
-      - 403 Forbidden if role is not allowed
-      - 404 Not Found for missing resources
-      - 500 Internal Server Error for unexpected issues
-    - Implement CRUD and business logic per resource (filters, search, status transitions where applicable)
-    - Use try/catch; on error, call next(new AppError(message, statusCode))
-    - Use async/await; no unhandled promises
-    - Enforce RBAC in routes, not inside controllers (controllers must remain pure)
-    - Use `.lean()` for GET list/detail unless documents are mutated
-    - Support pagination (`page`, `limit`), sorting, and basic search (`q`)
-    - Annotate each controller method with Swagger JSDoc:
-      - @swagger tag for resource
-      - @summary, @description
-      - @param (query/path/body)
-      - @response (with status codes and schemas)
+  - Import AppError and utils/response; never send raw res.json directly
+  - Always return JSON in format:
+    { success: boolean, message: string, data?: any, error?: string }
+  - Use appropriate HTTP status codes:
+    - 200 OK for successful GET/PUT/PATCH/DELETE
+    - 201 Created for successful POST
+    - 400 Bad Request for validation errors
+    - 401 Unauthorized if JWT is missing/invalid
+    - 403 Forbidden if role is not allowed
+    - 404 Not Found for missing resources
+    - 500 Internal Server Error for unexpected issues
+  - Implement CRUD and business logic per resource (filters, search, status transitions where applicable)
+  - Use try/catch; on error, call next(new AppError(message, statusCode))
+  - Use async/await; no unhandled promises
+  - Enforce RBAC in routes, not inside controllers (controllers must remain pure)
+  - Use `.lean()` for GET list/detail unless documents are mutated
+  - Support pagination (`page`, `limit`), sorting, and basic search (`q`)
+  - Annotate each controller method with Swagger JSDoc:
+    - @swagger tag for resource
+    - @summary, @description
+    - @param (query/path/body)
+    - @response (with status codes and schemas)
 
 - Pattern: src/routes/**/*.js
   Instruction:
-    - Define Express routers with prefix `/api/[resource]`
-    - Apply `authenticate` middleware for all protected routes
-    - Apply `checkRole([...])` for role-based access
-    - Wire controller methods to RESTful endpoints (GET/POST/PUT/PATCH/DELETE)
-    - Keep routes thin; no business logic here
-    - Each route must include Swagger JSDoc above definition:
-      - @swagger path for each endpoint
-      - Describe request body schema (if POST/PUT/PATCH)
-      - Describe query parameters (for pagination, search, filters)
-      - Document all possible responses with proper HTTP status codes and ApiResponse schema
-
+  - Define Express routers with prefix `/api/[resource]`
+  - Apply `authenticate` middleware for all protected routes
+  - Apply `checkRole([...])` for role-based access
+  - Wire controller methods to RESTful endpoints (GET/POST/PUT/PATCH/DELETE)
+  - Keep routes thin; no business logic here
+  - Each route must include Swagger JSDoc above definition:
+    - @swagger path for each endpoint
+    - Describe request body schema (if POST/PUT/PATCH)
+    - Describe query parameters (for pagination, search, filters)
+    - Document all possible responses with proper HTTP status codes and ApiResponse schema
 
 - Pattern: src/middlewares/**/*.js
   Instruction:
@@ -130,6 +129,20 @@ File Patterns and Rules
   Instruction:
   - Export report generation to Excel for sales and debts; stream response
 
+- Pattern: src/utils/MessageRes.js
+  Instruction:
+  - Centralize all static response messages per module (AuthMessage, VehicleMessage, OrderMessage, etc.)
+  - Export grouped constants by resource
+  - Controllers must import from here instead of hardcoding strings
+
+- Pattern: src/utils/paginate.js
+  Instruction:
+  - Provide helper for pagination with both page/limit and cursor-based approach
+  - Input: { model, query, projection, options }
+  - Output: { docs, pagination: { totalDocs, totalPages, page, limit, hasNext, hasPrev, nextCursor? } }
+  - Always use lean() for read queries
+  - Ensure sorting by createdAt desc if no sort provided
+
 - Pattern: src/app.js
   Instruction:
   - Initialize Express, load dotenv, enable cors and JSON parsers
@@ -138,7 +151,7 @@ File Patterns and Rules
 - Pattern: src/server.js
   Instruction:
   - Read PORT from .env, start server, and log listening address
-
+  
 RBAC Expectations
 - Dealer Staff/Manager: manage customers, vehicles, orders, payments, feedbacks, test drives
 - EVM Staff/Admin: manage products, dealerships, promotions, inter-company debts, reports

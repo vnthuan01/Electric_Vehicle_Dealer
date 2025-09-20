@@ -3,6 +3,8 @@ import Option from "../models/Option.js";
 import Accessory from "../models/Accessory.js";
 import Promotion from "../models/Promotion.js";
 import {success, created, error as errorRes} from "../utils/response.js";
+import {paginate} from "../utils/pagination.js";
+import {VehicleMessage} from "../utils/MessageRes.js";
 
 // Create one or multiple vehicles (EVM Staff, Admin only)
 export async function createVehicle(req, res, next) {
@@ -52,15 +54,14 @@ export async function createVehicle(req, res, next) {
       if (!sku || !name || !category || !price || !manufacturer_id) {
         errors.push({
           sku: sku || null,
-          message:
-            "Missing required fields: sku, name, category, price, manufacturer_id",
+          message: VehicleMessage.MISSING_REQUIRED_FIELDS,
         });
         continue;
       }
 
       const exists = await Vehicle.findOne({sku});
       if (exists) {
-        errors.push({sku, message: "Vehicle with this SKU already exists"});
+        errors.push({sku, message: VehicleMessage.SKU_ALREADY_EXISTS});
         continue;
       }
 
@@ -102,12 +103,12 @@ export async function createVehicle(req, res, next) {
     }
 
     if (validVehicles.length === 0) {
-      return errorRes(res, "No valid vehicles to create", 400, errors);
+      return errorRes(res, VehicleMessage.INVALID_REQUEST, 400, errors);
     }
 
     const createdVehicles = await Vehicle.insertMany(validVehicles);
 
-    return created(res, "Vehicles created successfully", {
+    return created(res, VehicleMessage.CREATE_SUCCESS, {
       created: createdVehicles,
       errors,
     });
@@ -119,28 +120,54 @@ export async function createVehicle(req, res, next) {
 // Get vehicle list with filter/search
 export async function getVehicles(req, res, next) {
   try {
-    const {q, status, category, manufacturer_id} = req.query;
+    // --- Extra filters ---
     const cond = {};
+    if (req.query.category) cond.category = req.query.category;
+    if (req.query.status) cond.status = req.query.status;
+    if (req.query.manufacturer_id)
+      cond.manufacturer_id = req.query.manufacturer_id;
 
-    if (q) {
-      cond.$or = [
-        {name: {$regex: q, $options: "i"}},
-        {model: {$regex: q, $options: "i"}},
-        {version: {$regex: q, $options: "i"}},
-      ];
+    // --- Price range ---
+    if (req.query["price[min]"] || req.query["price[max]"]) {
+      cond.price = {};
+      if (req.query["price[min]"])
+        cond.price.$gte = Number(req.query["price[min]"]);
+      if (req.query["price[max]"])
+        cond.price.$lte = Number(req.query["price[max]"]);
     }
-    if (status) cond.status = status;
-    if (category) cond.category = category;
-    if (manufacturer_id) cond.manufacturer_id = manufacturer_id;
 
-    const vehicles = await Vehicle.find(cond)
-      .populate("manufacturer_id", "name address")
-      .populate("options")
-      .populate("accessories")
-      .populate("promotions")
-      .sort({createdAt: -1});
+    // --- Range filter ---
+    if (req.query["range_km[min]"] || req.query["range_km[max]"]) {
+      cond.range_km = {};
+      if (req.query["range_km[min]"])
+        cond.range_km.$gte = Number(req.query["range_km[min]"]);
+      if (req.query["range_km[max]"])
+        cond.range_km.$lte = Number(req.query["range_km[max]"]);
+    }
 
-    return success(res, "Vehicle list retrieved successfully", vehicles);
+    // --- Battery type ---
+    if (req.query.battery_type) cond.battery_type = req.query.battery_type;
+
+    // --- Color options ---
+    if (req.query.color_options) cond.color_options = req.query.color_options;
+
+    // --- Paginate with search ---
+    const result = await paginate(
+      Vehicle.find()
+        .populate("manufacturer_id", "name address")
+        .populate("options")
+        .populate("accessories")
+        .populate("promotions"), // <--- populate luôn
+      req,
+      ["name", "model", "version"], // searchFields
+      cond // extraQuery
+    );
+
+    return res.json({
+      success: true,
+      message: VehicleMessage.LIST_SUCCESS,
+      ...result,
+    });
   } catch (err) {
     next(err);
   }
@@ -157,7 +184,7 @@ export async function getVehicleById(req, res, next) {
 
     if (!vehicle) return errorRes(res, "Vehicle not found", 404);
 
-    return success(res, "Vehicle detail retrieved successfully", vehicle);
+    return success(res, VehicleMessage.DETAIL_SUCCESS, vehicle);
   } catch (err) {
     next(err);
   }
@@ -178,7 +205,7 @@ export async function updateVehicle(req, res, next) {
     Object.assign(vehicle, req.body);
     await vehicle.save();
 
-    return success(res, "Vehicle updated successfully", vehicle);
+    return success(res, VehicleMessage.UPDATE_SUCCESS, vehicle);
   } catch (err) {
     next(err);
   }
@@ -190,7 +217,7 @@ export async function deleteVehicle(req, res, next) {
     const vehicle = await Vehicle.findByIdAndDelete(req.params.id);
     if (!vehicle) return errorRes(res, "Vehicle not found", 404);
 
-    return success(res, "Vehicle deleted successfully", {id: vehicle._id});
+    return success(res, VehicleMessage.DELETE_SUCCESS, {id: vehicle._id});
   } catch (err) {
     next(err);
   }

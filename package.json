@@ -7,7 +7,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "prepare": "husky install",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build": "npm run lint"
   },
   "lint-staged": {
     "*.js": "eslint --fix"
@@ -28,6 +29,7 @@
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.6",
+    "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "twilio": "^5.9.0"

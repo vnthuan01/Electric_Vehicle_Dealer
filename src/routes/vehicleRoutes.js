@@ -26,25 +26,84 @@ router.use(authenticate);
  * /api/vehicles:
  *   get:
  *     tags: [Vehicles]
- *     summary: List vehicles
+ *     summary: List vehicles with filters and pagination
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: q
- *         schema: { type: string }
+ *         schema:
+ *           type: string
  *         description: Search by name, model, or version
  *       - in: query
  *         name: status
- *         schema: { type: string, enum: [active, inactive] }
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive]
+ *         description: Filter by vehicle status
  *       - in: query
  *         name: category
- *         schema: { type: string, enum: [car, motorbike] }
+ *         schema:
+ *           type: string
+ *           enum: [car, motorbike]
+ *         description: Vehicle type
  *       - in: query
  *         name: manufacturer_id
- *         schema: { type: string }
+ *         schema:
+ *           type: string
+ *         description: Filter by manufacturer ID
+ *       - in: query
+ *         name: price[min]
+ *         schema:
+ *           type: number
+ *         description: Minimum price
+ *       - in: query
+ *         name: price[max]
+ *         schema:
+ *           type: number
+ *         description: Maximum price
+ *       - in: query
+ *         name: range_km[min]
+ *         schema:
+ *           type: number
+ *         description: Minimum range (km)
+ *       - in: query
+ *         name: range_km[max]
+ *         schema:
+ *           type: number
+ *         description: Maximum range (km)
+ *       - in: query
+ *         name: battery_type
+ *         schema:
+ *           type: string
+ *           enum: [LFP, NMC, other]
+ *         description: Battery type
+ *       - in: query
+ *         name: color_options
+ *         schema:
+ *           type: string
+ *         description: Filter by available color
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of records per page
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           example: "price:asc,createdAt:desc"
+ *         description: Sort fields (e.g., price:asc,createdAt:desc)
  *     responses:
- *       200: { description: Vehicle list retrieved successfully }
+ *       200:
+ *         description: Vehicle list retrieved successfully
  */
 router.get("/", getVehicles);
 
