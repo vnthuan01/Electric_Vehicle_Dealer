@@ -11,7 +11,7 @@ export function authenticate(req, res, next) {
     req.user = payload;
     return next();
   } catch (e) {
-    return errorRes(res, "Invalid token", 401, "invalid_token");
+    return errorRes(res, "Invalid token", 401, "invalid_token" || e.message);
   }
 }
 
