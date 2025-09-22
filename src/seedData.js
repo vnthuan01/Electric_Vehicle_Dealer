@@ -5,7 +5,8 @@ import Manufacturer from "./models/Manufacturer.js";
 import Dealership from "./models/Dealership.js";
 import {hashPassword} from "./utils/password.js";
 
-const mongoUri = "mongodb://localhost:27017/electric_dealer";
+const mongoUri =
+  "mongodb+srv://root:8QTzQJJHyXdblp93@wdpfa2025.ueif05n.mongodb.net/dealer_electric_vehicle?retryWrites=true&w=majority&appName=WDPFA2025";
 
 async function seed() {
   try {
