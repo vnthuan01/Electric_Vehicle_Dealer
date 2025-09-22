@@ -6,6 +6,8 @@ import {
   logout,
 } from "../controllers/authController.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
+import {checkRole} from "../middlewares/checkRole.js";
+import {MANAGEMENT_ROLES} from "../enum/roleEnum.js";
 import {validateBody, schemas} from "../utils/validator.js";
 
 const router = Router();
@@ -64,7 +66,13 @@ const router = Router();
  *       400:
  *         description: Validation error or email already exists
  */
-router.post("/register", validateBody(schemas.register), register);
+router.post(
+  "/register",
+  authenticate,
+  checkRole(MANAGEMENT_ROLES),
+  validateBody(schemas.register),
+  register
+);
 
 /**
  * @openapi

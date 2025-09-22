@@ -3,6 +3,11 @@ export const AuthMessage = {
   REGISTER_SUCCESS: "User registered successfully",
   EMAIL_ALREADY_EXISTS: "Email already exists",
   INVALID_ROLE: "Invalid role",
+  UNAUTHORIZED: "Unauthorized",
+  ADMIN_CANNOT_CREATE_ADMIN: "Admin cannot create another Admin",
+  DEALER_MANAGER_ONLY_CREATE_STAFF:
+    "Dealer Manager can only create Dealer Staff accounts",
+  REGISTER_FAILED: "User registration failed",
 
   // Login
   LOGIN_SUCCESS: "Login successful",
