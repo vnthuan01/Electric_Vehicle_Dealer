@@ -21,8 +21,14 @@ const options = {
     },
     servers: [
       {url: "http://localhost:5000/", description: "Local Development"},
-      {url: "https://staging.evcars.com/api", description: "Staging"},
-      {url: "https://api.evcars.com", description: "Production"},
+      {
+        url: "https://electric-vehicle-dealer.onrender.com/api",
+        description: "Staging",
+      },
+      {
+        url: "https://electric-vehicle-dealer.onrender.com/",
+        description: "Production",
+      },
     ],
     components: {
       securitySchemes: {
