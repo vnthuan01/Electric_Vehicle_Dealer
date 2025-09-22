@@ -46,10 +46,16 @@ const vehicleSchema = new mongoose.Schema(
     },
     weight: {type: Number}, // trọng lượng xe
     payload: {type: Number}, // tải trọng tối đa
+    trunk_type: {type: String, enum: ["manual", "electric", "auto"]}, // cốp
 
     // Trang bị & tính năng
     safety_features: [{type: String}], // ABS, túi khí, radar...
-    interior_features: [{type: String}], // ghế da, màn hình, điều hòa...
+    interior_features: [
+      {
+        name: {type: String, required: true}, // VD: Điều hòa
+        description: {type: String}, // VD: Chỉnh cơ
+      },
+    ],
     driving_modes: [{type: String}], // Eco, Sport, Normal
     software_version: {type: String}, // bản phần mềm hiện tại
     ota_update: {type: Boolean, default: true}, // hỗ trợ FOTA/SOTA
