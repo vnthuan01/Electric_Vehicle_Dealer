@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "prepare": "husky install",
     "lint": "eslint .",
     "build": "npm run lint"
   },
