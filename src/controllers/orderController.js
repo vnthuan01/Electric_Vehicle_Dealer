@@ -1,6 +1,21 @@
 import Order from "../models/Order.js";
 import Promotion from "../models/Promotion.js";
+import * as zalopayService from "../services/ZaloPayService.js";
+import {createOrder as createPaypalOrder} from "../services/paypalService.js";
 import {success, created, error as errorRes} from "../utils/response.js";
+
+//Helper generate order Code - timestamp
+const generateOrderCode = () => {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+
+  return `ORD${yy}${mm}${dd}${hh}${min}${ss}`; // ví dụ: ORD250922162045
+};
 
 // Helper tính toán số tiền cuối cùng dựa vào discount và promotion
 async function calculateFinalAmount(price, discount = 0, promotion_id = null) {
@@ -21,7 +36,6 @@ async function calculateFinalAmount(price, discount = 0, promotion_id = null) {
 export async function createOrder(req, res, next) {
   try {
     const {
-      code,
       customer_id,
       vehicle_id,
       dealership_id,
@@ -32,12 +46,16 @@ export async function createOrder(req, res, next) {
       notes,
     } = req.body;
 
+    // 1. Tính tổng tiền cuối cùng
     const final_amount = await calculateFinalAmount(
       price,
       discount,
       promotion_id
     );
 
+    const code = generateOrderCode();
+
+    // 2. Tạo đơn hàng trong DB
     const order = await Order.create({
       code,
       customer_id,
@@ -53,9 +71,56 @@ export async function createOrder(req, res, next) {
       notes,
     });
 
-    return created(res, "Tạo đơn hàng thành công", order);
+    // 3. Nếu phương thức thanh toán là ZaloPay
+    let zalopayData = null;
+    if (payment_method === "zalopay") {
+      const orderData = {
+        app_trans_id: `order_${Date.now()}`,
+        amount: final_amount,
+        description: `Thanh toán đơn hàng ${code}`,
+        return_url: `${process.env.CLIENT_URL}/order/${order._id}/payment-return`,
+        embed_data: {order_id: order._id.toString()},
+        item: [],
+      };
+
+      zalopayData = await zalopayService.createOrder(orderData);
+    }
+
+    // 4. Nếu phương thức thanh toán là PayPal
+    let paypalData = null;
+    if (payment_method === "paypal") {
+      const paypalOrder = await createPaypalOrder(
+        final_amount.toFixed(2), // PayPal yêu cầu string với 2 chữ số thập phân
+        "USD",
+        `${process.env.CLIENT_URL}/order/${order._id}/paypal-success`,
+        `${process.env.CLIENT_URL}/order/${order._id}/paypal-cancel`
+      );
+
+      const approveUrl = paypalOrder.links.find(
+        (link) => link.rel === "approve"
+      )?.href;
+      paypalData = {order: paypalOrder, approveUrl};
+    }
+
+    // 5. Trả về response kèm link thanh toán nếu có
+    return created(res, "Tạo đơn hàng thành công", {
+      order,
+      zalopay: zalopayData,
+      paypal: paypalData,
+    });
   } catch (err) {
     next(err);
+  }
+}
+
+// Capture đơn hàng sau khi khách redirect từ PayPal
+export async function createCapturePaypal(req, res) {
+  try {
+    const {orderId} = req.body;
+    const captureData = await captureOrder(orderId);
+    res.json(captureData);
+  } catch (err) {
+    res.status(500).json({error: err.message});
   }
 }
 

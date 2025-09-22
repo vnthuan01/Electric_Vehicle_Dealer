@@ -99,7 +99,6 @@ export async function createVehicle(req, res, next) {
         payload,
         trunk_type,
         interior_features: formattedInteriorFeatures,
-
         safety_features,
         interior_features,
         driving_modes,
