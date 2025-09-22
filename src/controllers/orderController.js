@@ -3,6 +3,7 @@ import Promotion from "../models/Promotion.js";
 import * as zalopayService from "../services/ZaloPayService.js";
 import {createOrder as createPaypalOrder} from "../services/paypalService.js";
 import {success, created, error as errorRes} from "../utils/response.js";
+import {createCustomerDebt} from "./debtController.js";
 
 //Helper generate order Code - timestamp
 const generateOrderCode = () => {
@@ -39,6 +40,7 @@ export async function createOrder(req, res, next) {
       customer_id,
       vehicle_id,
       dealership_id,
+      manufacturer_id,
       price,
       discount = 0,
       promotion_id = null,
@@ -46,21 +48,23 @@ export async function createOrder(req, res, next) {
       notes,
     } = req.body;
 
-    // 1. Tính tổng tiền cuối cùng
+    //Tính tổng tiền cuối cùng
     const final_amount = await calculateFinalAmount(
       price,
       discount,
       promotion_id
     );
 
+    //Sinh mã đơn hàng
     const code = generateOrderCode();
 
-    // 2. Tạo đơn hàng trong DB
+    //Tạo đơn hàng trong DB
     const order = await Order.create({
       code,
       customer_id,
       vehicle_id,
       dealership_id,
+      manufacturer_id,
       salesperson_id: req.user?.id,
       price,
       discount,
@@ -71,7 +75,10 @@ export async function createOrder(req, res, next) {
       notes,
     });
 
-    // 3. Nếu phương thức thanh toán là ZaloPay
+    //Tạo công nợ khách hàng và đại lý-hãng
+    await createCustomerDebt(order);
+
+    //Xử lý thanh toán ZaloPay
     let zalopayData = null;
     if (payment_method === "zalopay") {
       const orderData = {
@@ -82,27 +89,25 @@ export async function createOrder(req, res, next) {
         embed_data: {order_id: order._id.toString()},
         item: [],
       };
-
       zalopayData = await zalopayService.createOrder(orderData);
     }
 
-    // 4. Nếu phương thức thanh toán là PayPal
+    //Xử lý thanh toán PayPal
     let paypalData = null;
     if (payment_method === "paypal") {
       const paypalOrder = await createPaypalOrder(
-        final_amount.toFixed(2), // PayPal yêu cầu string với 2 chữ số thập phân
+        final_amount.toFixed(2),
         "USD",
         `${process.env.CLIENT_URL}/order/${order._id}/paypal-success`,
         `${process.env.CLIENT_URL}/order/${order._id}/paypal-cancel`
       );
-
       const approveUrl = paypalOrder.links.find(
         (link) => link.rel === "approve"
       )?.href;
       paypalData = {order: paypalOrder, approveUrl};
     }
 
-    // 5. Trả về response kèm link thanh toán nếu có
+    //Trả về response
     return created(res, "Tạo đơn hàng thành công", {
       order,
       zalopay: zalopayData,

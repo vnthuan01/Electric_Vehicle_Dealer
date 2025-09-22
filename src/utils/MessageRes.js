@@ -36,3 +36,28 @@ export const VehicleMessage = {
     "Missing required fields: sku, name, category, price, manufacturer_id",
   SKU_ALREADY_EXISTS: "Vehicle with this SKU already exists",
 };
+
+export const TestDriveMessage = {
+  CREATE_SUCCESS: "Tạo lịch lái thử thành công",
+  INVALID_REQUEST: "Dữ liệu lịch lái thử không hợp lệ",
+  MISSING_REQUIRED_FIELDS: "Thiếu trường bắt buộc",
+  CUSTOMER_NOT_FOUND: "Khách hàng không tồn tại",
+  VEHICLE_NOT_FOUND: "Xe không tồn tại",
+};
+
+export const FeedbackMessage = {
+  CREATE_SUCCESS: "Tạo phản hồi thành công",
+  INVALID_REQUEST: "Dữ liệu phản hồi không hợp lệ",
+  MISSING_REQUIRED_FIELDS: "Thiếu trường bắt buộc",
+  HANDLER_INVALID: "Handler không hợp lệ",
+  NOT_FOUND: "Phản hồi/Khiếu nại không tồn tại",
+  FORBIDDEN: "Bạn không có quyền cập nhật Feedback",
+};
+
+export const DealerMessage = {
+  MISSING_FIELDS: "Required fields are missing",
+  VEHICLE_NOT_FOUND: "Vehicle not found",
+  INSUFFICIENT_STOCK: "Insufficient stock",
+  REQUEST_APPROVED: "Vehicle request from Manufacturer approved successfully",
+  DEBTS_RETRIEVED: "Dealer debts retrieved successfully",
+};

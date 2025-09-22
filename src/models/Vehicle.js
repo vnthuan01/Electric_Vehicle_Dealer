@@ -1,5 +1,15 @@
 import mongoose from "mongoose";
 
+const stockSchema = new mongoose.Schema({
+  owner_type: {type: String, enum: ["manufacturer", "dealer"], required: true},
+  owner_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    refPath: "stocks.owner_type",
+  },
+  quantity: {type: Number, default: 0},
+});
+
 const vehicleSchema = new mongoose.Schema(
   {
     // Thông tin cơ bản
@@ -61,7 +71,7 @@ const vehicleSchema = new mongoose.Schema(
     ota_update: {type: Boolean, default: true}, // hỗ trợ FOTA/SOTA
 
     // Thông tin thương mại & quản lý
-    stock: {type: Number, default: 0},
+    stocks: [stockSchema],
     warranty_years: {type: Number},
     color_options: [{type: String}],
     images: [{type: String}],
