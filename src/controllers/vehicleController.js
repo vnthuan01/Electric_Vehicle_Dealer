@@ -35,6 +35,7 @@ export async function createVehicle(req, res, next) {
         dimensions,
         weight,
         payload,
+        trunk_type,
         safety_features,
         interior_features,
         driving_modes,
@@ -65,6 +66,17 @@ export async function createVehicle(req, res, next) {
         continue;
       }
 
+      // Validate interior_features phải là object { name, description }
+      let formattedInteriorFeatures = [];
+      if (Array.isArray(interior_features)) {
+        formattedInteriorFeatures = interior_features
+          .filter((f) => f && f.name) // bỏ mấy item rỗng
+          .map((f) => ({
+            name: f.name,
+            description: f.description || "",
+          }));
+      }
+
       validVehicles.push({
         sku,
         name,
@@ -85,6 +97,9 @@ export async function createVehicle(req, res, next) {
         dimensions,
         weight,
         payload,
+        trunk_type,
+        interior_features: formattedInteriorFeatures,
+
         safety_features,
         interior_features,
         driving_modes,

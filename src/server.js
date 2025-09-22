@@ -23,7 +23,7 @@ async function start() {
     await connectDatabase();
     socketConfig(io);
     server.listen(port, () => {
-      logInfo(`Server listening on http://localhost:${port}`);
+      logInfo(`Server listening on http://localhost:${port}/api-docs`);
     });
   } catch (err) {
     logError("Failed to start server", err);
