@@ -27,11 +27,7 @@ router.use(authenticate);
  *       200:
  *         description: OK
  */
-router.get(
-  "/",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  getCustomers
-);
+router.get("/", getCustomers);
 
 /**
  * @openapi
@@ -71,11 +67,7 @@ router.get(
  *       400:
  *         description: Bad Request
  */
-router.post(
-  "/",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  createCustomer
-);
+router.post("/", createCustomer);
 
 /**
  * @openapi
@@ -98,11 +90,7 @@ router.post(
  *       404:
  *         description: Not Found
  */
-router.get(
-  "/:id",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  getCustomerById
-);
+router.get("/:id", getCustomerById);
 
 /**
  * @openapi
@@ -145,11 +133,7 @@ router.get(
  *       404:
  *         description: Not Found
  */
-router.put(
-  "/:id",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  updateCustomer
-);
+router.put("/:id", updateCustomer);
 
 /**
  * @openapi

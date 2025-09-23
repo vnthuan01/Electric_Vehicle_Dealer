@@ -23,7 +23,7 @@ const orderSchema = new mongoose.Schema(
     final_amount: {type: Number, required: true},
     payment_method: {
       type: String,
-      enum: ["cash", "transfer", "installment"],
+      enum: ["cash", "paypal", "zalopay", "installment"],
       default: "cash",
     },
     status: {

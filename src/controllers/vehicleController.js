@@ -18,6 +18,7 @@ export async function createVehicle(req, res, next) {
       const {
         sku,
         name,
+        model,
         category,
         price,
         manufacturer_id,
@@ -77,9 +78,19 @@ export async function createVehicle(req, res, next) {
           }));
       }
 
+      const stocks = [];
+      if (stock && manufacturer_id) {
+        stocks.push({
+          owner_type: "manufacturer",
+          owner_id: manufacturer_id,
+          quantity: stock,
+        });
+      }
+
       validVehicles.push({
         sku,
         name,
+        model,
         category,
         price,
         on_road_price,
@@ -99,13 +110,12 @@ export async function createVehicle(req, res, next) {
         payload,
         trunk_type,
         interior_features: formattedInteriorFeatures,
-
         safety_features,
         interior_features,
         driving_modes,
         software_version,
         ota_update,
-        stock,
+        stocks,
         warranty_years,
         color_options,
         images,
@@ -113,7 +123,6 @@ export async function createVehicle(req, res, next) {
         options,
         accessories,
         promotions,
-        price_history: [{price}],
       });
     }
 
@@ -135,14 +144,13 @@ export async function createVehicle(req, res, next) {
 // Get vehicle list with filter/search
 export async function getVehicles(req, res, next) {
   try {
-    // --- Extra filters ---
+    // ----- Build filters -----
     const cond = {};
     if (req.query.category) cond.category = req.query.category;
     if (req.query.status) cond.status = req.query.status;
     if (req.query.manufacturer_id)
       cond.manufacturer_id = req.query.manufacturer_id;
 
-    // --- Price range ---
     if (req.query["price[min]"] || req.query["price[max]"]) {
       cond.price = {};
       if (req.query["price[min]"])
@@ -151,7 +159,6 @@ export async function getVehicles(req, res, next) {
         cond.price.$lte = Number(req.query["price[max]"]);
     }
 
-    // --- Range filter ---
     if (req.query["range_km[min]"] || req.query["range_km[max]"]) {
       cond.range_km = {};
       if (req.query["range_km[min]"])
@@ -160,28 +167,32 @@ export async function getVehicles(req, res, next) {
         cond.range_km.$lte = Number(req.query["range_km[max]"]);
     }
 
-    // --- Battery type ---
     if (req.query.battery_type) cond.battery_type = req.query.battery_type;
 
-    // --- Color options ---
-    if (req.query.color_options) cond.color_options = req.query.color_options;
+    if (req.query.color_options)
+      cond.color_options = {$in: req.query.color_options.split(",")};
 
-    // --- Paginate with search ---
+    // ----- Paginate -----
     const result = await paginate(
-      Vehicle.find()
-        .populate("manufacturer_id", "name address")
-        .populate("options")
-        .populate("accessories")
-        .populate("promotions"), // <--- populate luôn
+      Vehicle,
       req,
-      ["name", "model", "version"], // searchFields
-      cond // extraQuery
+      ["name", "model", "version"],
+      cond
     );
+
+    // ----- Populate after paginate -----
+    const dataWithPopulate = await Vehicle.populate(result.data, [
+      {path: "manufacturer_id", select: "name address"},
+      {path: "options"},
+      {path: "accessories"},
+      {path: "promotions"},
+    ]);
 
     return res.json({
       success: true,
       message: VehicleMessage.LIST_SUCCESS,
       ...result,
+      data: dataWithPopulate,
     });
   } catch (err) {
     next(err);
@@ -210,11 +221,6 @@ export async function updateVehicle(req, res, next) {
   try {
     const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) return errorRes(res, "Vehicle not found", 404);
-
-    // Track price changes
-    if (req.body.price && req.body.price !== vehicle.price) {
-      vehicle.price_history.push({price: req.body.price});
-    }
 
     // Update all fields
     Object.assign(vehicle, req.body);

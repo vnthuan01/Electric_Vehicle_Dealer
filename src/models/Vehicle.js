@@ -1,5 +1,15 @@
 import mongoose from "mongoose";
 
+const stockSchema = new mongoose.Schema({
+  owner_type: {type: String, enum: ["manufacturer", "dealer"], required: true},
+  owner_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    refPath: "stocks.owner_type",
+  },
+  quantity: {type: Number, default: 0},
+});
+
 const vehicleSchema = new mongoose.Schema(
   {
     // Thông tin cơ bản
@@ -19,12 +29,6 @@ const vehicleSchema = new mongoose.Schema(
     // Giá bán
     price: {type: Number, required: true}, // giá niêm yết
     on_road_price: {type: Number}, // giá lăn bánh tạm tính
-    price_history: [
-      {
-        price: Number,
-        updated_at: {type: Date, default: Date.now},
-      },
-    ],
 
     // Thông số pin & vận hành
     battery_type: {type: String, enum: ["LFP", "NMC", "other"]}, // loại pin
@@ -61,7 +65,7 @@ const vehicleSchema = new mongoose.Schema(
     ota_update: {type: Boolean, default: true}, // hỗ trợ FOTA/SOTA
 
     // Thông tin thương mại & quản lý
-    stock: {type: Number, default: 0},
+    stocks: [stockSchema],
     warranty_years: {type: Number},
     color_options: [{type: String}],
     images: [{type: String}],
