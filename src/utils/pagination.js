@@ -57,7 +57,7 @@ export const paginate = async (
 // app.get("/api/users", async (req, res) => {
 //   try {
 //     // Chỉ cần gọi 1 lần, field ["name","email"] là các field cần tìm kiếm (searching)
-//     const result = await paginate(User, req, ["name", "email"]);
+//     const result = await paginate(User, req, ["name", "email"], extraQuery);
 //     res.json(result);
 //   } catch (err) {
 //     res.status(500).json({error: err.message});

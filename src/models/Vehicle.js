@@ -29,12 +29,6 @@ const vehicleSchema = new mongoose.Schema(
     // Giá bán
     price: {type: Number, required: true}, // giá niêm yết
     on_road_price: {type: Number}, // giá lăn bánh tạm tính
-    price_history: [
-      {
-        price: Number,
-        updated_at: {type: Date, default: Date.now},
-      },
-    ],
 
     // Thông số pin & vận hành
     battery_type: {type: String, enum: ["LFP", "NMC", "other"]}, // loại pin

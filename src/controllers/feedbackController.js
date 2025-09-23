@@ -2,6 +2,7 @@ import Feedback from "../models/Feedback.js";
 import Customer from "../models/Customer.js";
 import {created, success, error as errorRes} from "../utils/response.js";
 import {FeedbackMessage} from "../utils/MessageRes.js";
+import {paginate} from "../utils/pagination.js";
 
 export async function createFeedback(req, res, next) {
   try {
@@ -30,10 +31,22 @@ export async function createFeedback(req, res, next) {
 
 export async function getFeedbacks(req, res, next) {
   try {
-    const list = await Feedback.find().populate(
-      "customer_id order_id handler_id"
-    );
-    return success(res, list);
+    // ----- Paginate -----
+    const result = await paginate(Feedback, req, ["content", "status"], {});
+
+    // ----- Populate after paginate -----
+    const dataWithPopulate = await Feedback.populate(result.data, [
+      {path: "customer_id", select: "name email phone"},
+      {path: "order_id"},
+      {path: "handler_id", select: "name role"},
+    ]);
+
+    return res.json({
+      success: true,
+      message: FeedbackMessage.RETRIEVED_SUCCESS,
+      ...result,
+      data: dataWithPopulate,
+    });
   } catch (err) {
     next(err);
   }

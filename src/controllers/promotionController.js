@@ -1,10 +1,12 @@
 import Promotion from "../models/Promotion.js";
+import {paginate} from "../utils/pagination.js";
+import {PromotionMessage} from "../utils/MessageRes.js";
 import {success, created, error as errorRes} from "../utils/response.js";
 
 export async function createPromotion(req, res, next) {
   try {
     const promotion = await Promotion.create(req.body);
-    return created(res, "Tạo khuyến mãi thành công", promotion);
+    return created(res, PromotionMessage.CREATE_SUCCESS, promotion);
   } catch (err) {
     next(err);
   }
@@ -15,8 +17,15 @@ export async function getPromotions(req, res, next) {
     const {active} = req.query;
     const cond = {};
     if (active !== undefined) cond.is_active = active === "true";
-    const promotions = await Promotion.find(cond).sort({createdAt: -1});
-    return success(res, "Danh sách khuyến mãi", promotions);
+
+    const result = await paginate(
+      Promotion,
+      req,
+      ["title", "description"],
+      cond
+    );
+
+    return success(res, PromotionMessage.LIST_SUCCESS, result);
   } catch (err) {
     next(err);
   }
@@ -25,8 +34,8 @@ export async function getPromotions(req, res, next) {
 export async function getPromotionById(req, res, next) {
   try {
     const promotion = await Promotion.findById(req.params.id);
-    if (!promotion) return errorRes(res, "Không tìm thấy khuyến mãi", 404);
-    return success(res, "Chi tiết khuyến mãi", promotion);
+    if (!promotion) return errorRes(res, PromotionMessage.NOT_FOUND, 404);
+    return success(res, PromotionMessage.DETAIL_SUCCESS, promotion);
   } catch (err) {
     next(err);
   }
@@ -39,8 +48,8 @@ export async function updatePromotion(req, res, next) {
       req.body,
       {new: true}
     );
-    if (!promotion) return errorRes(res, "Không tìm thấy khuyến mãi", 404);
-    return success(res, "Cập nhật khuyến mãi thành công", promotion);
+    if (!promotion) return errorRes(res, PromotionMessage.NOT_FOUND, 404);
+    return success(res, PromotionMessage.UPDATE_SUCCESS, promotion);
   } catch (err) {
     next(err);
   }
@@ -49,8 +58,8 @@ export async function updatePromotion(req, res, next) {
 export async function deletePromotion(req, res, next) {
   try {
     const promotion = await Promotion.findByIdAndDelete(req.params.id);
-    if (!promotion) return errorRes(res, "Không tìm thấy khuyến mãi", 404);
-    return success(res, "Đã xoá khuyến mãi", {id: promotion._id});
+    if (!promotion) return errorRes(res, PromotionMessage.NOT_FOUND, 404);
+    return success(res, PromotionMessage.DELETE_SUCCESS, {id: promotion._id});
   } catch (err) {
     next(err);
   }

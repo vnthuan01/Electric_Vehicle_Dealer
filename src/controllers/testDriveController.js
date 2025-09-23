@@ -3,6 +3,7 @@ import Customer from "../models/Customer.js";
 import Vehicle from "../models/Vehicle.js";
 import {created, success, error as errorRes} from "../utils/response.js";
 import {TestDriveMessage} from "../utils/MessageRes.js";
+import {paginate} from "../utils/pagination.js";
 
 export async function createTestDrive(req, res, next) {
   try {
@@ -39,10 +40,22 @@ export async function createTestDrive(req, res, next) {
 
 export async function getTestDrives(req, res, next) {
   try {
-    const list = await TestDrive.find().populate(
-      "customer_id vehicle_id dealership_id"
+    // paginate dựa trên trường schedule_at + notes
+    const result = await paginate(TestDrive, req, ["notes"], {});
+
+    // populate dữ liệu quan hệ
+    const populatedData = await Promise.all(
+      result.data.map((td) =>
+        TestDrive.findById(td._id).populate(
+          "customer_id vehicle_id dealership_id"
+        )
+      )
     );
-    return success(res, list);
+
+    return success(res, TestDriveMessage.LIST_SUCCESS, {
+      ...result,
+      data: populatedData,
+    });
   } catch (err) {
     next(err);
   }

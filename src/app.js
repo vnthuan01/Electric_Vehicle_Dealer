@@ -11,6 +11,7 @@ import swaggerUi from "swagger-ui-express";
 import {swaggerSpec} from "./config/swagger.js";
 
 // Routes imports
+import userRoutes from "./routes/userRoutes.js";
 import debtRoutes from "./routes/debtRoutes.js";
 import requestVehicleRoutes from "./routes/requestVehicleRoutes.js";
 import vehicleRoutes from "./routes/vehicleRoutes.js";
@@ -55,6 +56,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // --- Mount routes with /api prefix ---
 const apiPrefix = "/api";
 
+app.use(`${apiPrefix}/users`, userRoutes);
 app.use(`${apiPrefix}/debts`, debtRoutes);
 app.use(`${apiPrefix}/request-vehicles`, requestVehicleRoutes);
 app.use(`${apiPrefix}/vehicles`, vehicleRoutes);

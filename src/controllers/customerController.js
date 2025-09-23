@@ -1,10 +1,12 @@
 import Customer from "../models/Customer.js";
-import {AppError} from "../utils/AppError.js";
+import {success, created, error as errorRes} from "../utils/response.js";
+import {paginate} from "../utils/pagination.js";
+import {CustomerMessage} from "../utils/MessageRes.js";
 
 export async function createCustomer(req, res, next) {
   try {
     const customer = await Customer.create(req.body);
-    return res.status(201).json({success: true, data: customer});
+    return created(res, CustomerMessage.CREATE_SUCCESS, customer);
   } catch (e) {
     next(e);
   }
@@ -12,8 +14,24 @@ export async function createCustomer(req, res, next) {
 
 export async function getCustomers(req, res, next) {
   try {
-    const list = await Customer.find();
-    return res.json({success: true, data: list});
+    const {q} = req.query;
+    const cond = {};
+    if (q) {
+      cond.$or = [
+        {full_name: {$regex: q, $options: "i"}},
+        {email: {$regex: q, $options: "i"}},
+        {phone: {$regex: q, $options: "i"}},
+      ];
+    }
+
+    const result = await paginate(
+      Customer,
+      req,
+      ["full_name", "email", "phone"],
+      cond
+    );
+
+    return success(res, CustomerMessage.LIST_RETRIEVED, result);
   } catch (e) {
     next(e);
   }
@@ -22,8 +40,8 @@ export async function getCustomers(req, res, next) {
 export async function getCustomerById(req, res, next) {
   try {
     const item = await Customer.findById(req.params.id);
-    if (!item) throw new AppError("Khách hàng không tồn tại", 404, 1007);
-    return res.json({success: true, data: item});
+    if (!item) return errorRes(res, CustomerMessage.NOT_FOUND, 404);
+    return success(res, CustomerMessage.DETAIL_RETRIEVED, item);
   } catch (e) {
     next(e);
   }
@@ -34,8 +52,8 @@ export async function updateCustomer(req, res, next) {
     const item = await Customer.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
     });
-    if (!item) throw new AppError("Khách hàng không tồn tại", 404, 1007);
-    return res.json({success: true, data: item});
+    if (!item) return errorRes(res, CustomerMessage.NOT_FOUND, 404);
+    return success(res, CustomerMessage.UPDATE_SUCCESS, item);
   } catch (e) {
     next(e);
   }
@@ -44,8 +62,8 @@ export async function updateCustomer(req, res, next) {
 export async function deleteCustomer(req, res, next) {
   try {
     const item = await Customer.findByIdAndDelete(req.params.id);
-    if (!item) throw new AppError("Khách hàng không tồn tại", 404, 1007);
-    return res.json({success: true, data: true});
+    if (!item) return errorRes(res, CustomerMessage.NOT_FOUND, 404);
+    return success(res, CustomerMessage.DELETE_SUCCESS, {id: item._id});
   } catch (e) {
     next(e);
   }

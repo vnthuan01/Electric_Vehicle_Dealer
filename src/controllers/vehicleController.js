@@ -78,6 +78,15 @@ export async function createVehicle(req, res, next) {
           }));
       }
 
+      const stocks = [];
+      if (stock && manufacturer_id) {
+        stocks.push({
+          owner_type: "manufacturer",
+          owner_id: manufacturer_id,
+          quantity: stock,
+        });
+      }
+
       validVehicles.push({
         sku,
         name,
@@ -106,7 +115,7 @@ export async function createVehicle(req, res, next) {
         driving_modes,
         software_version,
         ota_update,
-        stock,
+        stocks,
         warranty_years,
         color_options,
         images,
@@ -114,7 +123,6 @@ export async function createVehicle(req, res, next) {
         options,
         accessories,
         promotions,
-        price_history: [{price}],
       });
     }
 
@@ -213,11 +221,6 @@ export async function updateVehicle(req, res, next) {
   try {
     const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) return errorRes(res, "Vehicle not found", 404);
-
-    // Track price changes
-    if (req.body.price && req.body.price !== vehicle.price) {
-      vehicle.price_history.push({price: req.body.price});
-    }
 
     // Update all fields
     Object.assign(vehicle, req.body);

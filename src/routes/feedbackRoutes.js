@@ -6,9 +6,9 @@ import {
   updateFeedback,
   deleteFeedback,
 } from "../controllers/feedbackController.js";
-import {checkRole} from "../middlewares/checkRole.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
-import {DEALER_ROLES} from "../enum/roleEnum.js";
+import {checkRole} from "../middlewares/checkRole.js";
+import {DEALER_ROLES, ROLE} from "../enum/roleEnum.js";
 
 const router = express.Router();
 
@@ -16,49 +16,70 @@ router.use(authenticate);
 
 /**
  * @openapi
- * tags:
- *   - name: Feedbacks
- *     description: Manage customer feedbacks and complaints
- */
-
-/**
- * @openapi
  * /api/feedbacks:
  *   get:
  *     tags: [Feedbacks]
- *     summary: List feedbacks
+ *     summary: Get all feedbacks (Staff/Manager/Admin only, with pagination & search)
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           example: createdAt:desc
  *     responses:
- *       200: { description: Feedback list retrieved successfully }
+ *       200:
+ *         description: List of feedbacks
  */
-router.get("/", getFeedbacks);
+router.get(
+  "/",
+  checkRole([ROLE.DEALER_STAFF, ROLE.DEALER_MANAGER, ROLE.ADMIN]),
+  getFeedbacks
+);
 
 /**
  * @openapi
  * /api/feedbacks/{id}:
  *   get:
  *     tags: [Feedbacks]
- *     summary: Get feedback by id
+ *     summary: Get feedback by ID
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema: { type: string }
+ *         schema:
+ *           type: string
  *     responses:
- *       200: { description: Feedback detail retrieved successfully }
- *       404: { description: Feedback not found }
+ *       200:
+ *         description: Feedback detail
  */
-router.get("/:id", getFeedbackById);
+router.get(
+  "/:id",
+  checkRole([ROLE.DEALER_STAFF, ROLE.DEALER_MANAGER, ROLE.ADMIN]),
+  getFeedbackById
+);
 
 /**
  * @openapi
  * /api/feedbacks:
  *   post:
  *     tags: [Feedbacks]
- *     summary: Create a feedback
+ *     summary: Create feedback (Customer required, handled by Staff/Admin)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -67,55 +88,78 @@ router.get("/:id", getFeedbackById);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [customer_id, content, handler_id]
+ *             required:
+ *               - customer_id
+ *               - content
+ *               - handler_id
  *             properties:
- *               customer_id: { type: string }
- *               order_id: { type: string }
- *               content: { type: string }
- *               handler_id: { type: string }
+ *               customer_id:
+ *                 type: string
+ *               order_id:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *               handler_id:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Feedback created
  */
-router.post("/", checkRole(DEALER_ROLES), createFeedback);
+router.post("/", createFeedback);
 
 /**
  * @openapi
  * /api/feedbacks/{id}:
  *   put:
  *     tags: [Feedbacks]
- *     summary: Update a feedback
+ *     summary: Update feedback (Dealer Staff/Manager only)
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema: { type: string }
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             description: Only staff/manager can update fields (except status)
+ *             properties:
+ *               content:
+ *                 type: string
+ *               handler_id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Feedback updated
  */
-router.put("/:id", checkRole(DEALER_ROLES), updateFeedback);
+router.put(
+  "/:id",
+  checkRole([ROLE.DEALER_STAFF, ROLE.DEALER_MANAGER]),
+  updateFeedback
+);
 
 /**
  * @openapi
  * /api/feedbacks/{id}:
  *   delete:
  *     tags: [Feedbacks]
- *     summary: Delete a feedback
+ *     summary: Delete feedback (Admin only)
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema: { type: string }
+ *         schema:
+ *           type: string
  *     responses:
- *       200: { description: Feedback deleted successfully }
- *       404: { description: Feedback not found }
+ *       200:
+ *         description: Feedback deleted
  */
-router.delete("/:id", checkRole(DEALER_ROLES), deleteFeedback);
+router.delete("/:id", checkRole([ROLE.ADMIN, DEALER_ROLES]), deleteFeedback);
 
 export default router;
