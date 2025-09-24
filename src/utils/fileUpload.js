@@ -20,5 +20,25 @@ const vehicleImageStorage = new CloudinaryStorage({
   },
 });
 
+const accessoryImageStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "accessory_images",
+    allowed_formats: ["jpg", "jpeg", "png"],
+    transformation: [{width: 800, crop: "limit"}],
+  },
+});
+
+const optionImageStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "option_images",
+    allowed_formats: ["jpg", "jpeg", "png"],
+    transformation: [{width: 800, crop: "limit"}],
+  },
+});
+
 export const uploadUserAvatar = multer({storage: userAvatarStorage});
 export const uploadVehicleImage = multer({storage: vehicleImageStorage});
+export const uploadAccessoryImage = multer({storage: accessoryImageStorage});
+export const uploadOptionImage = multer({storage: optionImageStorage});

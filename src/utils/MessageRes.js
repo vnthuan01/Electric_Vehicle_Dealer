@@ -153,3 +153,23 @@ export const PromotionMessage = {
   NOT_FOUND: "Promotion not found",
   INVALID_REQUEST: "Invalid promotion data",
 };
+
+export const AccessoryMessage = {
+  CREATE_SUCCESS: "Accessory created successfully",
+  LIST_SUCCESS: "Fetched accessories successfully",
+  DETAIL_SUCCESS: "Fetched accessory successfully",
+  UPDATE_SUCCESS: "Accessory updated successfully",
+  DELETE_SUCCESS: "Accessory deleted successfully",
+
+  NOT_FOUND: "Accessory not found",
+};
+
+export const OptionMessage = {
+  CREATE_SUCCESS: "Option created successfully",
+  LIST_SUCCESS: "Fetched options successfully",
+  DETAIL_SUCCESS: "Fetched option successfully",
+  UPDATE_SUCCESS: "Option updated successfully",
+  DELETE_SUCCESS: "Option deleted successfully",
+
+  NOT_FOUND: "Option not found",
+};

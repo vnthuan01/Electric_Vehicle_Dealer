@@ -23,6 +23,8 @@ import promotionRoutes from "./routes/promotionRoutes.js";
 import dealershipRoutes from "./routes/dealershipRoutes.js";
 import manufacturerRoutes from "./routes/manufacturerRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import accessoryRoutes from "./routes/accessoryRoutes.js";
+import optionRoutes from "./routes/optionRoutes.js";
 
 dotenv.config();
 
@@ -65,6 +67,8 @@ app.use(`${apiPrefix}/feedbacks`, feedbackRoutes);
 app.use(`${apiPrefix}/customers`, customerRoutes);
 app.use(`${apiPrefix}/orders`, orderRoutes);
 app.use(`${apiPrefix}/promotions`, promotionRoutes);
+app.use(`${apiPrefix}/accessories`, accessoryRoutes);
+app.use(`${apiPrefix}/options`, optionRoutes);
 app.use(`${apiPrefix}/dealerships`, dealershipRoutes);
 app.use(`${apiPrefix}/manufacturers`, manufacturerRoutes);
 app.use(`${apiPrefix}/auth`, authRoutes);
