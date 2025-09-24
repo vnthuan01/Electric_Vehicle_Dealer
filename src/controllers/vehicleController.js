@@ -5,6 +5,7 @@ import Promotion from "../models/Promotion.js";
 import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
 import {VehicleMessage} from "../utils/MessageRes.js";
+import fetch from "node-fetch";
 
 // Create one or multiple vehicles (EVM Staff, Admin only)
 export async function createVehicle(req, res, next) {
@@ -241,5 +242,68 @@ export async function deleteVehicle(req, res, next) {
     return success(res, VehicleMessage.DELETE_SUCCESS, {id: vehicle._id});
   } catch (err) {
     next(err);
+  }
+}
+
+// Tạo helper summarize
+function summarizeCar(car) {
+  return `Name: ${car.name} ${car.model || ""}
+  Price: ${car.price} VND
+  Battery: ${car.battery_type || "N/A"}, ${car.battery_capacity || "N/A"} kWh
+Range: ${car.range_km || "N/A"} km
+Motor: ${car.motor_power || "N/A"} kW
+Top speed: ${car.top_speed || "N/A"} km/h
+Acceleration 0-100 km/h: ${car.acceleration || "N/A"} s
+Safety features: ${car.safety_features?.join(", ") || "N/A"}
+Interior: ${car.interior_features?.map((f) => f.name).join(", ") || "N/A"}
+OTA update: ${car.ota_update ? "Yes" : "No"}
+Warranty: ${car.warranty_years || "N/A"} years
+`;
+}
+
+export async function compareCars(req, res) {
+  try {
+    const {id1, id2} = req.params;
+
+    const [car1, car2] = await Promise.all([
+      Vehicle.findById(id1),
+      Vehicle.findById(id2),
+    ]);
+
+    if (!car1 || !car2) {
+      return res.status(404).json({message: "Không tìm thấy 1 hoặc cả 2 xe"});
+    }
+
+    const prompt = `
+So sánh hai chiếc xe sau dựa trên trải nghiệm đời sống người dùng:
+- Xe A: ${summarizeCar(car1)}
+- Xe B: ${summarizeCar(car2)}
+
+Phân tích ưu điểm, nhược điểm và gợi ý lựa chọn.
+`;
+
+    // Gọi Grok AI Free
+    const response = await fetch("https://api.x.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.GROK_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "grok-3",
+        messages: [{role: "user", content: prompt}],
+      }),
+    });
+
+    const data = await response.json();
+
+    res.json({
+      car1: summarizeCar(car1),
+      car2: summarizeCar(car2),
+      data,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({error: err.message});
   }
 }

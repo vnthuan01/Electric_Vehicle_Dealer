@@ -9,6 +9,7 @@ import {
   updateOrder,
   deleteOrder,
   updateOrderStatus,
+  paypalReturn,
 } from "../controllers/orderController.js";
 
 const router = Router();
@@ -28,7 +29,7 @@ router.use(authenticate);
  *   post:
  *     tags:
  *       - Orders
- *     summary: Create order/quotation
+ *     summary: Create order/quotation (multi-vehicle support)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -38,50 +39,54 @@ router.use(authenticate);
  *           schema:
  *             type: object
  *             required:
- *               - code
  *               - customer_id
- *               - vehicle_id
- *               - price
+ *               - items
  *             properties:
- *               code:
- *                 type: string
  *               customer_id:
- *                 type: string
- *               vehicle_id:
  *                 type: string
  *               dealership_id:
  *                 type: string
- *               salesperson_id:
- *                 type: string
- *               price:
- *                 type: number
- *               discount:
- *                 type: number
- *               promotion_id:
- *                 type: string
- *               final_amount:
- *                 type: number
  *               payment_method:
  *                 type: string
- *                 enum: [cash, transfer, installment]
- *               status:
- *                 type: string
- *                 enum: [quote, confirmed, contract_signed, delivered]
+ *                 enum: [cash, paypal, zalopay, installment]
  *               notes:
  *                 type: string
+ *               items:
+ *                 type: array
+ *                 description: List of vehicles in the order
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - vehicle_id
+ *                     - price
+ *                   properties:
+ *                     vehicle_id:
+ *                       type: string
+ *                     quantity:
+ *                       type: number
+ *                       default: 1
+ *                     price:
+ *                       type: number
+ *                     discount:
+ *                       type: number
+ *                       default: 0
+ *                     promotion_id:
+ *                       type: string
  *           example:
- *             code: "ORD-2025-0001"
  *             customer_id: "66fbca1234567890abcdef01"
- *             vehicle_id: "66fbca9876543210abcdef02"
  *             dealership_id: "66fbca456789abcd1234ef03"
- *             salesperson_id: "66fbca7890abcdef12345604"
- *             price: 30000
- *             discount: 2000
- *             promotion_id: "66fbca1112131415abcd1607"
- *             final_amount: 28000
- *             payment_method: "installment"
- *             status: "quote"
- *             notes: "Khách hàng yêu cầu giao xe trong tháng 10"
+ *             payment_method: "paypal"
+ *             notes: "Khách hàng muốn giao nhiều loại xe trong tháng 10"
+ *             items:
+ *               - vehicle_id: "66fbca9876543210abcdef02"
+ *                 quantity: 2
+ *                 price: 30000
+ *                 discount: 2000
+ *                 promotion_id: "66fbca1112131415abcd1607"
+ *               - vehicle_id: "66fbcaabcdef9876543210"
+ *                 quantity: 1
+ *                 price: 45000
+ *                 discount: 0
  *     responses:
  *       201:
  *         description: Created
@@ -92,6 +97,52 @@ router.post(
   "/",
   checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
   createOrder
+);
+
+/**
+ * @openapi
+ * /api/orders/{id}/paypal-capture:
+ *   post:
+ *     tags:
+ *       - Orders
+ *     summary: Capture PayPal order after user approval
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Your internal order _id
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: PayPal order token from query param
+ *           example:
+ *             token: "EC-XXXXXX"
+ *     responses:
+ *       200:
+ *         description: Capture successful
+ *       400:
+ *         description: Bad Request
+ *       404:
+ *         description: Order Not Found
+ *       500:
+ *         description: PayPal capture failed
+ */
+router.post(
+  "/:id/paypal-capture",
+  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
+  paypalReturn
 );
 
 /**
@@ -224,12 +275,13 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *   patch:
  *     tags:
  *       - Orders
- *     summary: Update order status
+ *     summary: Update order status and optionally paid amount
  *     description: |
  *       Transition allowed:
  *       - quote -> confirmed
  *       - confirmed -> contract_signed
  *       - contract_signed -> delivered
+ *       Also allows updating paid amount for the order to reflect customer payment.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -238,6 +290,7 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *         required: true
  *         schema:
  *           type: string
+ *         description: Order _id
  *     requestBody:
  *       required: true
  *       content:
@@ -250,15 +303,19 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *               status:
  *                 type: string
  *                 enum: [quote, confirmed, contract_signed, delivered]
+ *               paid_amount:
+ *                 type: number
+ *                 description: Amount paid by the customer
  *           example:
  *             status: "confirmed"
+ *             paid_amount: 15000
  *     responses:
  *       200:
- *         description: OK
+ *         description: OK, order status updated and paid amount recorded
  *       400:
- *         description: Bad Request
+ *         description: Bad Request (invalid status or paid_amount)
  *       404:
- *         description: Not Found
+ *         description: Order not found
  */
 router.patch("/:id/status", checkRole(DEALER_ROLES), updateOrderStatus);
 

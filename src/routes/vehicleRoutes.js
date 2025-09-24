@@ -8,6 +8,7 @@ import {
   getVehicleById,
   updateVehicle,
   deleteVehicle,
+  compareCars,
 } from "../controllers/vehicleController.js";
 
 const router = Router();
@@ -231,5 +232,30 @@ router.put("/:id", checkRole(EVM_ADMIN_ROLES), updateVehicle);
  *       404: { description: Vehicle not found }
  */
 router.delete("/:id", checkRole(EVM_ADMIN_ROLES), deleteVehicle);
+
+/**
+ * @openapi
+ * /api/vehicles/compare/{id1}/{id2}:
+ *   get:
+ *     tags: [Compare]
+ *     summary: Compare two cars by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id1
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: id2
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Comparison result
+ *       404:
+ *         description: One or both cars not found
+ */
+router.get("/compare/:id1/:id2", compareCars);
 
 export default router;
