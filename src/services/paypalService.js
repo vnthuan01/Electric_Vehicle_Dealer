@@ -1,4 +1,3 @@
-// services/paypalService.js
 import paypal from "@paypal/checkout-server-sdk";
 
 const environment =
@@ -51,12 +50,10 @@ export async function createOrder(
 }
 
 /**
- * Capture đơn hàng sau khi khách thanh toán
- * @param {string} orderId
- * @returns {Object} capture info
+ * Capture đơn hàng PayPal
  */
-export async function captureOrder(orderId) {
-  const request = new paypal.orders.OrdersCaptureRequest(orderId);
+export async function capturePaypalOrder(orderToken) {
+  const request = new paypal.orders.OrdersCaptureRequest(orderToken);
   request.requestBody({});
   const response = await client.execute(request);
   return response.result;

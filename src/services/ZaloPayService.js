@@ -38,7 +38,7 @@ function generateMac(payload, key) {
  * @param {Object} orderData
  * @returns {Object} response từ ZaloPay
  */
-export async function createOrder(orderData) {
+export async function createZalopayOrder(orderData) {
   const payload = {
     app_id: APP_ID,
     app_trans_id: orderData.app_trans_id, // ví dụ: order_123456

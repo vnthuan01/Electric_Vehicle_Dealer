@@ -10,10 +10,12 @@ import {paginate} from "../utils/pagination.js";
  * Tạo công nợ khách hàng khi tạo Order mới
  */
 export async function createCustomerDebt(order) {
-  const remaining = order.final_amount - (order.paid_amount || 0);
+  const totalAmount = Number(order.final_amount || 0); // bắt buộc là Number
+  const paidAmount = Number(order.paid_amount || 0);
+  const remaining = totalAmount - paidAmount;
   const status =
     remaining === 0 ? "settled" : order.paid_amount ? "partial" : "open";
-
+  console.log(order);
   const debt = await Debt.create({
     customer_id: order.customer_id,
     order_id: order._id,
