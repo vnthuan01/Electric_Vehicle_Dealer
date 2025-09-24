@@ -1,4 +1,11 @@
 export const AuthMessage = {
+  //User
+  USER_NOT_FOUND: "User not found",
+  UPDATE_SUCCESS: "User updated successfully",
+  DELETE_SUCCESS: "User deleted successfully",
+  FETCH_SUCCESS: "Fetched users successfully",
+  FETCH_ONE_SUCCESS: "Fetched user successfully",
+
   // Register
   REGISTER_SUCCESS: "User registered successfully",
   EMAIL_ALREADY_EXISTS: "Email already exists",
@@ -8,7 +15,8 @@ export const AuthMessage = {
   DEALER_MANAGER_ONLY_CREATE_STAFF:
     "Dealer Manager can only create Dealer Staff accounts",
   REGISTER_FAILED: "User registration failed",
-
+  MUST_PROVIDE_DEALERSHIP_OR_MANUFACTURER_ID:
+    "Must provide either dealership_id or manufacturer_id",
   // Login
   LOGIN_SUCCESS: "Login successful",
   INVALID_CREDENTIALS: "Invalid credentials",
@@ -17,7 +25,6 @@ export const AuthMessage = {
   REFRESH_SUCCESS: "Token refreshed successfully",
   REFRESH_REQUIRED: "Refresh token required",
   REFRESH_INVALID: "Invalid refresh token",
-  USER_NOT_FOUND: "User not found",
 
   // Logout
   LOGOUT_SUCCESS: "Logged out successfully",
