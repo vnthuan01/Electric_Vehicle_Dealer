@@ -275,12 +275,13 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *   patch:
  *     tags:
  *       - Orders
- *     summary: Update order status
+ *     summary: Update order status and optionally paid amount
  *     description: |
  *       Transition allowed:
  *       - quote -> confirmed
  *       - confirmed -> contract_signed
  *       - contract_signed -> delivered
+ *       Also allows updating paid amount for the order to reflect customer payment.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -289,6 +290,7 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *         required: true
  *         schema:
  *           type: string
+ *         description: Order _id
  *     requestBody:
  *       required: true
  *       content:
@@ -301,15 +303,19 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *               status:
  *                 type: string
  *                 enum: [quote, confirmed, contract_signed, delivered]
+ *               paid_amount:
+ *                 type: number
+ *                 description: Amount paid by the customer
  *           example:
  *             status: "confirmed"
+ *             paid_amount: 15000
  *     responses:
  *       200:
- *         description: OK
+ *         description: OK, order status updated and paid amount recorded
  *       400:
- *         description: Bad Request
+ *         description: Bad Request (invalid status or paid_amount)
  *       404:
- *         description: Not Found
+ *         description: Order not found
  */
 router.patch("/:id/status", checkRole(DEALER_ROLES), updateOrderStatus);
 

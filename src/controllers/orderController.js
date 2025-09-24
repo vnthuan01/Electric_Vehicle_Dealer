@@ -9,6 +9,7 @@ import {OrderMessage} from "../utils/MessageRes.js";
 import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
 import {createCustomerDebt} from "./debtController.js";
+import Debt from "../models/Debt.js";
 
 //Helper generate order Code - timestamp
 const generateOrderCode = () => {
@@ -89,6 +90,9 @@ export async function createOrder(req, res, next) {
       status: "quote",
       notes,
     });
+
+    //Tạo công nợ cho khách hàng
+    createCustomerDebt(order);
 
     // Xử lý payment
     let zalopayData = null;
@@ -278,7 +282,7 @@ export async function deleteOrder(req, res, next) {
 // ==================== Update Order Status ====================
 export async function updateOrderStatus(req, res, next) {
   try {
-    const {status} = req.body;
+    const {status, paid_amount} = req.body; // nhận thêm paid_amount nếu muốn cập nhật
     const allowed = ["quote", "confirmed", "contract_signed", "delivered"];
     if (!allowed.includes(status))
       return errorRes(res, OrderMessage.INVALID_STATUS, 400);
@@ -287,9 +291,39 @@ export async function updateOrderStatus(req, res, next) {
     if (!order) return errorRes(res, OrderMessage.NOT_FOUND, 404);
 
     order.status = status;
+
+    // Nếu có paid_amount gửi lên => cập nhật
+    if (paid_amount !== undefined) {
+      order.paid_amount = paid_amount;
+
+      // Tính remaining
+      const remaining = order.final_amount - order.paid_amount;
+
+      // Cập nhật/ tạo Debt
+      let debt = await Debt.findOne({order_id: order._id});
+      const debtStatus =
+        remaining === 0 ? "settled" : order.paid_amount ? "partial" : "open";
+
+      if (debt) {
+        debt.paid_amount = order.paid_amount;
+        debt.remaining_amount = remaining;
+        debt.status = debtStatus;
+        await debt.save();
+      } else {
+        debt = await Debt.create({
+          customer_id: order.customer_id,
+          order_id: order._id,
+          total_amount: order.final_amount,
+          paid_amount: order.paid_amount,
+          remaining_amount: remaining,
+          status: debtStatus,
+        });
+      }
+    }
+
     await order.save();
 
-    return success(res, OrderMessage.STATUS_UPDATE_SUCCESS, order);
+    return success(res, OrderMessage.STATUS_UPDATE_SUCCESS, {order});
   } catch (err) {
     next(err);
   }
