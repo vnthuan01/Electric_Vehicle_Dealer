@@ -68,6 +68,13 @@ export async function createVehicle(req, res, next) {
         continue;
       }
 
+      let uploadedImages = [];
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          uploadedImages.push(file.path);
+        }
+      }
+
       // Validate interior_features phải là object { name, description }
       let formattedInteriorFeatures = [];
       if (Array.isArray(interior_features)) {
@@ -119,7 +126,7 @@ export async function createVehicle(req, res, next) {
         stocks,
         warranty_years,
         color_options,
-        images,
+        images: uploadedImages,
         description,
         options,
         accessories,
@@ -221,13 +228,32 @@ export async function getVehicleById(req, res, next) {
 export async function updateVehicle(req, res, next) {
   try {
     const vehicle = await Vehicle.findById(req.params.id);
-    if (!vehicle) return errorRes(res, "Vehicle not found", 404);
+    if (!vehicle) return res.status(404).json({message: "Vehicle not found"});
 
-    // Update all fields
+    // ----- 1. Xóa ảnh cũ nếu có -----
+    const {imagesToRemove} = req.body; // mảng URL hoặc public_id
+    if (imagesToRemove && imagesToRemove.length > 0) {
+      // Xóa trên Cloudinary
+      // await deleteImagesFromCloudinary(imagesToRemove);
+
+      // Xóa khỏi vehicle.images
+      vehicle.images = vehicle.images.filter(
+        (img) => !imagesToRemove.includes(img)
+      );
+    }
+
+    // ----- 2. Upload ảnh mới nếu có -----
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        vehicle.images.push(file.path); // thêm ảnh mới
+      }
+    }
+
+    // ----- 3. Update các field khác -----
     Object.assign(vehicle, req.body);
     await vehicle.save();
 
-    return success(res, VehicleMessage.UPDATE_SUCCESS, vehicle);
+    return res.json({success: true, vehicle});
   } catch (err) {
     next(err);
   }

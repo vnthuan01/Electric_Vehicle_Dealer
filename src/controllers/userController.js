@@ -78,26 +78,44 @@ export async function createUser(req, res, next) {
       manufacturer_id,
     } = req.body;
 
+    // Validate ít nhất 1 trong 2 ID
+    if (!dealership_id && !manufacturer_id) {
+      throw new AppError(
+        AuthMessage.MUST_PROVIDE_DEALERSHIP_OR_MANUFACTURER_ID,
+        400,
+        2008
+      );
+    }
+
+    // Kiểm tra email đã tồn tại
     const existed = await User.findOne({email});
     if (existed)
       throw new AppError(AuthMessage.EMAIL_ALREADY_EXISTS, 400, 2002);
 
+    // Kiểm tra role
     const role = await Role.findOne({name: role_name});
     if (!role) throw new AppError(AuthMessage.INVALID_ROLE, 400, 2003);
 
     const hashed = await hashPassword(password);
 
-    const user = await User.create({
+    const userData = {
       full_name,
       email,
       phone,
       password: hashed,
       role_id: role._id,
-      dealership_id,
-      manufacturer_id,
-    });
+      dealership_id: dealership_id || null,
+      manufacturer_id: manufacturer_id || null,
+    };
 
-    return created(res, "User created successfully", {id: user._id});
+    // Nếu client upload avatar
+    if (req.file) {
+      userData.avatar = req.file.path;
+    }
+
+    const user = await User.create(userData);
+
+    return created(res, AuthMessage.REGISTER_SUCCESS, {id: user._id});
   } catch (err) {
     next(err);
   }
@@ -118,7 +136,7 @@ export async function updateUser(req, res, next) {
     } = req.body;
 
     const user = await User.findById(id);
-    if (!user) throw new AppError("User not found", 404, 2004);
+    if (!user) throw new AppError(AuthMessage.USER_NOT_FOUND, 404, 2004);
 
     if (email && email !== user.email) {
       const existed = await User.findOne({email});
@@ -141,6 +159,14 @@ export async function updateUser(req, res, next) {
     if (phone) user.phone = phone;
     if (dealership_id) user.dealership_id = dealership_id;
     if (manufacturer_id) user.manufacturer_id = manufacturer_id;
+
+    // Nếu client upload avatar mới -> xóa cũ + upload mới
+    if (req.file) {
+      if (user.avatar) {
+        // Implement Cloudinary deletion logic here if needed
+      }
+      user.avatar = req.file.path;
+    }
 
     await user.save();
 
