@@ -228,7 +228,6 @@ router.get("/:id", getVehicleById);
  *       400:
  *         description: Invalid request or no valid vehicles to create
  */
-
 router.post(
   "/",
   uploadVehicleImage.array("images", 10),
@@ -241,7 +240,7 @@ router.post(
  * /api/vehicles/{id}:
  *   put:
  *     tags: [Vehicles]
- *     summary: Update vehicle and manage images
+ *     summary: Update vehicle details and manage images
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -257,6 +256,77 @@ router.post(
  *           schema:
  *             type: object
  *             properties:
+ *               sku:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *                 enum: [car, motorbike]
+ *               manufacturer_id:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               version:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *               on_road_price:
+ *                 type: number
+ *               battery_type:
+ *                 type: string
+ *                 enum: [LFP, NMC, other]
+ *               battery_capacity:
+ *                 type: number
+ *               range_km:
+ *                 type: number
+ *               charging_fast:
+ *                 type: number
+ *               charging_slow:
+ *                 type: number
+ *               motor_power:
+ *                 type: number
+ *               top_speed:
+ *                 type: number
+ *               acceleration:
+ *                 type: number
+ *               dimensions:
+ *                 type: object
+ *                 properties:
+ *                   length: { type: number }
+ *                   width: { type: number }
+ *                   height: { type: number }
+ *                   wheelbase: { type: number }
+ *                   ground_clearance: { type: number }
+ *               weight: { type: number }
+ *               payload: { type: number }
+ *               safety_features:
+ *                 type: array
+ *                 items: { type: string }
+ *               interior_features:
+ *                 type: array
+ *                 items: { type: object }
+ *               driving_modes:
+ *                 type: array
+ *                 items: { type: string }
+ *               software_version: { type: string }
+ *               ota_update: { type: boolean }
+ *               stock: { type: number }
+ *               warranty_years: { type: number }
+ *               color_options:
+ *                 type: array
+ *                 items: { type: string }
+ *               description: { type: string }
+ *               options:
+ *                 type: array
+ *                 items: { type: string }
+ *               accessories:
+ *                 type: array
+ *                 items: { type: string }
+ *               promotions:
+ *                 type: array
+ *                 items: { type: string }
  *               images:
  *                 type: array
  *                 items:
@@ -267,14 +337,13 @@ router.post(
  *                 type: array
  *                 items:
  *                   type: string
- *                 description: List of existing images to delete
+ *                 description: List of existing image URLs to delete
  *     responses:
  *       200:
  *         description: Vehicle updated successfully
  *       404:
  *         description: Vehicle not found
  */
-
 router.put(
   "/:id",
   uploadVehicleImage.array("images", 10),

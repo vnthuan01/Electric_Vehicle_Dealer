@@ -6,6 +6,7 @@ import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
 import {VehicleMessage} from "../utils/MessageRes.js";
 import fetch from "node-fetch";
+import {cleanEmpty} from "../utils/cleanEmpty.js";
 
 // Create one or multiple vehicles (EVM Staff, Admin only)
 export async function createVehicle(req, res, next) {
@@ -227,6 +228,7 @@ export async function getVehicleById(req, res, next) {
 // Update vehicle (EVM Staff, Admin only)
 export async function updateVehicle(req, res, next) {
   try {
+    req.body = cleanEmpty(req.body);
     const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) return res.status(404).json({message: "Vehicle not found"});
 
@@ -273,18 +275,37 @@ export async function deleteVehicle(req, res, next) {
 
 // Tạo helper summarize
 function summarizeCar(car) {
-  return `Name: ${car.name} ${car.model || ""}
-  Price: ${car.price} VND
-  Battery: ${car.battery_type || "N/A"}, ${car.battery_capacity || "N/A"} kWh
-Range: ${car.range_km || "N/A"} km
-Motor: ${car.motor_power || "N/A"} kW
-Top speed: ${car.top_speed || "N/A"} km/h
-Acceleration 0-100 km/h: ${car.acceleration || "N/A"} s
-Safety features: ${car.safety_features?.join(", ") || "N/A"}
-Interior: ${car.interior_features?.map((f) => f.name).join(", ") || "N/A"}
-OTA update: ${car.ota_update ? "Yes" : "No"}
-Warranty: ${car.warranty_years || "N/A"} years
-`;
+  return `
+      Name: ${car.name} ${car.model || ""}
+      Category: ${car.category || "N/A"}
+      Version: ${car.version || "N/A"}
+      
+      Price: ${car.price?.toLocaleString() || "N/A"} VND
+      Battery: ${car.battery_type || "N/A"}, ${
+    car.battery_capacity || "N/A"
+  } kWh
+      Range: ${car.range_km || "N/A"} km
+      Charging (fast 10-70%): ${car.charging_fast || "N/A"} mins
+      Charging (slow): ${car.charging_slow || "N/A"} hours
+      
+      Motor power: ${car.motor_power || "N/A"} kW
+      Top speed: ${car.top_speed || "N/A"} km/h
+      Acceleration 0-100 km/h: ${car.acceleration || "N/A"} s
+      
+      Dimensions (mm): ${car.dimensions?.length || "?"} x ${
+    car.dimensions?.width || "?"
+  } x ${car.dimensions?.height || "?"}
+      Wheelbase: ${car.dimensions?.wheelbase || "N/A"} mm
+      Ground clearance: ${car.dimensions?.ground_clearance || "N/A"} mm
+      Weight: ${car.weight || "N/A"} kg
+      Payload: ${car.payload || "N/A"} kg
+      
+      Safety features: ${car.safety_features?.join(", ") || "N/A"}
+      Driving modes: ${car.driving_modes?.join(", ") || "N/A"}
+      OTA update: ${car.ota_update ? "Yes" : "No"}
+      
+      Warranty: ${car.warranty_years || "N/A"} years
+      `;
 }
 
 export async function compareCars(req, res) {
@@ -301,32 +322,40 @@ export async function compareCars(req, res) {
     }
 
     const prompt = `
-So sánh hai chiếc xe sau dựa trên trải nghiệm đời sống người dùng:
-- Xe A: ${summarizeCar(car1)}
-- Xe B: ${summarizeCar(car2)}
+      So sánh hai chiếc xe sau dựa trên trải nghiệm đời sống người dùng:
+      - Xe A: ${summarizeCar(car1)}
+      - Xe B: ${summarizeCar(car2)}
 
-Phân tích ưu điểm, nhược điểm và gợi ý lựa chọn.
-`;
+      Hãy phân tích chi tiết cho từng xe:
+      1. Ưu điểm
+      2. Nhược điểm
+      3. Nhu cầu phát triển trong tương lai (những gì cần cải thiện hoặc nâng cấp)
+      4. Gợi ý lựa chọn phù hợp cho khách hàng dựa trên nhu cầu và điều kiện tài chính.
+      `;
 
-    // Gọi Grok AI Free
-    const response = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.GROK_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "grok-3",
-        messages: [{role: "user", content: prompt}],
-      }),
-    });
+    // Gọi Groq API
+    const response = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant", // hoặc "mixtral-8x7b-32768", "llama-3.2-3b-preview"
+          messages: [{role: "user", content: prompt}],
+          temperature: 0.7,
+        }),
+      }
+    );
 
     const data = await response.json();
 
     res.json({
       car1: summarizeCar(car1),
       car2: summarizeCar(car2),
-      data,
+      analysis: data?.choices?.[0]?.message?.content || "Không có phản hồi",
     });
   } catch (err) {
     console.error(err);
