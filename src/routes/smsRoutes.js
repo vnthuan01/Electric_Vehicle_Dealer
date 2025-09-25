@@ -1,6 +1,6 @@
-const express = require("express");
+import client from "../config/twilioClient.js";
+import express from "express";
 const router = express.Router();
-const client = require("../twilioClient");
 
 // POST /sms
 router.post("/", async (req, res) => {
@@ -23,4 +23,4 @@ router.post("/", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
