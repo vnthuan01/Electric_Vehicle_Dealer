@@ -40,7 +40,7 @@ export async function getAllUsers(req, res, next) {
       )
     );
 
-    return success(res, "Fetched users successfully", {
+    return success(res, AuthMessage.FETCH_SUCCESS, {
       ...result,
       data: populatedData,
     });
@@ -59,7 +59,7 @@ export async function getUserById(req, res, next) {
       .populate("manufacturer_id", "name");
     if (!user) throw new AppError("User not found", 404, 2001);
 
-    return success(res, "Fetched user successfully", user);
+    return success(res, AuthMessage.FETCH_ONE_SUCCESS, user);
   } catch (err) {
     next(err);
   }
@@ -170,7 +170,7 @@ export async function updateUser(req, res, next) {
 
     await user.save();
 
-    return success(res, "User updated successfully", user);
+    return success(res, AuthMessage.UPDATE_SUCCESS, user);
   } catch (err) {
     next(err);
   }
@@ -183,7 +183,7 @@ export async function deleteUser(req, res, next) {
     const user = await User.findByIdAndDelete(id);
     if (!user) throw new AppError("User not found", 404, 2007);
 
-    return success(res, "User deleted successfully");
+    return success(res, AuthMessage.DELETE_SUCCESS);
   } catch (err) {
     next(err);
   }
