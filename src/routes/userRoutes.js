@@ -9,6 +9,7 @@ import {
 import {ROLE} from "../enum/roleEnum.js";
 import {checkRole} from "../middlewares/checkRole.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
+import {uploadUserAvatar} from "../utils/fileUpload.js";
 
 const router = express.Router();
 
@@ -73,13 +74,13 @@ router.get("/:id", checkRole(ROLE.ADMIN), getUserById);
  * /api/users:
  *   post:
  *     tags: [Users]
- *     summary: Create user (Admin only)
+ *     summary: Create user (Admin only, supports avatar upload)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -103,18 +104,27 @@ router.get("/:id", checkRole(ROLE.ADMIN), getUserById);
  *                 type: string
  *               manufacturer_id:
  *                 type: string
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: User avatar image
  *     responses:
  *       201:
  *         description: User created
  */
-router.post("/", checkRole(ROLE.ADMIN), createUser);
+router.post(
+  "/",
+  uploadUserAvatar.single("avatar"),
+  checkRole(ROLE.ADMIN),
+  createUser
+);
 
 /**
  * @openapi
  * /api/users/{id}:
  *   put:
  *     tags: [Users]
- *     summary: Update user (Admin only)
+ *     summary: Update user (Admin only, supports avatar upload)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -126,7 +136,7 @@ router.post("/", checkRole(ROLE.ADMIN), createUser);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -144,11 +154,20 @@ router.post("/", checkRole(ROLE.ADMIN), createUser);
  *                 type: string
  *               manufacturer_id:
  *                 type: string
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: User avatar image
  *     responses:
  *       200:
  *         description: User updated
  */
-router.put("/:id", checkRole(ROLE.ADMIN), updateUser);
+router.put(
+  "/:id",
+  uploadUserAvatar.single("avatar"),
+  checkRole(ROLE.ADMIN),
+  updateUser
+);
 
 /**
  * @openapi

@@ -1,11 +1,15 @@
 import Order from "../models/Order.js";
 import Promotion from "../models/Promotion.js";
 import * as zalopayService from "../services/ZaloPayService.js";
-import {createOrder as createPaypalOrder} from "../services/paypalService.js";
+import {
+  capturePaypalOrder,
+  createOrder as createPaypalOrder,
+} from "../services/paypalService.js";
 import {OrderMessage} from "../utils/MessageRes.js";
 import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
 import {createCustomerDebt} from "./debtController.js";
+import Debt from "../models/Debt.js";
 
 //Helper generate order Code - timestamp
 const generateOrderCode = () => {
@@ -21,18 +25,21 @@ const generateOrderCode = () => {
 };
 
 // Helper tính toán số tiền cuối cùng dựa vào discount và promotion
-async function calculateFinalAmount(price, discount = 0, promotion_id = null) {
+async function calculateItemFinalAmount(item) {
   let promoDiscount = 0;
-  if (promotion_id) {
-    const promo = await Promotion.findById(promotion_id).lean();
+
+  if (item.promotion_id) {
+    const promo = await Promotion.findById(item.promotion_id).lean();
     if (promo?.type === "percent") {
-      promoDiscount = Math.round((price * (promo.value || 0)) / 100);
+      promoDiscount = Math.round((item.price * (promo.value || 0)) / 100);
     } else if (promo?.type === "amount") {
       promoDiscount = promo.value || 0;
     }
   }
-  const finalAmount = Math.max(0, price - discount - promoDiscount);
-  return finalAmount;
+
+  const finalAmount =
+    (item.price - (item.discount || 0) - promoDiscount) * (item.quantity || 1);
+  return finalAmount > 0 ? finalAmount : 0;
 }
 
 // ==================== Create Order ====================
@@ -40,58 +47,75 @@ export async function createOrder(req, res, next) {
   try {
     const {
       customer_id,
-      vehicle_id,
       dealership_id,
-      manufacturer_id,
-      price,
-      discount = 0,
-      promotion_id = null,
       payment_method = "cash",
       notes,
+      items = [], // [{ vehicle_id, quantity, price, discount, promotion_id }]
     } = req.body;
 
-    const final_amount = await calculateFinalAmount(
-      price,
-      discount,
-      promotion_id
+    if (!items.length) {
+      return res
+        .status(400)
+        .json({message: "Order must have at least one item"});
+    }
+
+    // Tính final_amount từng item
+    const itemsWithFinal = [];
+    for (const item of items) {
+      const final_amount = await calculateItemFinalAmount(item);
+      itemsWithFinal.push({
+        ...item,
+        final_amount,
+      });
+    }
+
+    // Tổng final_amount cho toàn order
+    const totalAmount = itemsWithFinal.reduce(
+      (sum, i) => sum + i.final_amount,
+      0
     );
+
     const code = generateOrderCode();
 
+    // Tạo order trong DB
     const order = await Order.create({
       code,
       customer_id,
-      vehicle_id,
       dealership_id,
-      manufacturer_id,
-      salesperson_id: req.user?.id,
-      price,
-      discount,
-      promotion_id,
-      final_amount,
+      salesperson_id: req.user ? req.user.id : null,
+      items: itemsWithFinal,
+      final_amount: totalAmount,
+      paid_amount: 0, // mặc định chưa thanh toán
       payment_method,
       status: "quote",
       notes,
     });
 
-    await createCustomerDebt(order);
+    //Tạo công nợ cho khách hàng
+    createCustomerDebt(order);
 
+    // Xử lý payment
     let zalopayData = null;
     if (payment_method === "zalopay") {
       const orderData = {
         app_trans_id: `order_${Date.now()}`,
-        amount: final_amount,
+        amount: totalAmount,
         description: `Payment for order ${code}`,
         return_url: `${process.env.CLIENT_URL}/order/${order._id}/payment-return`,
         embed_data: {order_id: order._id.toString()},
-        item: [],
+        item: itemsWithFinal.map((i) => ({
+          name: `Vehicle ${i.vehicle_id}`,
+          quantity: i.quantity,
+          price: Math.round(i.final_amount / (i.quantity || 1)), // price/unit
+        })),
       };
-      zalopayData = await zalopayService.createOrder(orderData);
+      zalopayData = await zalopayService.createZalopayOrder(orderData);
     }
 
     let paypalData = null;
     if (payment_method === "paypal") {
       const paypalOrder = await createPaypalOrder(
-        final_amount.toFixed(2),
+        totalAmount.toFixed(2),
         "USD",
         `${process.env.CLIENT_URL}/order/${order._id}/paypal-success`,
         `${process.env.CLIENT_URL}/order/${order._id}/paypal-cancel`
@@ -113,13 +137,62 @@ export async function createOrder(req, res, next) {
 }
 
 // ==================== Capture PayPal ====================
-export async function createCapturePaypal(req, res) {
+export async function paypalReturn(req, res, next) {
   try {
-    const {orderId} = req.body;
-    const captureData = await captureOrder(orderId);
-    res.json(captureData);
+    const {orderId} = req.params;
+    const {token} = req.query; // token từ PayPal redirect
+
+    if (!token)
+      return res.status(400).json({success: false, message: "Missing token"});
+
+    const order = await Order.findById(orderId);
+    if (!order)
+      return res.status(404).json({success: false, message: "Order not found"});
+
+    const captureResult = await capturePaypalOrder(token);
+
+    const captureAmount = parseFloat(
+      captureResult.purchase_units[0]?.payments?.captures[0]?.amount?.value ||
+        "0"
+    );
+
+    if (captureAmount <= 0)
+      return res
+        .status(400)
+        .json({success: false, message: "Invalid capture amount"});
+
+    order.paid_amount = captureAmount;
+    await order.save();
+
+    const remaining = order.final_amount - order.paid_amount;
+    let debt = await Debt.findOne({order_id: order._id});
+    const status =
+      remaining === 0 ? "settled" : order.paid_amount ? "partial" : "open";
+
+    if (debt) {
+      debt.paid_amount = order.paid_amount;
+      debt.remaining_amount = remaining;
+      debt.status = status;
+      await debt.save();
+    } else {
+      debt = await Debt.create({
+        customer_id: order.customer_id,
+        order_id: order._id,
+        total_amount: order.final_amount,
+        paid_amount: order.paid_amount,
+        remaining_amount: remaining,
+        status,
+      });
+    }
+
+    return res.json({
+      success: true,
+      orderId: order._id,
+      paid_amount: order.paid_amount,
+      debt,
+    });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    next(err);
   }
 }
 
@@ -209,7 +282,7 @@ export async function deleteOrder(req, res, next) {
 // ==================== Update Order Status ====================
 export async function updateOrderStatus(req, res, next) {
   try {
-    const {status} = req.body;
+    const {status, paid_amount} = req.body; // nhận thêm paid_amount nếu muốn cập nhật
     const allowed = ["quote", "confirmed", "contract_signed", "delivered"];
     if (!allowed.includes(status))
       return errorRes(res, OrderMessage.INVALID_STATUS, 400);
@@ -218,9 +291,39 @@ export async function updateOrderStatus(req, res, next) {
     if (!order) return errorRes(res, OrderMessage.NOT_FOUND, 404);
 
     order.status = status;
+
+    // Nếu có paid_amount gửi lên => cập nhật
+    if (paid_amount !== undefined) {
+      order.paid_amount = paid_amount;
+
+      // Tính remaining
+      const remaining = order.final_amount - order.paid_amount;
+
+      // Cập nhật/ tạo Debt
+      let debt = await Debt.findOne({order_id: order._id});
+      const debtStatus =
+        remaining === 0 ? "settled" : order.paid_amount ? "partial" : "open";
+
+      if (debt) {
+        debt.paid_amount = order.paid_amount;
+        debt.remaining_amount = remaining;
+        debt.status = debtStatus;
+        await debt.save();
+      } else {
+        debt = await Debt.create({
+          customer_id: order.customer_id,
+          order_id: order._id,
+          total_amount: order.final_amount,
+          paid_amount: order.paid_amount,
+          remaining_amount: remaining,
+          status: debtStatus,
+        });
+      }
+    }
+
     await order.save();
 
-    return success(res, OrderMessage.STATUS_UPDATE_SUCCESS, order);
+    return success(res, OrderMessage.STATUS_UPDATE_SUCCESS, {order});
   } catch (err) {
     next(err);
   }

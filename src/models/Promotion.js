@@ -13,4 +13,8 @@ const promotionSchema = new mongoose.Schema(
   {timestamps: true}
 );
 
+promotionSchema.index({name: 1});
+promotionSchema.index({is_active: 1});
+promotionSchema.index({start_date: 1, end_date: 1});
+
 export default mongoose.model("Promotion", promotionSchema);

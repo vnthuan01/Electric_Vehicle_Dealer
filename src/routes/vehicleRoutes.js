@@ -8,7 +8,9 @@ import {
   getVehicleById,
   updateVehicle,
   deleteVehicle,
+  compareCars,
 } from "../controllers/vehicleController.js";
+import {uploadVehicleImage} from "../utils/fileUpload.js";
 
 const router = Router();
 
@@ -130,88 +132,224 @@ router.get("/:id", getVehicleById);
  * /api/vehicles:
  *   post:
  *     tags: [Vehicles]
- *     summary: Create one or multiple vehicles
+ *     summary: Create one or multiple vehicles with images
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             oneOf:
- *               - type: object
- *                 required: [sku, name, category, price, manufacturer_id]
+ *             type: object
+ *             properties:
+ *               sku:
+ *                 type: string
+ *                 description: Unique SKU for each vehicle
+ *               name:
+ *                 type: string
+ *                 description: Vehicle model name
+ *               category:
+ *                 type: string
+ *                 enum: [car, motorbike]
+ *                 description: Vehicle type
+ *               manufacturer_id:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               version:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *               on_road_price:
+ *                 type: number
+ *               battery_type:
+ *                 type: string
+ *                 enum: [LFP, NMC, other]
+ *               battery_capacity:
+ *                 type: number
+ *               range_km:
+ *                 type: number
+ *               charging_fast:
+ *                 type: number
+ *               charging_slow:
+ *                 type: number
+ *               motor_power:
+ *                 type: number
+ *               top_speed:
+ *                 type: number
+ *               acceleration:
+ *                 type: number
+ *               dimensions:
+ *                 type: object
  *                 properties:
- *                   sku: { type: string, description: "Unique SKU for each vehicle configuration" }
- *                   name: { type: string, description: "Vehicle model name (e.g., VF3)" }
- *                   category: { type: string, enum: [car, motorbike], description: "Vehicle type" }
- *                   manufacturer_id: { type: string, description: "Reference to manufacturer" }
- *                   version: { type: string, description: "Version / trim (Eco, Plus, Pro)" }
- *                   status: { type: string, enum: [active, inactive], description: "Availability status" }
- *                   price: { type: number, description: "Official price" }
- *                   on_road_price: { type: number, description: "Estimated on-road price (including fees)" }
- *                   battery_type: { type: string, enum: [LFP, NMC, other], description: "Battery chemistry" }
- *                   battery_capacity: { type: number, description: "Battery capacity in kWh" }
- *                   range_km: { type: number, description: "Maximum range in km per full charge" }
- *                   charging_fast: { type: number, description: "Fast charging time 10%-70% in minutes" }
- *                   charging_slow: { type: number, description: "Slow/home charging time in hours" }
- *                   motor_power: { type: number, description: "Motor power in kW" }
- *                   top_speed: { type: number, description: "Top speed in km/h" }
- *                   acceleration: { type: number, description: "0-100 km/h time in seconds" }
- *                   dimensions:
- *                     type: object
- *                     properties:
- *                       length: { type: number, description: "Length in mm" }
- *                       width: { type: number, description: "Width in mm" }
- *                       height: { type: number, description: "Height in mm" }
- *                       wheelbase: { type: number, description: "Wheelbase in mm" }
- *                       ground_clearance: { type: number, description: "Ground clearance in mm" }
- *                   weight: { type: number, description: "Vehicle weight in kg" }
- *                   payload: { type: number, description: "Maximum payload in kg" }
- *                   safety_features: { type: array, items: { type: string }, description: "Safety features (ABS, airbags, radar...)" }
- *                   interior_features: { type: array, items: { type: string }, description: "Interior equipment (seats, display, AC...)" }
- *                   driving_modes: { type: array, items: { type: string }, description: "Driving modes (Eco, Sport, Normal)" }
- *                   software_version: { type: string, description: "Current software version" }
- *                   ota_update: { type: boolean, description: "Supports OTA/FOTA updates" }
- *                   stock: { type: number, description: "Available stock quantity" }
- *                   warranty_years: { type: number, description: "Warranty period in years" }
- *                   color_options: { type: array, items: { type: string } }
- *                   images: { type: array, items: { type: string } }
- *                   description: { type: string }
- *                   options: { type: array, items: { type: string }, description: "Option IDs" }
- *                   accessories: { type: array, items: { type: string }, description: "Accessory IDs" }
- *                   promotions: { type: array, items: { type: string }, description: "Promotion IDs" }
- *               - type: array
+ *                   length: { type: number }
+ *                   width: { type: number }
+ *                   height: { type: number }
+ *                   wheelbase: { type: number }
+ *                   ground_clearance: { type: number }
+ *               weight: { type: number }
+ *               payload: { type: number }
+ *               safety_features:
+ *                 type: array
+ *                 items: { type: string }
+ *               interior_features:
+ *                 type: array
+ *                 items: { type: object }
+ *               driving_modes:
+ *                 type: array
+ *                 items: { type: string }
+ *               software_version: { type: string }
+ *               ota_update: { type: boolean }
+ *               stock: { type: number }
+ *               warranty_years: { type: number }
+ *               color_options:
+ *                 type: array
+ *                 items: { type: string }
+ *               images:
+ *                 type: array
  *                 items:
- *                   $ref: '#/components/schemas/Vehicle'
+ *                   type: string
+ *                   format: binary
+ *                 description: Upload multiple images
+ *               description: { type: string }
+ *               options:
+ *                 type: array
+ *                 items: { type: string }
+ *               accessories:
+ *                 type: array
+ *                 items: { type: string }
+ *               promotions:
+ *                 type: array
+ *                 items: { type: string }
  *     responses:
- *       201: { description: Vehicle(s) created successfully }
- *       400: { description: Invalid request or no valid vehicles to create }
+ *       201:
+ *         description: Vehicle(s) created successfully
+ *       400:
+ *         description: Invalid request or no valid vehicles to create
  */
-router.post("/", checkRole(EVM_ADMIN_ROLES), createVehicle);
+router.post(
+  "/",
+  uploadVehicleImage.array("images", 10),
+  checkRole(EVM_ADMIN_ROLES),
+  createVehicle
+);
 
 /**
  * @openapi
  * /api/vehicles/{id}:
  *   put:
  *     tags: [Vehicles]
- *     summary: Update vehicle
+ *     summary: Update vehicle details and manage images
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema: { type: string }
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
- *             description: All fields are optional, price change will update price_history
+ *             properties:
+ *               sku:
+ *                 type: string
+ *               name:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *                 enum: [car, motorbike]
+ *               manufacturer_id:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               version:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *               on_road_price:
+ *                 type: number
+ *               battery_type:
+ *                 type: string
+ *                 enum: [LFP, NMC, other]
+ *               battery_capacity:
+ *                 type: number
+ *               range_km:
+ *                 type: number
+ *               charging_fast:
+ *                 type: number
+ *               charging_slow:
+ *                 type: number
+ *               motor_power:
+ *                 type: number
+ *               top_speed:
+ *                 type: number
+ *               acceleration:
+ *                 type: number
+ *               dimensions:
+ *                 type: object
+ *                 properties:
+ *                   length: { type: number }
+ *                   width: { type: number }
+ *                   height: { type: number }
+ *                   wheelbase: { type: number }
+ *                   ground_clearance: { type: number }
+ *               weight: { type: number }
+ *               payload: { type: number }
+ *               safety_features:
+ *                 type: array
+ *                 items: { type: string }
+ *               interior_features:
+ *                 type: array
+ *                 items: { type: object }
+ *               driving_modes:
+ *                 type: array
+ *                 items: { type: string }
+ *               software_version: { type: string }
+ *               ota_update: { type: boolean }
+ *               stock: { type: number }
+ *               warranty_years: { type: number }
+ *               color_options:
+ *                 type: array
+ *                 items: { type: string }
+ *               description: { type: string }
+ *               options:
+ *                 type: array
+ *                 items: { type: string }
+ *               accessories:
+ *                 type: array
+ *                 items: { type: string }
+ *               promotions:
+ *                 type: array
+ *                 items: { type: string }
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: Upload new images
+ *               imagesToRemove:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: List of existing image URLs to delete
+ *     responses:
+ *       200:
+ *         description: Vehicle updated successfully
+ *       404:
+ *         description: Vehicle not found
  */
-router.put("/:id", checkRole(EVM_ADMIN_ROLES), updateVehicle);
+router.put(
+  "/:id",
+  uploadVehicleImage.array("images", 10),
+  checkRole(EVM_ADMIN_ROLES),
+  updateVehicle
+);
 
 /**
  * @openapi
@@ -231,5 +369,30 @@ router.put("/:id", checkRole(EVM_ADMIN_ROLES), updateVehicle);
  *       404: { description: Vehicle not found }
  */
 router.delete("/:id", checkRole(EVM_ADMIN_ROLES), deleteVehicle);
+
+/**
+ * @openapi
+ * /api/vehicles/compare/{id1}/{id2}:
+ *   get:
+ *     tags: [Compare]
+ *     summary: Compare two cars by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id1
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: id2
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Comparison result
+ *       404:
+ *         description: One or both cars not found
+ */
+router.get("/compare/:id1/:id2", compareCars);
 
 export default router;
