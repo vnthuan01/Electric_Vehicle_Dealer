@@ -9,7 +9,6 @@ import {
   updateOrder,
   deleteOrder,
   updateOrderStatus,
-  paypalReturn,
 } from "../controllers/orderController.js";
 
 const router = Router();
@@ -50,7 +49,7 @@ router.use(authenticate);
  *                 example: "68d0e8a599679399fff9869a"
  *               payment_method:
  *                 type: string
- *                 enum: [cash, paypal, zalopay, installment]
+ *                 enum: [cash, installment]
  *                 default: cash
  *                 example: "cash"
  *               notes:
@@ -131,52 +130,6 @@ router.post(
   "/",
   checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
   createOrder
-);
-
-/**
- * @openapi
- * /api/orders/{id}/paypal-capture:
- *   post:
- *     tags:
- *       - Orders
- *     summary: Capture PayPal order after user approval
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Your internal order _id
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - token
- *             properties:
- *               token:
- *                 type: string
- *                 description: PayPal order token from query param
- *           example:
- *             token: "EC-XXXXXX"
- *     responses:
- *       200:
- *         description: Capture successful
- *       400:
- *         description: Bad Request
- *       404:
- *         description: Order Not Found
- *       500:
- *         description: PayPal capture failed
- */
-router.post(
-  "/:id/paypal-capture",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  paypalReturn
 );
 
 /**

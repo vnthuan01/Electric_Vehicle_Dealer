@@ -11,7 +11,7 @@ const paymentSchema = new mongoose.Schema(
     customer_id: {type: mongoose.Schema.Types.ObjectId, ref: "Customer"},
     method: {
       type: String,
-      enum: ["cash", "paypal", "zalopay", "installment"],
+      enum: ["cash", "installment"],
       required: true,
     },
     amount: {type: Number, required: true},
