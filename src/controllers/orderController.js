@@ -2,11 +2,6 @@ import Order from "../models/Order.js";
 import Promotion from "../models/Promotion.js";
 import Option from "../models/Option.js";
 import Accessory from "../models/Accessory.js";
-import * as zalopayService from "../services/ZaloPayService.js";
-import {
-  capturePaypalOrder,
-  createOrder as createPaypalOrder,
-} from "../services/paypalService.js";
 import {OrderMessage, VehicleMessage} from "../utils/MessageRes.js";
 import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
@@ -168,103 +163,8 @@ export async function createOrder(req, res, next) {
     // Công nợ
     createCustomerDebt(order);
 
-    // Thanh toán Zalopay
-    let zalopayData = null;
-    if (payment_method === "zalopay") {
-      const orderData = {
-        app_trans_id: `order_${Date.now()}`,
-        amount: totalAmount,
-        description: `Payment for order ${code}`,
-        return_url: `${process.env.CLIENT_URL}/order/${order._id}/payment-return`,
-        embed_data: {order_id: order._id.toString()},
-        item: itemsWithFinal.map((i) => ({
-          name: `Vehicle ${i.vehicle_name}`,
-          quantity: i.quantity,
-          price: Math.round(i.final_amount / (i.quantity || 1)),
-        })),
-      };
-      zalopayData = await zalopayService.createZalopayOrder(orderData);
-    }
-
-    // Thanh toán Paypal
-    let paypalData = null;
-    if (payment_method === "paypal") {
-      const paypalOrder = await createPaypalOrder(
-        totalAmount.toFixed(2),
-        "USD",
-        `${process.env.CLIENT_URL}/order/${order._id}/paypal-success`,
-        `${process.env.CLIENT_URL}/order/${order._id}/paypal-cancel`
-      );
-      const approveUrl = paypalOrder.links.find(
-        (link) => link.rel === "approve"
-      )?.href;
-      paypalData = {order: paypalOrder, approveUrl};
-    }
-
     return created(res, OrderMessage.CREATE_SUCCESS, {
       order,
-      zalopay: zalopayData,
-      paypal: paypalData,
-    });
-  } catch (err) {
-    next(err);
-  }
-}
-
-// ==================== Capture PayPal ====================
-export async function paypalReturn(req, res, next) {
-  try {
-    const {orderId} = req.params;
-    const {token} = req.query; // token từ PayPal redirect
-
-    if (!token)
-      return res.status(400).json({success: false, message: "Missing token"});
-
-    const order = await Order.findById(orderId);
-    if (!order)
-      return res.status(404).json({success: false, message: "Order not found"});
-
-    const captureResult = await capturePaypalOrder(token);
-
-    const captureAmount = parseFloat(
-      captureResult.purchase_units[0]?.payments?.captures[0]?.amount?.value ||
-        "0"
-    );
-
-    if (captureAmount <= 0)
-      return res
-        .status(400)
-        .json({success: false, message: "Invalid capture amount"});
-
-    order.paid_amount = captureAmount;
-    await order.save();
-
-    const remaining = order.final_amount - order.paid_amount;
-    let debt = await Debt.findOne({order_id: order._id});
-    const status =
-      remaining === 0 ? "settled" : order.paid_amount ? "partial" : "open";
-
-    if (debt) {
-      debt.paid_amount = order.paid_amount;
-      debt.remaining_amount = remaining;
-      debt.status = status;
-      await debt.save();
-    } else {
-      debt = await Debt.create({
-        customer_id: order.customer_id,
-        order_id: order._id,
-        total_amount: order.final_amount,
-        paid_amount: order.paid_amount,
-        remaining_amount: remaining,
-        status,
-      });
-    }
-
-    return res.json({
-      success: true,
-      orderId: order._id,
-      paid_amount: order.paid_amount,
-      debt,
     });
   } catch (err) {
     next(err);
