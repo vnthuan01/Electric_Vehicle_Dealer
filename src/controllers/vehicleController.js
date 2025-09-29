@@ -1,6 +1,4 @@
 import Vehicle from "../models/Vehicle.js";
-import Option from "../models/Option.js";
-import Accessory from "../models/Accessory.js";
 import Promotion from "../models/Promotion.js";
 import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
@@ -22,35 +20,45 @@ export async function createVehicle(req, res, next) {
         name,
         model,
         category,
-        price,
         manufacturer_id,
+        price,
+
         version,
+        release_status,
+        release_date,
         status,
+
         on_road_price,
         battery_type,
         battery_capacity,
         range_km,
+        wltp_range_km,
         charging_fast,
         charging_slow,
+        charging_port_type,
         motor_power,
         top_speed,
         acceleration,
+        drivetrain,
+
         dimensions,
         weight,
         payload,
+        seating_capacity,
+        tire_size,
         trunk_type,
+
         safety_features,
         interior_features,
         driving_modes,
         software_version,
         ota_update,
+
         stock,
         warranty_years,
+        battery_warranty_years,
         color_options,
-        images,
         description,
-        options,
-        accessories,
         promotions,
       } = v;
 
@@ -76,11 +84,11 @@ export async function createVehicle(req, res, next) {
         }
       }
 
-      // Validate interior_features phải là object { name, description }
+      // Interior_features phải đúng định dạng { name, description }
       let formattedInteriorFeatures = [];
       if (Array.isArray(interior_features)) {
         formattedInteriorFeatures = interior_features
-          .filter((f) => f && f.name) // bỏ mấy item rỗng
+          .filter((f) => f && f.name)
           .map((f) => ({
             name: f.name,
             description: f.description || "",
@@ -96,43 +104,55 @@ export async function createVehicle(req, res, next) {
         });
       }
 
-      validVehicles.push({
-        sku,
-        name,
-        model,
-        category,
-        price,
-        on_road_price,
-        manufacturer_id,
-        version,
-        status,
-        battery_type,
-        battery_capacity,
-        range_km,
-        charging_fast,
-        charging_slow,
-        motor_power,
-        top_speed,
-        acceleration,
-        dimensions,
-        weight,
-        payload,
-        trunk_type,
-        interior_features: formattedInteriorFeatures,
-        safety_features,
-        interior_features,
-        driving_modes,
-        software_version,
-        ota_update,
-        stocks,
-        warranty_years,
-        color_options,
-        images: uploadedImages,
-        description,
-        options,
-        accessories,
-        promotions,
-      });
+      validVehicles.push(
+        cleanEmpty({
+          sku,
+          name,
+          model,
+          category,
+          manufacturer_id,
+          price,
+
+          version,
+          release_status,
+          release_date,
+          status,
+
+          on_road_price,
+          battery_type,
+          battery_capacity,
+          range_km,
+          wltp_range_km,
+          charging_fast,
+          charging_slow,
+          charging_port_type,
+          motor_power,
+          top_speed,
+          acceleration,
+          drivetrain,
+
+          dimensions,
+          weight,
+          payload,
+          seating_capacity,
+          tire_size,
+          trunk_type,
+
+          safety_features,
+          interior_features: formattedInteriorFeatures,
+          driving_modes,
+          software_version,
+          ota_update,
+
+          stocks,
+          warranty_years,
+          battery_warranty_years,
+          color_options,
+          images: uploadedImages,
+          description,
+          promotions,
+        })
+      );
     }
 
     if (validVehicles.length === 0) {
@@ -153,7 +173,6 @@ export async function createVehicle(req, res, next) {
 // Get vehicle list with filter/search
 export async function getVehicles(req, res, next) {
   try {
-    // ----- Build filters -----
     const cond = {};
     if (req.query.category) cond.category = req.query.category;
     if (req.query.status) cond.status = req.query.status;
@@ -181,7 +200,6 @@ export async function getVehicles(req, res, next) {
     if (req.query.color_options)
       cond.color_options = {$in: req.query.color_options.split(",")};
 
-    // ----- Paginate -----
     const result = await paginate(
       Vehicle,
       req,
@@ -189,11 +207,8 @@ export async function getVehicles(req, res, next) {
       cond
     );
 
-    // ----- Populate after paginate -----
     const dataWithPopulate = await Vehicle.populate(result.data, [
       {path: "manufacturer_id", select: "name address"},
-      {path: "options"},
-      {path: "accessories"},
       {path: "promotions"},
     ]);
 
@@ -213,8 +228,6 @@ export async function getVehicleById(req, res, next) {
   try {
     const vehicle = await Vehicle.findById(req.params.id)
       .populate("manufacturer_id", "name address")
-      .populate("options")
-      .populate("accessories")
       .populate("promotions");
 
     if (!vehicle) return errorRes(res, "Vehicle not found", 404);
@@ -225,33 +238,26 @@ export async function getVehicleById(req, res, next) {
   }
 }
 
-// Update vehicle (EVM Staff, Admin only)
+// Update vehicle
 export async function updateVehicle(req, res, next) {
   try {
     req.body = cleanEmpty(req.body);
     const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) return res.status(404).json({message: "Vehicle not found"});
 
-    // ----- 1. Xóa ảnh cũ nếu có -----
-    const {imagesToRemove} = req.body; // mảng URL hoặc public_id
+    const {imagesToRemove} = req.body;
     if (imagesToRemove && imagesToRemove.length > 0) {
-      // Xóa trên Cloudinary
-      // await deleteImagesFromCloudinary(imagesToRemove);
-
-      // Xóa khỏi vehicle.images
       vehicle.images = vehicle.images.filter(
         (img) => !imagesToRemove.includes(img)
       );
     }
 
-    // ----- 2. Upload ảnh mới nếu có -----
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        vehicle.images.push(file.path); // thêm ảnh mới
+        vehicle.images.push(file.path);
       }
     }
 
-    // ----- 3. Update các field khác -----
     Object.assign(vehicle, req.body);
     await vehicle.save();
 
@@ -261,11 +267,18 @@ export async function updateVehicle(req, res, next) {
   }
 }
 
-// Delete vehicle (EVM Staff, Admin only)
+// Soft delete vehicle
 export async function deleteVehicle(req, res, next) {
   try {
-    const vehicle = await Vehicle.findByIdAndDelete(req.params.id);
+    const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) return errorRes(res, "Vehicle not found", 404);
+
+    if (vehicle.status === "inactive") {
+      return errorRes(res, "Vehicle already inactive", 400);
+    }
+
+    vehicle.status = "inactive";
+    await vehicle.save();
 
     return success(res, VehicleMessage.DELETE_SUCCESS, {id: vehicle._id});
   } catch (err) {
@@ -273,7 +286,7 @@ export async function deleteVehicle(req, res, next) {
   }
 }
 
-// Tạo helper summarize
+// Helper summarize
 function summarizeCar(car) {
   return `
       Name: ${car.name} ${car.model || ""}
@@ -285,26 +298,29 @@ function summarizeCar(car) {
     car.battery_capacity || "N/A"
   } kWh
       Range: ${car.range_km || "N/A"} km
-      Charging (fast 10-70%): ${car.charging_fast || "N/A"} mins
-      Charging (slow): ${car.charging_slow || "N/A"} hours
-      
-      Motor power: ${car.motor_power || "N/A"} kW
+      Charging: Fast ${car.charging_fast || "N/A"} mins, Slow ${
+    car.charging_slow || "N/A"
+  } hrs
+      Motor: ${car.motor_power || "N/A"} kW, Drivetrain: ${
+    car.drivetrain || "N/A"
+  }
       Top speed: ${car.top_speed || "N/A"} km/h
-      Acceleration 0-100 km/h: ${car.acceleration || "N/A"} s
+      Accel 0-100: ${car.acceleration || "N/A"} s
       
       Dimensions (mm): ${car.dimensions?.length || "?"} x ${
     car.dimensions?.width || "?"
   } x ${car.dimensions?.height || "?"}
       Wheelbase: ${car.dimensions?.wheelbase || "N/A"} mm
       Ground clearance: ${car.dimensions?.ground_clearance || "N/A"} mm
-      Weight: ${car.weight || "N/A"} kg
-      Payload: ${car.payload || "N/A"} kg
+      Seating: ${car.seating_capacity || "N/A"}
       
-      Safety features: ${car.safety_features?.join(", ") || "N/A"}
+      Safety: ${car.safety_features?.join(", ") || "N/A"}
       Driving modes: ${car.driving_modes?.join(", ") || "N/A"}
       OTA update: ${car.ota_update ? "Yes" : "No"}
       
-      Warranty: ${car.warranty_years || "N/A"} years
+      Warranty: ${car.warranty_years || "N/A"} yrs (Battery: ${
+    car.battery_warranty_years || "N/A"
+  } yrs)
       `;
 }
 
@@ -329,11 +345,10 @@ export async function compareCars(req, res) {
       Hãy phân tích chi tiết cho từng xe:
       1. Ưu điểm
       2. Nhược điểm
-      3. Nhu cầu phát triển trong tương lai (những gì cần cải thiện hoặc nâng cấp)
-      4. Gợi ý lựa chọn phù hợp cho khách hàng dựa trên nhu cầu và điều kiện tài chính.
+      3. Nhu cầu phát triển trong tương lai
+      4. Gợi ý lựa chọn phù hợp cho khách hàng.
       `;
 
-    // Gọi Groq API
     const response = await fetch(
       "https://api.groq.com/openai/v1/chat/completions",
       {
@@ -343,7 +358,7 @@ export async function compareCars(req, res) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "llama-3.1-8b-instant", // hoặc "mixtral-8x7b-32768", "llama-3.2-3b-preview"
+          model: "llama-3.1-8b-instant",
           messages: [{role: "user", content: prompt}],
           temperature: 0.7,
         }),
