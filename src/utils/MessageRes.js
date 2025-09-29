@@ -73,6 +73,7 @@ export const OrderMessage = {
   INVALID_STATUS: "Invalid order status",
   LIST_SUCCESS: "Orders fetched successfully",
   DETAIL_SUCCESS: "Order details fetched successfully",
+  MISSING_REQUIRED_FIELDS: "Missing required fields",
 };
 
 export const TestDriveMessage = {
