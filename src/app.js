@@ -11,7 +11,7 @@ import swaggerUi from "swagger-ui-express";
 import {swaggerSpec} from "./config/swagger.js";
 
 // Routes imports
-import smsRoutes from "./routes/smsRoutes.js";
+// import smsRoutes from "./routes/smsRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import debtRoutes from "./routes/debtRoutes.js";
 import requestVehicleRoutes from "./routes/requestVehicleRoutes.js";
@@ -34,12 +34,7 @@ const app = express();
 // --- Middleware ---
 app.use(
   cors({
-    origin: [
-      // "http://localhost:5173",
-      // "https://electric-vehicle-dealer.onrender.com/",
-      "*",
-    ],
-    credentials: true,
+    origin: "*",
   })
 );
 app.use(express.json());
@@ -59,7 +54,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // --- Mount routes with /api prefix ---
 const apiPrefix = "/api";
-app.use(`${apiPrefix}/sms`, smsRoutes);
+// app.use(`${apiPrefix}/sms`, smsRoutes);
 app.use(`${apiPrefix}/users`, userRoutes);
 app.use(`${apiPrefix}/debts`, debtRoutes);
 app.use(`${apiPrefix}/request-vehicles`, requestVehicleRoutes);
