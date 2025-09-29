@@ -34,12 +34,7 @@ const app = express();
 // --- Middleware ---
 app.use(
   cors({
-    origin: [
-      // "http://localhost:5173",
-      // "https://electric-vehicle-dealer.onrender.com/",
-      "*",
-    ],
-    credentials: true,
+    origin: "*",
   })
 );
 app.use(express.json());
