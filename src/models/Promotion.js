@@ -4,7 +4,11 @@ import mongoose from "mongoose";
 const promotionSchema = new mongoose.Schema(
   {
     name: {type: String, required: true},
-    type: {type: String, enum: ["percent", "amount"], required: true},
+    type: {
+      type: String,
+      enum: ["percent", "amount", "service", "gift"],
+      required: true,
+    },
     value: {type: Number, required: true},
     start_date: {type: Date},
     end_date: {type: Date},
