@@ -57,7 +57,7 @@ router.get("/", getCustomers);
  *               address:
  *                 type: string
  *           example:
- *             fullname: "Nguyen Van A"
+ *             full_name: "Nguyen Van A"
  *             phone: "0901234567"
  *             email: "vana@example.com"
  *             address: "123 Le Loi, District 1, HCMC"
@@ -123,7 +123,7 @@ router.get("/:id", getCustomerById);
  *               address:
  *                 type: string
  *           example:
- *             fullname: "Tran Thi B"
+ *             full_name: "Tran Thi B"
  *             phone: "0912345678"
  *             email: "thib@example.com"
  *             address: "456 Tran Hung Dao, District 5, HCMC"

@@ -6,6 +6,11 @@ const customerSchema = new mongoose.Schema({
   email: {type: String},
   preferences: {type: String},
   address: {type: String},
+  dealership_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Dealership",
+    required: true,
+  },
   createdAt: {type: Date, default: Date.now},
 });
 
