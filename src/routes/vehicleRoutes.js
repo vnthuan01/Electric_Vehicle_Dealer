@@ -9,6 +9,7 @@ import {
   updateVehicle,
   deleteVehicle,
   compareCars,
+  distributeVehicleToDealer,
 } from "../controllers/vehicleController.js";
 import {uploadVehicleImage} from "../utils/fileUpload.js";
 
@@ -220,6 +221,75 @@ router.delete("/:id", checkRole(EVM_ADMIN_ROLES), deleteVehicle);
 
 /**
  * @openapi
+ * /api/vehicles/distribute:
+ *   post:
+ *     tags: [Vehicles]
+ *     summary: Distribute vehicles to dealer (Manufacturer/EVM Staff/Admin only)
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [vehicle_id, dealership_id, quantity]
+ *             properties:
+ *               vehicle_id:
+ *                 type: string
+ *                 description: Vehicle ID to distribute
+ *               dealership_id:
+ *                 type: string
+ *                 description: Target dealership ID
+ *               quantity:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: Number of vehicles to distribute
+ *               notes:
+ *                 type: string
+ *                 description: Optional notes for the distribution
+ *             example:
+ *               vehicle_id: "652f1b9a1234567890abcdef"
+ *               dealership_id: "652f1b9a1234567890abcdea"
+ *               quantity: 5
+ *               notes: "Initial stock allocation for new dealership"
+ *     responses:
+ *       200:
+ *         description: Vehicle distributed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     vehicle:
+ *                       type: object
+ *                       properties:
+ *                         id: { type: string }
+ *                         name: { type: string }
+ *                         sku: { type: string }
+ *                     dealership_id: { type: string }
+ *                     quantity: { type: integer }
+ *                     total_amount: { type: number }
+ *                     debt_id: { type: string }
+ *                     remaining_manufacturer_stock: { type: integer }
+ *                     dealer_stock: { type: integer }
+ *       400:
+ *         description: Bad request (missing fields, insufficient stock, etc.)
+ *       404:
+ *         description: Vehicle or dealership not found
+ */
+router.post(
+  "/distribute",
+  checkRole(EVM_ADMIN_ROLES),
+  distributeVehicleToDealer
+);
+
+/**
+ * @openapi
  * components:
  *   schemas:
  *     VehicleFull:
@@ -347,7 +417,7 @@ router.delete("/:id", checkRole(EVM_ADMIN_ROLES), deleteVehicle);
  *           items: { type: string }
  *         software_version: { type: string }
  *         ota_update: { type: boolean }
- *         stocks:
+ *         stock:
  *           type: number
  *         warranty_years: { type: number }
  *         battery_warranty_years: { type: number }

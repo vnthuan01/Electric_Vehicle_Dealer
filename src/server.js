@@ -22,6 +22,10 @@ async function start() {
   try {
     await connectDatabase();
     socketConfig(io);
+
+    // Make io instance available to routes
+    app.set("io", io);
+
     server.listen(port, () => {
       logInfo(`Server listening on http://localhost:${port}/api-docs`);
     });

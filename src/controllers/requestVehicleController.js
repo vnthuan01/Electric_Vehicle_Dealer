@@ -4,6 +4,7 @@ import RequestVehicle from "../models/RequestVehicle.js";
 import {created, success, error as errorRes} from "../utils/response.js";
 import {DealerMessage} from "../utils/MessageRes.js";
 import {paginate} from "../utils/pagination.js";
+import {emitRequestStatusUpdate} from "../config/socket.js";
 
 //Dealer gửi request nhập xe (PENDING)
 export async function requestVehicleFromManufacturer(req, res, next) {
@@ -24,6 +25,21 @@ export async function requestVehicleFromManufacturer(req, res, next) {
       notes,
       status: "pending",
     });
+
+    // Emit socket notification for new request
+    if (req.app.get("io")) {
+      emitRequestStatusUpdate(req.app.get("io"), {
+        requestId: request._id,
+        status: "pending",
+        dealershipId: dealership_id,
+        vehicle: {
+          id: vehicle._id,
+          name: vehicle.name,
+          sku: vehicle.sku,
+        },
+        quantity,
+      });
+    }
 
     return created(res, DealerMessage.REQUEST_CREATED_PENDING, request);
   } catch (err) {
@@ -102,6 +118,21 @@ export async function approveRequest(req, res, next) {
     request.debt_id = debt._id;
     await request.save();
 
+    // Emit socket notification for approved request
+    if (req.app.get("io")) {
+      emitRequestStatusUpdate(req.app.get("io"), {
+        requestId: request._id,
+        status: "approved",
+        dealershipId: request.dealership_id,
+        vehicle: {
+          id: vehicle._id,
+          name: vehicle.name,
+          sku: vehicle.sku,
+        },
+        quantity: request.quantity,
+      });
+    }
+
     return success(res, DealerMessage.REQUEST_APPROVED, request);
   } catch (err) {
     next(err);
@@ -112,7 +143,7 @@ export async function approveRequest(req, res, next) {
 export async function rejectRequest(req, res, next) {
   try {
     const {id} = req.params;
-    const request = await RequestVehicle.findById(id);
+    const request = await RequestVehicle.findById(id).populate("vehicle_id");
     if (!request) return errorRes(res, DealerMessage.REQUEST_NOT_FOUND, 404);
 
     if (request.status !== "pending") {
@@ -121,6 +152,22 @@ export async function rejectRequest(req, res, next) {
 
     request.status = "rejected";
     await request.save();
+
+    // Emit socket notification for rejected request
+    if (req.app.get("io")) {
+      emitRequestStatusUpdate(req.app.get("io"), {
+        requestId: request._id,
+        status: "rejected",
+        dealershipId: request.dealership_id,
+        vehicle: {
+          id: request.vehicle_id._id,
+          name: request.vehicle_id.name,
+          sku: request.vehicle_id.sku,
+        },
+        quantity: request.quantity,
+        reason: "Request rejected by EVM Staff",
+      });
+    }
 
     return success(res, DealerMessage.REQUEST_REJECTED, request);
   } catch (err) {

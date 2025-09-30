@@ -1,10 +1,12 @@
 import Vehicle from "../models/Vehicle.js";
 import Promotion from "../models/Promotion.js";
+import DealerManufacturerDebt from "../models/DealerManufacturerDebt.js";
 import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
 import {VehicleMessage} from "../utils/MessageRes.js";
 import fetch from "node-fetch";
 import {cleanEmpty} from "../utils/cleanEmpty.js";
+import {emitVehicleDistribution} from "../config/socket.js";
 
 // Create one or multiple vehicles (EVM Staff, Admin only)
 export async function createVehicle(req, res, next) {
@@ -375,5 +377,130 @@ export async function compareCars(req, res) {
   } catch (err) {
     console.error(err);
     res.status(500).json({error: err.message});
+  }
+}
+
+// Distribute vehicles to dealer (Manufacturer/EVM Staff/Admin only)
+export async function distributeVehicleToDealer(req, res, next) {
+  try {
+    const {vehicle_id, dealership_id, quantity, notes} = req.body;
+
+    // Validate required fields
+    if (!vehicle_id || !dealership_id || !quantity) {
+      return errorRes(
+        res,
+        "Missing required fields: vehicle_id, dealership_id, quantity",
+        400
+      );
+    }
+
+    if (quantity <= 0) {
+      return errorRes(res, "Quantity must be greater than 0", 400);
+    }
+
+    // Find vehicle
+    const vehicle = await Vehicle.findById(vehicle_id);
+    if (!vehicle) {
+      return errorRes(res, "Vehicle not found", 404);
+    }
+
+    // Check manufacturer stock
+    const manufacturerStock = vehicle.stocks.find(
+      (s) => s.owner_type === "manufacturer"
+    );
+
+    if (!manufacturerStock) {
+      return errorRes(
+        res,
+        "No manufacturer stock available for this vehicle",
+        400
+      );
+    }
+
+    if (manufacturerStock.quantity < quantity) {
+      return errorRes(
+        res,
+        `Insufficient manufacturer stock. Available: ${manufacturerStock.quantity}, Requested: ${quantity}`,
+        400
+      );
+    }
+
+    // Update manufacturer stock
+    manufacturerStock.quantity -= quantity;
+
+    // Update or create dealer stock
+    let dealerStock = vehicle.stocks.find(
+      (s) =>
+        s.owner_type === "dealer" &&
+        s.owner_id.toString() === dealership_id.toString()
+    );
+
+    if (dealerStock) {
+      dealerStock.quantity += quantity;
+    } else {
+      vehicle.stocks.push({
+        owner_type: "dealer",
+        owner_id: dealership_id,
+        quantity: quantity,
+      });
+    }
+
+    await vehicle.save();
+
+    // Create or update debt
+    const total_amount = vehicle.price * quantity;
+    let debt = await DealerManufacturerDebt.findOne({
+      dealership_id: dealership_id,
+      manufacturer_id: vehicle.manufacturer_id,
+    });
+
+    if (debt) {
+      debt.total_amount += total_amount;
+      debt.remaining_amount += total_amount;
+      debt.status = "open";
+      await debt.save();
+    } else {
+      debt = await DealerManufacturerDebt.create({
+        dealership_id: dealership_id,
+        manufacturer_id: vehicle.manufacturer_id,
+        total_amount,
+        paid_amount: 0,
+        remaining_amount: total_amount,
+        status: "open",
+        notes: notes || `Vehicle distribution: ${vehicle.name} x${quantity}`,
+      });
+    }
+
+    // Emit socket notification for vehicle distribution
+    if (req.app.get("io")) {
+      emitVehicleDistribution(req.app.get("io"), {
+        dealershipId: dealership_id,
+        manufacturerId: vehicle.manufacturer_id,
+        vehicle: {
+          id: vehicle._id,
+          name: vehicle.name,
+          sku: vehicle.sku,
+          price: vehicle.price,
+        },
+        quantity,
+        totalAmount: total_amount,
+      });
+    }
+
+    return success(res, "Vehicle distributed successfully", {
+      vehicle: {
+        id: vehicle._id,
+        name: vehicle.name,
+        sku: vehicle.sku,
+      },
+      dealership_id,
+      quantity,
+      total_amount,
+      debt_id: debt._id,
+      remaining_manufacturer_stock: manufacturerStock.quantity,
+      dealer_stock: dealerStock ? dealerStock.quantity : quantity,
+    });
+  } catch (err) {
+    next(err);
   }
 }
