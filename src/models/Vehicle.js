@@ -38,7 +38,7 @@ const vehicleSchema = new mongoose.Schema(
     on_road_price: {type: Number},
 
     // Thông số pin & vận hành
-    battery_type: {type: String, enum: ["LFP", "NMC", "other"]},
+    battery_type: {type: String, enum: ["LFP", "NMC", "Li-ion", "other"]},
     battery_capacity: {type: Number}, // kWh
     range_km: {type: Number},
     wltp_range_km: {type: Number},
