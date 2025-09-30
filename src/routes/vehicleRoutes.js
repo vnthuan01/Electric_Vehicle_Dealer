@@ -8,7 +8,9 @@ import {
   getVehicleById,
   updateVehicle,
   deleteVehicle,
+  compareCars,
 } from "../controllers/vehicleController.js";
+import {uploadVehicleImage} from "../utils/fileUpload.js";
 
 const router = Router();
 
@@ -19,6 +21,8 @@ router.use(authenticate);
  * tags:
  *   - name: Vehicles
  *     description: Manage vehicle catalog
+ *   - name: Compare
+ *     description: Compare vehicles
  */
 
 /**
@@ -27,83 +31,60 @@ router.use(authenticate);
  *   get:
  *     tags: [Vehicles]
  *     summary: List vehicles with filters and pagination
- *     security:
- *       - bearerAuth: []
+ *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: query
  *         name: q
- *         schema:
- *           type: string
- *         description: Search by name, model, or version
+ *         schema: { type: string }
  *       - in: query
  *         name: status
- *         schema:
- *           type: string
- *           enum: [active, inactive]
- *         description: Filter by vehicle status
+ *         schema: { type: string, enum: [active, inactive] }
  *       - in: query
  *         name: category
- *         schema:
- *           type: string
- *           enum: [car, motorbike]
- *         description: Vehicle type
+ *         schema: { type: string, enum: [car, motorbike] }
  *       - in: query
  *         name: manufacturer_id
- *         schema:
- *           type: string
- *         description: Filter by manufacturer ID
+ *         schema: { type: string }
  *       - in: query
  *         name: price[min]
- *         schema:
- *           type: number
- *         description: Minimum price
+ *         schema: { type: number }
  *       - in: query
  *         name: price[max]
- *         schema:
- *           type: number
- *         description: Maximum price
+ *         schema: { type: number }
  *       - in: query
  *         name: range_km[min]
- *         schema:
- *           type: number
- *         description: Minimum range (km)
+ *         schema: { type: number }
  *       - in: query
  *         name: range_km[max]
- *         schema:
- *           type: number
- *         description: Maximum range (km)
+ *         schema: { type: number }
  *       - in: query
  *         name: battery_type
- *         schema:
- *           type: string
- *           enum: [LFP, NMC, other]
- *         description: Battery type
+ *         schema: { type: string, enum: [LFP, NMC, other] }
  *       - in: query
  *         name: color_options
- *         schema:
- *           type: string
- *         description: Filter by available color
+ *         schema: { type: string }
  *       - in: query
  *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number for pagination
+ *         schema: { type: integer, default: 1 }
  *       - in: query
  *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of records per page
+ *         schema: { type: integer, default: 10 }
  *       - in: query
  *         name: sort
- *         schema:
- *           type: string
- *           example: "price:asc,createdAt:desc"
- *         description: Sort fields (e.g., price:asc,createdAt:desc)
+ *         schema: { type: string, example: "price:asc,createdAt:desc" }
  *     responses:
  *       200:
  *         description: Vehicle list retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/VehicleFull'
+ *                 total: { type: integer }
  */
 router.get("/", getVehicles);
 
@@ -112,92 +93,89 @@ router.get("/", getVehicles);
  * /api/vehicles/{id}:
  *   get:
  *     tags: [Vehicles]
- *     summary: Get vehicle by id
- *     security:
- *       - bearerAuth: []
+ *     summary: Get vehicle by ID
+ *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema: { type: string }
  *     responses:
- *       200: { description: Vehicle detail retrieved successfully }
- *       404: { description: Vehicle not found }
+ *       200:
+ *         description: Vehicle detail retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/VehicleFull'
+ *       404:
+ *         description: Vehicle not found
  */
 router.get("/:id", getVehicleById);
+
+/**
+ * @openapi
+ * /api/vehicles/compare/{id1}/{id2}:
+ *   get:
+ *     tags: [Compare]
+ *     summary: Compare two vehicles by ID
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id1
+ *         required: true
+ *         schema: { type: string }
+ *       - in: path
+ *         name: id2
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Comparison result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 vehicle1: { $ref: '#/components/schemas/VehicleFull' }
+ *                 vehicle2: { $ref: '#/components/schemas/VehicleFull' }
+ *       404:
+ *         description: One or both vehicles not found
+ */
+router.get("/compare/:id1/:id2", compareCars);
+
 /**
  * @openapi
  * /api/vehicles:
  *   post:
  *     tags: [Vehicles]
- *     summary: Create one or multiple vehicles
- *     security:
- *       - bearerAuth: []
+ *     summary: Create one or multiple vehicles with images
+ *     security: [{ bearerAuth: [] }]
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             oneOf:
- *               - type: object
- *                 required: [sku, name, category, price, manufacturer_id]
- *                 properties:
- *                   sku: { type: string, description: "Unique SKU for each vehicle configuration" }
- *                   name: { type: string, description: "Vehicle model name (e.g., VF3)" }
- *                   category: { type: string, enum: [car, motorbike], description: "Vehicle type" }
- *                   manufacturer_id: { type: string, description: "Reference to manufacturer" }
- *                   version: { type: string, description: "Version / trim (Eco, Plus, Pro)" }
- *                   status: { type: string, enum: [active, inactive], description: "Availability status" }
- *                   price: { type: number, description: "Official price" }
- *                   on_road_price: { type: number, description: "Estimated on-road price (including fees)" }
- *                   battery_type: { type: string, enum: [LFP, NMC, other], description: "Battery chemistry" }
- *                   battery_capacity: { type: number, description: "Battery capacity in kWh" }
- *                   range_km: { type: number, description: "Maximum range in km per full charge" }
- *                   charging_fast: { type: number, description: "Fast charging time 10%-70% in minutes" }
- *                   charging_slow: { type: number, description: "Slow/home charging time in hours" }
- *                   motor_power: { type: number, description: "Motor power in kW" }
- *                   top_speed: { type: number, description: "Top speed in km/h" }
- *                   acceleration: { type: number, description: "0-100 km/h time in seconds" }
- *                   dimensions:
- *                     type: object
- *                     properties:
- *                       length: { type: number, description: "Length in mm" }
- *                       width: { type: number, description: "Width in mm" }
- *                       height: { type: number, description: "Height in mm" }
- *                       wheelbase: { type: number, description: "Wheelbase in mm" }
- *                       ground_clearance: { type: number, description: "Ground clearance in mm" }
- *                   weight: { type: number, description: "Vehicle weight in kg" }
- *                   payload: { type: number, description: "Maximum payload in kg" }
- *                   safety_features: { type: array, items: { type: string }, description: "Safety features (ABS, airbags, radar...)" }
- *                   interior_features: { type: array, items: { type: string }, description: "Interior equipment (seats, display, AC...)" }
- *                   driving_modes: { type: array, items: { type: string }, description: "Driving modes (Eco, Sport, Normal)" }
- *                   software_version: { type: string, description: "Current software version" }
- *                   ota_update: { type: boolean, description: "Supports OTA/FOTA updates" }
- *                   stock: { type: number, description: "Available stock quantity" }
- *                   warranty_years: { type: number, description: "Warranty period in years" }
- *                   color_options: { type: array, items: { type: string } }
- *                   images: { type: array, items: { type: string } }
- *                   description: { type: string }
- *                   options: { type: array, items: { type: string }, description: "Option IDs" }
- *                   accessories: { type: array, items: { type: string }, description: "Accessory IDs" }
- *                   promotions: { type: array, items: { type: string }, description: "Promotion IDs" }
- *               - type: array
- *                 items:
- *                   $ref: '#/components/schemas/Vehicle'
+ *             $ref: '#/components/schemas/VehicleInputFull'
  *     responses:
- *       201: { description: Vehicle(s) created successfully }
- *       400: { description: Invalid request or no valid vehicles to create }
+ *       201:
+ *         description: Vehicle(s) created successfully
+ *       400:
+ *         description: Invalid request
  */
-router.post("/", checkRole(EVM_ADMIN_ROLES), createVehicle);
+router.post(
+  "/",
+  uploadVehicleImage.array("images", 10),
+  checkRole(EVM_ADMIN_ROLES),
+  createVehicle
+);
 
 /**
  * @openapi
  * /api/vehicles/{id}:
  *   put:
  *     tags: [Vehicles]
- *     summary: Update vehicle
- *     security:
- *       - bearerAuth: []
+ *     summary: Update vehicle details and manage images
+ *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
  *         name: id
@@ -206,30 +184,182 @@ router.post("/", checkRole(EVM_ADMIN_ROLES), createVehicle);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             type: object
- *             description: All fields are optional, price change will update price_history
+ *             $ref: '#/components/schemas/VehicleInputFull'
+ *     responses:
+ *       200:
+ *         description: Vehicle updated successfully
+ *       404:
+ *         description: Vehicle not found
  */
-router.put("/:id", checkRole(EVM_ADMIN_ROLES), updateVehicle);
+router.put(
+  "/:id",
+  uploadVehicleImage.array("images", 10),
+  checkRole(EVM_ADMIN_ROLES),
+  updateVehicle
+);
 
 /**
  * @openapi
  * /api/vehicles/{id}:
  *   delete:
  *     tags: [Vehicles]
- *     summary: Delete vehicle
- *     security:
- *       - bearerAuth: []
+ *     summary: Soft delete vehicle (set inactive)
+ *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema: { type: string }
  *     responses:
- *       200: { description: Vehicle deleted successfully }
+ *       200: { description: Vehicle soft deleted successfully }
  *       404: { description: Vehicle not found }
  */
 router.delete("/:id", checkRole(EVM_ADMIN_ROLES), deleteVehicle);
 
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     VehicleFull:
+ *       type: object
+ *       properties:
+ *         id: { type: string }
+ *         name: { type: string }
+ *         model: { type: string }
+ *         category: { type: string, enum: [car, motorbike] }
+ *         manufacturer_id: { type: string }
+ *         sku: { type: string }
+ *         version: { type: string }
+ *         release_status: { type: string, enum: [coming_soon, available, discontinued] }
+ *         release_date: { type: string, format: date }
+ *         status: { type: string, enum: [active, inactive] }
+ *         price: { type: number }
+ *         on_road_price: { type: number }
+ *         battery_type: { type: string, enum: [LFP, NMC, other] }
+ *         battery_capacity: { type: number }
+ *         range_km: { type: number }
+ *         wltp_range_km: { type: number }
+ *         charging_fast: { type: number }
+ *         charging_slow: { type: number }
+ *         charging_port_type: { type: string, enum: [CCS2, Type2, CHAdeMO, Tesla, Other] }
+ *         motor_power: { type: number }
+ *         top_speed: { type: number }
+ *         acceleration: { type: number }
+ *         drivetrain: { type: string, enum: [FWD, RWD, AWD] }
+ *         dimensions:
+ *           type: object
+ *           properties:
+ *             length: { type: number }
+ *             width: { type: number }
+ *             height: { type: number }
+ *             wheelbase: { type: number }
+ *             ground_clearance: { type: number }
+ *         weight: { type: number }
+ *         payload: { type: number }
+ *         seating_capacity: { type: number }
+ *         tire_size: { type: string }
+ *         trunk_type: { type: string, enum: [manual, electric, auto] }
+ *         safety_features:
+ *           type: array
+ *           items: { type: string }
+ *         interior_features:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               description: { type: string }
+ *         driving_modes:
+ *           type: array
+ *           items: { type: string }
+ *         software_version: { type: string }
+ *         ota_update: { type: boolean }
+ *         stock:
+ *             type: number
+ *             example: 50
+ *         warranty_years: { type: number }
+ *         battery_warranty_years: { type: number }
+ *         color_options:
+ *           type: array
+ *           items: { type: string }
+ *         images:
+ *           type: array
+ *           items: { type: string }
+ *         description: { type: string }
+ *         promotions:
+ *           type: array
+ *           items: { type: string }
+ *         createdAt: { type: string, format: date-time }
+ *         updatedAt: { type: string, format: date-time }
+ *
+ *     VehicleInputFull:
+ *       type: object
+ *       properties:
+ *         name: { type: string }
+ *         model: { type: string }
+ *         category: { type: string, enum: [car, motorbike] }
+ *         manufacturer_id: { type: string }
+ *         sku: { type: string }
+ *         version: { type: string }
+ *         release_status: { type: string, enum: [coming_soon, available, discontinued] }
+ *         release_date: { type: string, format: date }
+ *         status: { type: string, enum: [active, inactive] }
+ *         price: { type: number }
+ *         on_road_price: { type: number }
+ *         battery_type: { type: string }
+ *         battery_capacity: { type: number }
+ *         range_km: { type: number }
+ *         wltp_range_km: { type: number }
+ *         charging_fast: { type: number }
+ *         charging_slow: { type: number }
+ *         charging_port_type: { type: string }
+ *         motor_power: { type: number }
+ *         top_speed: { type: number }
+ *         acceleration: { type: number }
+ *         drivetrain: { type: string }
+ *         dimensions:
+ *           type: object
+ *           properties:
+ *             length: { type: number }
+ *             width: { type: number }
+ *             height: { type: number }
+ *             wheelbase: { type: number }
+ *             ground_clearance: { type: number }
+ *         weight: { type: number }
+ *         payload: { type: number }
+ *         seating_capacity: { type: number }
+ *         tire_size: { type: string }
+ *         trunk_type: { type: string }
+ *         safety_features:
+ *           type: array
+ *           items: { type: string }
+ *         interior_features:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               description: { type: string }
+ *         driving_modes:
+ *           type: array
+ *           items: { type: string }
+ *         software_version: { type: string }
+ *         ota_update: { type: boolean }
+ *         stocks:
+ *           type: number
+ *         warranty_years: { type: number }
+ *         battery_warranty_years: { type: number }
+ *         color_options:
+ *           type: array
+ *           items: { type: string }
+ *         images:
+ *           type: array
+ *           items: { type: string, format: binary }
+ *         description: { type: string }
+ *         promotions:
+ *           type: array
+ *           items: { type: string }
+ */
 export default router;

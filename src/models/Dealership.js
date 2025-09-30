@@ -7,6 +7,12 @@ const dealershipSchema = new mongoose.Schema(
     address: {type: String},
     phone: {type: String},
     email: {type: String},
+    isActive: {type: Boolean, default: true, index: true},
+    manufacturer_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Manufacturer",
+      required: true,
+    },
   },
   {timestamps: true}
 );

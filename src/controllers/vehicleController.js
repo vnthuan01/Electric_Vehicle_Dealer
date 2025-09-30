@@ -1,10 +1,10 @@
 import Vehicle from "../models/Vehicle.js";
-import Option from "../models/Option.js";
-import Accessory from "../models/Accessory.js";
 import Promotion from "../models/Promotion.js";
 import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
 import {VehicleMessage} from "../utils/MessageRes.js";
+import fetch from "node-fetch";
+import {cleanEmpty} from "../utils/cleanEmpty.js";
 
 // Create one or multiple vehicles (EVM Staff, Admin only)
 export async function createVehicle(req, res, next) {
@@ -18,36 +18,47 @@ export async function createVehicle(req, res, next) {
       const {
         sku,
         name,
+        model,
         category,
-        price,
         manufacturer_id,
+        price,
+
         version,
+        release_status,
+        release_date,
         status,
+
         on_road_price,
         battery_type,
         battery_capacity,
         range_km,
+        wltp_range_km,
         charging_fast,
         charging_slow,
+        charging_port_type,
         motor_power,
         top_speed,
         acceleration,
+        drivetrain,
+
         dimensions,
         weight,
         payload,
+        seating_capacity,
+        tire_size,
         trunk_type,
+
         safety_features,
         interior_features,
         driving_modes,
         software_version,
         ota_update,
+
         stock,
         warranty_years,
+        battery_warranty_years,
         color_options,
-        images,
         description,
-        options,
-        accessories,
         promotions,
       } = v;
 
@@ -66,55 +77,82 @@ export async function createVehicle(req, res, next) {
         continue;
       }
 
-      // Validate interior_features phải là object { name, description }
+      let uploadedImages = [];
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          uploadedImages.push(file.path);
+        }
+      }
+
+      // Interior_features phải đúng định dạng { name, description }
       let formattedInteriorFeatures = [];
       if (Array.isArray(interior_features)) {
         formattedInteriorFeatures = interior_features
-          .filter((f) => f && f.name) // bỏ mấy item rỗng
+          .filter((f) => f && f.name)
           .map((f) => ({
             name: f.name,
             description: f.description || "",
           }));
       }
 
-      validVehicles.push({
-        sku,
-        name,
-        category,
-        price,
-        on_road_price,
-        manufacturer_id,
-        version,
-        status,
-        battery_type,
-        battery_capacity,
-        range_km,
-        charging_fast,
-        charging_slow,
-        motor_power,
-        top_speed,
-        acceleration,
-        dimensions,
-        weight,
-        payload,
-        trunk_type,
-        interior_features: formattedInteriorFeatures,
+      const stocks = [];
+      if (stock && manufacturer_id) {
+        stocks.push({
+          owner_type: "manufacturer",
+          owner_id: manufacturer_id,
+          quantity: stock,
+        });
+      }
 
-        safety_features,
-        interior_features,
-        driving_modes,
-        software_version,
-        ota_update,
-        stock,
-        warranty_years,
-        color_options,
-        images,
-        description,
-        options,
-        accessories,
-        promotions,
-        price_history: [{price}],
-      });
+      validVehicles.push(
+        cleanEmpty({
+          sku,
+          name,
+          model,
+          category,
+          manufacturer_id,
+          price,
+
+          version,
+          release_status,
+          release_date,
+          status,
+
+          on_road_price,
+          battery_type,
+          battery_capacity,
+          range_km,
+          wltp_range_km,
+          charging_fast,
+          charging_slow,
+          charging_port_type,
+          motor_power,
+          top_speed,
+          acceleration,
+          drivetrain,
+
+          dimensions,
+          weight,
+          payload,
+          seating_capacity,
+          tire_size,
+          trunk_type,
+
+          safety_features,
+          interior_features: formattedInteriorFeatures,
+          driving_modes,
+          software_version,
+          ota_update,
+
+          stocks,
+          warranty_years,
+          battery_warranty_years,
+          color_options,
+          images: uploadedImages,
+          description,
+          promotions,
+        })
+      );
     }
 
     if (validVehicles.length === 0) {
@@ -135,14 +173,12 @@ export async function createVehicle(req, res, next) {
 // Get vehicle list with filter/search
 export async function getVehicles(req, res, next) {
   try {
-    // --- Extra filters ---
     const cond = {};
     if (req.query.category) cond.category = req.query.category;
     if (req.query.status) cond.status = req.query.status;
     if (req.query.manufacturer_id)
       cond.manufacturer_id = req.query.manufacturer_id;
 
-    // --- Price range ---
     if (req.query["price[min]"] || req.query["price[max]"]) {
       cond.price = {};
       if (req.query["price[min]"])
@@ -151,7 +187,6 @@ export async function getVehicles(req, res, next) {
         cond.price.$lte = Number(req.query["price[max]"]);
     }
 
-    // --- Range filter ---
     if (req.query["range_km[min]"] || req.query["range_km[max]"]) {
       cond.range_km = {};
       if (req.query["range_km[min]"])
@@ -160,28 +195,28 @@ export async function getVehicles(req, res, next) {
         cond.range_km.$lte = Number(req.query["range_km[max]"]);
     }
 
-    // --- Battery type ---
     if (req.query.battery_type) cond.battery_type = req.query.battery_type;
 
-    // --- Color options ---
-    if (req.query.color_options) cond.color_options = req.query.color_options;
+    if (req.query.color_options)
+      cond.color_options = {$in: req.query.color_options.split(",")};
 
-    // --- Paginate with search ---
     const result = await paginate(
-      Vehicle.find()
-        .populate("manufacturer_id", "name address")
-        .populate("options")
-        .populate("accessories")
-        .populate("promotions"), // <--- populate luôn
+      Vehicle,
       req,
-      ["name", "model", "version"], // searchFields
-      cond // extraQuery
+      ["name", "model", "version"],
+      cond
     );
+
+    const dataWithPopulate = await Vehicle.populate(result.data, [
+      {path: "manufacturer_id", select: "name address"},
+      {path: "promotions"},
+    ]);
 
     return res.json({
       success: true,
       message: VehicleMessage.LIST_SUCCESS,
       ...result,
+      data: dataWithPopulate,
     });
   } catch (err) {
     next(err);
@@ -193,8 +228,6 @@ export async function getVehicleById(req, res, next) {
   try {
     const vehicle = await Vehicle.findById(req.params.id)
       .populate("manufacturer_id", "name address")
-      .populate("options")
-      .populate("accessories")
       .populate("promotions");
 
     if (!vehicle) return errorRes(res, "Vehicle not found", 404);
@@ -205,35 +238,142 @@ export async function getVehicleById(req, res, next) {
   }
 }
 
-// Update vehicle (EVM Staff, Admin only)
+// Update vehicle
 export async function updateVehicle(req, res, next) {
   try {
+    req.body = cleanEmpty(req.body);
     const vehicle = await Vehicle.findById(req.params.id);
-    if (!vehicle) return errorRes(res, "Vehicle not found", 404);
+    if (!vehicle) return res.status(404).json({message: "Vehicle not found"});
 
-    // Track price changes
-    if (req.body.price && req.body.price !== vehicle.price) {
-      vehicle.price_history.push({price: req.body.price});
+    const {imagesToRemove} = req.body;
+    if (imagesToRemove && imagesToRemove.length > 0) {
+      vehicle.images = vehicle.images.filter(
+        (img) => !imagesToRemove.includes(img)
+      );
     }
 
-    // Update all fields
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        vehicle.images.push(file.path);
+      }
+    }
+
     Object.assign(vehicle, req.body);
     await vehicle.save();
 
-    return success(res, VehicleMessage.UPDATE_SUCCESS, vehicle);
+    return res.json({success: true, vehicle});
   } catch (err) {
     next(err);
   }
 }
 
-// Delete vehicle (EVM Staff, Admin only)
+// Soft delete vehicle
 export async function deleteVehicle(req, res, next) {
   try {
-    const vehicle = await Vehicle.findByIdAndDelete(req.params.id);
+    const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) return errorRes(res, "Vehicle not found", 404);
+
+    if (vehicle.status === "inactive") {
+      return errorRes(res, "Vehicle already inactive", 400);
+    }
+
+    vehicle.status = "inactive";
+    await vehicle.save();
 
     return success(res, VehicleMessage.DELETE_SUCCESS, {id: vehicle._id});
   } catch (err) {
     next(err);
+  }
+}
+
+// Helper summarize
+function summarizeCar(car) {
+  return `
+      Name: ${car.name} ${car.model || ""}
+      Category: ${car.category || "N/A"}
+      Version: ${car.version || "N/A"}
+      
+      Price: ${car.price?.toLocaleString() || "N/A"} VND
+      Battery: ${car.battery_type || "N/A"}, ${
+    car.battery_capacity || "N/A"
+  } kWh
+      Range: ${car.range_km || "N/A"} km
+      Charging: Fast ${car.charging_fast || "N/A"} mins, Slow ${
+    car.charging_slow || "N/A"
+  } hrs
+      Motor: ${car.motor_power || "N/A"} kW, Drivetrain: ${
+    car.drivetrain || "N/A"
+  }
+      Top speed: ${car.top_speed || "N/A"} km/h
+      Accel 0-100: ${car.acceleration || "N/A"} s
+      
+      Dimensions (mm): ${car.dimensions?.length || "?"} x ${
+    car.dimensions?.width || "?"
+  } x ${car.dimensions?.height || "?"}
+      Wheelbase: ${car.dimensions?.wheelbase || "N/A"} mm
+      Ground clearance: ${car.dimensions?.ground_clearance || "N/A"} mm
+      Seating: ${car.seating_capacity || "N/A"}
+      
+      Safety: ${car.safety_features?.join(", ") || "N/A"}
+      Driving modes: ${car.driving_modes?.join(", ") || "N/A"}
+      OTA update: ${car.ota_update ? "Yes" : "No"}
+      
+      Warranty: ${car.warranty_years || "N/A"} yrs (Battery: ${
+    car.battery_warranty_years || "N/A"
+  } yrs)
+      `;
+}
+
+export async function compareCars(req, res) {
+  try {
+    const {id1, id2} = req.params;
+
+    const [car1, car2] = await Promise.all([
+      Vehicle.findById(id1),
+      Vehicle.findById(id2),
+    ]);
+
+    if (!car1 || !car2) {
+      return res.status(404).json({message: "Không tìm thấy 1 hoặc cả 2 xe"});
+    }
+
+    const prompt = `
+      So sánh hai chiếc xe sau dựa trên trải nghiệm đời sống người dùng:
+      - Xe A: ${summarizeCar(car1)}
+      - Xe B: ${summarizeCar(car2)}
+
+      Hãy phân tích chi tiết cho từng xe:
+      1. Ưu điểm
+      2. Nhược điểm
+      3. Nhu cầu phát triển trong tương lai
+      4. Gợi ý lựa chọn phù hợp cho khách hàng.
+      `;
+
+    const response = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant",
+          messages: [{role: "user", content: prompt}],
+          temperature: 0.7,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    res.json({
+      car1: summarizeCar(car1),
+      car2: summarizeCar(car2),
+      analysis: data?.choices?.[0]?.message?.content || "Không có phản hồi",
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({error: err.message});
   }
 }

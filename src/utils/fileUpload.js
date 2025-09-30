@@ -1,13 +1,44 @@
+import {CloudinaryStorage} from "multer-storage-cloudinary";
 import multer from "multer";
-import path from "path";
+import cloudinary from "../config/cloudinary.js";
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads"),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext);
-    cb(null, `${base}-${Date.now()}${ext}`);
+const userAvatarStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "user_avatars",
+    allowed_formats: ["jpg", "jpeg", "png"],
+    transformation: [{width: 250, height: 250, crop: "fill"}],
   },
 });
 
-export const upload = multer({storage});
+const vehicleImageStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "vehicle_images",
+    allowed_formats: ["jpg", "jpeg", "png"],
+    transformation: [{width: 800, crop: "limit"}],
+  },
+});
+
+const accessoryImageStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "accessory_images",
+    allowed_formats: ["jpg", "jpeg", "png"],
+    transformation: [{width: 800, crop: "limit"}],
+  },
+});
+
+const optionImageStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "option_images",
+    allowed_formats: ["jpg", "jpeg", "png"],
+    transformation: [{width: 800, crop: "limit"}],
+  },
+});
+
+export const uploadUserAvatar = multer({storage: userAvatarStorage});
+export const uploadVehicleImage = multer({storage: vehicleImageStorage});
+export const uploadAccessoryImage = multer({storage: accessoryImageStorage});
+export const uploadOptionImage = multer({storage: optionImageStorage});

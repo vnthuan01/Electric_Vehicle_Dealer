@@ -4,7 +4,11 @@ import mongoose from "mongoose";
 const promotionSchema = new mongoose.Schema(
   {
     name: {type: String, required: true},
-    type: {type: String, enum: ["percent", "amount"], required: true},
+    type: {
+      type: String,
+      enum: ["percent", "amount", "service", "gift"],
+      required: true,
+    },
     value: {type: Number, required: true},
     start_date: {type: Date},
     end_date: {type: Date},
@@ -12,5 +16,9 @@ const promotionSchema = new mongoose.Schema(
   },
   {timestamps: true}
 );
+
+promotionSchema.index({name: 1});
+promotionSchema.index({is_active: 1});
+promotionSchema.index({start_date: 1, end_date: 1});
 
 export default mongoose.model("Promotion", promotionSchema);

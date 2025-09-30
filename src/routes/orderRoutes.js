@@ -28,7 +28,7 @@ router.use(authenticate);
  *   post:
  *     tags:
  *       - Orders
- *     summary: Create order/quotation
+ *     summary: Create order/quotation (multi-vehicle support)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -38,50 +38,88 @@ router.use(authenticate);
  *           schema:
  *             type: object
  *             required:
- *               - code
  *               - customer_id
- *               - vehicle_id
- *               - price
+ *               - items
  *             properties:
- *               code:
- *                 type: string
  *               customer_id:
  *                 type: string
- *               vehicle_id:
- *                 type: string
+ *                 example: "68d1245b394bfef73a507e47"
  *               dealership_id:
  *                 type: string
- *               salesperson_id:
- *                 type: string
- *               price:
- *                 type: number
- *               discount:
- *                 type: number
- *               promotion_id:
- *                 type: string
- *               final_amount:
- *                 type: number
+ *                 example: "68d0e8a599679399fff9869a"
  *               payment_method:
  *                 type: string
- *                 enum: [cash, transfer, installment]
- *               status:
- *                 type: string
- *                 enum: [quote, confirmed, contract_signed, delivered]
+ *                 enum: [cash, installment]
+ *                 default: cash
+ *                 example: "cash"
  *               notes:
  *                 type: string
+ *                 example: "Khách hàng muốn giao xe trong tháng 10/ Kèm 2 accessories và 2 options"
+ *               items:
+ *                 type: array
+ *                 description: List of vehicles in the order
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - vehicle_id
+ *                   properties:
+ *                     vehicle_id:
+ *                       type: string
+ *                       example: "68d39a14fde880da56c7f0d0"
+ *                     quantity:
+ *                       type: number
+ *                       default: 1
+ *                       example: 1
+ *                     discount:
+ *                       type: number
+ *                       default: 0
+ *                       example: 2000
+ *                     promotion_id:
+ *                       type: string
+ *                       example: "68d504d4a9f9cdb6420c9682"
+ *                     options:
+ *                       type: array
+ *                       description: List of options for this vehicle. Accepts objects with option_id (recommended). Also supports plain string ObjectIds.
+ *                       items:
+ *                         type: object
+ *                         required:
+ *                           - option_id
+ *                         properties:
+ *                           option_id:
+ *                             type: string
+ *                             example: "68d137662d41dc0589f4c9a4"
+ *                     accessories:
+ *                       type: array
+ *                       description: List of accessories selected for this vehicle
+ *                       items:
+ *                         type: object
+ *                         required:
+ *                           - accessory_id
+ *                           - quantity
+ *                         properties:
+ *                           accessory_id:
+ *                             type: string
+ *                             example: "68d137ac2d41dc0589f4c9ab"
+ *                           quantity:
+ *                             type: number
+ *                             default: 1
+ *                             example: 2
  *           example:
- *             code: "ORD-2025-0001"
- *             customer_id: "66fbca1234567890abcdef01"
- *             vehicle_id: "66fbca9876543210abcdef02"
- *             dealership_id: "66fbca456789abcd1234ef03"
- *             salesperson_id: "66fbca7890abcdef12345604"
- *             price: 30000
- *             discount: 2000
- *             promotion_id: "66fbca1112131415abcd1607"
- *             final_amount: 28000
- *             payment_method: "installment"
- *             status: "quote"
- *             notes: "Khách hàng yêu cầu giao xe trong tháng 10"
+ *             customer_id: "68d1245b394bfef73a507e47"
+ *             dealership_id: "68d0e8a599679399fff9869a"
+ *             payment_method: "cash"
+ *             notes: "Khách hàng muốn giao xe trong tháng 10/ Kèm 2 accessories và 2 options"
+ *             items:
+ *               - vehicle_id: "68d39a14fde880da56c7f0d0"
+ *                 quantity: 1
+ *                 discount: 2000
+ *                 promotion_id: "68d504d4a9f9cdb6420c9682"
+ *                 options:
+ *                   - option_id: "68d137662d41dc0589f4c9a4"
+ *                   - option_id: "68d137662d41dc0589f4c9a3"
+ *                 accessories:
+ *                   - accessory_id: "68d137ac2d41dc0589f4c9ab"
+ *                     quantity: 2
  *     responses:
  *       201:
  *         description: Created
@@ -152,7 +190,9 @@ router.get(
  *   put:
  *     tags:
  *       - Orders
- *     summary: Update order (price/discount/promotion/payment_method/notes)
+ *     summary: Update order items, payment_method and notes
+ *     description: |
+ *       Replaces items with provided list and recalculates per-item and total amounts based on current vehicle price, discounts, promotions, options and accessories.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -168,21 +208,46 @@ router.get(
  *           schema:
  *             type: object
  *             properties:
- *               price: { type: number }
- *               discount: { type: number }
- *               promotion_id: { type: string }
- *               final_amount: { type: number }
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [vehicle_id]
+ *                   properties:
+ *                     vehicle_id: { type: string }
+ *                     quantity: { type: number, default: 1 }
+ *                     discount: { type: number, default: 0 }
+ *                     promotion_id: { type: string }
+ *                     options:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           option_id: { type: string }
+ *                     accessories:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           accessory_id: { type: string }
+ *                           quantity: { type: number, default: 1 }
  *               payment_method:
  *                 type: string
- *                 enum: [cash, transfer, installment]
+ *                 enum: [cash, paypal, zalopay, installment]
  *               notes: { type: string }
  *           example:
- *             price: 32000
- *             discount: 1500
- *             promotion_id: "66fbca2222333344abcd5508"
- *             final_amount: 30500
- *             payment_method: "transfer"
- *             notes: "Khách hàng đổi phương thức thanh toán"
+ *             items:
+ *               - vehicle_id: "68d39a14fde880da56c7f0d0"
+ *                 quantity: 1
+ *                 discount: 1000
+ *                 promotion_id: "68d504d4a9f9cdb6420c9682"
+ *                 options:
+ *                   - option_id: "68d137662d41dc0589f4c9a4"
+ *                 accessories:
+ *                   - accessory_id: "68d137ac2d41dc0589f4c9ab"
+ *                     quantity: 1
+ *             payment_method: "cash"
+ *             notes: "Customer updated configuration"
  *     responses:
  *       200:
  *         description: OK
@@ -224,12 +289,13 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *   patch:
  *     tags:
  *       - Orders
- *     summary: Update order status
+ *     summary: Update order status and optionally paid amount
  *     description: |
  *       Transition allowed:
  *       - quote -> confirmed
  *       - confirmed -> contract_signed
  *       - contract_signed -> delivered
+ *       Also allows updating paid amount for the order to reflect customer payment.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -238,6 +304,7 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *         required: true
  *         schema:
  *           type: string
+ *         description: Order _id
  *     requestBody:
  *       required: true
  *       content:
@@ -250,15 +317,19 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *               status:
  *                 type: string
  *                 enum: [quote, confirmed, contract_signed, delivered]
+ *               paid_amount:
+ *                 type: number
+ *                 description: Amount paid by the customer
  *           example:
  *             status: "confirmed"
+ *             paid_amount: 15000
  *     responses:
  *       200:
- *         description: OK
+ *         description: OK, order status updated and paid amount recorded
  *       400:
- *         description: Bad Request
+ *         description: Bad Request (invalid status or paid_amount)
  *       404:
- *         description: Not Found
+ *         description: Order not found
  */
 router.patch("/:id/status", checkRole(DEALER_ROLES), updateOrderStatus);
 

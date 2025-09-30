@@ -8,6 +8,7 @@ import RefreshToken from "../models/RefreshToken.js";
 import {AuthMessage} from "../utils/MessageRes.js";
 import {sendMail} from "../utils/mailer.js";
 import {welcomeMailTemplate} from "../templates/authTemplate.js";
+import {ROLE} from "../enum/roleEnum.js";
 
 // Register new user
 export async function register(req, res, next) {
@@ -17,21 +18,50 @@ export async function register(req, res, next) {
       email,
       phone,
       password,
-      role_name = "Dealer Staff",
+      role_name = ROLE.DEALER_STAFF,
       dealership_id,
       manufacturer_id,
     } = req.body;
 
     // 1. Check if email exists
     const existed = await User.findOne({email});
-    if (existed)
+    if (existed) {
       throw new AppError(AuthMessage.EMAIL_ALREADY_EXISTS, 400, 1006);
+    }
 
-    // 2. Validate role
+    // 2. Validate requested role
     const role = await Role.findOne({name: role_name});
-    if (!role) throw new AppError(AuthMessage.INVALID_ROLE, 400, 1010);
+    if (!role) {
+      throw new AppError(AuthMessage.INVALID_ROLE, 400, 1010);
+    }
 
-    // 3. Hash password and create user
+    // 3. Validate based on current user's role
+    const currentUserRole = req.user?.role;
+    console.log(currentUserRole);
+    if (!currentUserRole) {
+      throw new AppError(AuthMessage.UNAUTHORIZED, 403, 1011);
+    }
+
+    if (currentUserRole === ROLE.ADMIN) {
+      // Admin can create any role except Admin
+      if (role_name === ROLE.ADMIN) {
+        throw new AppError(AuthMessage.ADMIN_CANNOT_CREATE_ADMIN, 403, 1012);
+      }
+    } else if (currentUserRole === ROLE.DEALER_MANAGER) {
+      // Dealer Manager can only create Dealer Staff
+      if (role_name !== ROLE.DEALER_STAFF) {
+        throw new AppError(
+          AuthMessage.DEALER_MANAGER_ONLY_CREATE_STAFF,
+          403,
+          1013
+        );
+      }
+    } else {
+      // Other roles cannot create users
+      throw new AppError(AuthMessage.UNAUTHORIZED, 403, 1014);
+    }
+
+    // 4. Hash password and create user
     const hashed = await hashPassword(password);
     const user = await User.create({
       full_name,
@@ -43,7 +73,7 @@ export async function register(req, res, next) {
       manufacturer_id,
     });
 
-    // 4. Send welcome email
+    // 5. Send welcome email
     try {
       await sendMail({
         to: email,
@@ -52,13 +82,12 @@ export async function register(req, res, next) {
       });
     } catch (mailErr) {
       console.error("Send mail failed:", mailErr.message);
-      // Do not throw here to avoid failing register API
     }
 
-    // 5. Response
+    // 6. Response
     return created(res, AuthMessage.REGISTER_SUCCESS, {id: user._id});
   } catch (e) {
-    next(e);
+    next(e || new AppError(AuthMessage.REGISTER_FAILED, 500, 1015));
   }
 }
 
@@ -76,7 +105,6 @@ export async function login(req, res, next) {
       id: user._id,
       email: user.email,
       role: user.role_id?.name,
-      roleName: user.role_id?.name,
     };
 
     const accessToken = signToken(payload, "30m");

@@ -27,11 +27,7 @@ router.use(authenticate);
  *       200:
  *         description: OK
  */
-router.get(
-  "/",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  getCustomers
-);
+router.get("/", getCustomers);
 
 /**
  * @openapi
@@ -61,7 +57,7 @@ router.get(
  *               address:
  *                 type: string
  *           example:
- *             fullname: "Nguyen Van A"
+ *             full_name: "Nguyen Van A"
  *             phone: "0901234567"
  *             email: "vana@example.com"
  *             address: "123 Le Loi, District 1, HCMC"
@@ -71,11 +67,7 @@ router.get(
  *       400:
  *         description: Bad Request
  */
-router.post(
-  "/",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  createCustomer
-);
+router.post("/", createCustomer);
 
 /**
  * @openapi
@@ -98,11 +90,7 @@ router.post(
  *       404:
  *         description: Not Found
  */
-router.get(
-  "/:id",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  getCustomerById
-);
+router.get("/:id", getCustomerById);
 
 /**
  * @openapi
@@ -135,7 +123,7 @@ router.get(
  *               address:
  *                 type: string
  *           example:
- *             fullname: "Tran Thi B"
+ *             full_name: "Tran Thi B"
  *             phone: "0912345678"
  *             email: "thib@example.com"
  *             address: "456 Tran Hung Dao, District 5, HCMC"
@@ -145,11 +133,7 @@ router.get(
  *       404:
  *         description: Not Found
  */
-router.put(
-  "/:id",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  updateCustomer
-);
+router.put("/:id", updateCustomer);
 
 /**
  * @openapi

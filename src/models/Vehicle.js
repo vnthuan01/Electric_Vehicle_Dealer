@@ -1,75 +1,93 @@
 import mongoose from "mongoose";
 
+const stockSchema = new mongoose.Schema({
+  owner_type: {type: String, enum: ["manufacturer", "dealer"], required: true},
+  owner_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    refPath: "stocks.owner_type",
+  },
+  quantity: {type: Number, default: 0},
+});
+
 const vehicleSchema = new mongoose.Schema(
   {
     // Thông tin cơ bản
     name: {type: String, required: true}, // VD: VinFast VF3
     model: {type: String}, // VD: 2025 Premium
-    category: {type: String, enum: ["car", "motorbike"], required: true}, // loại xe
+    category: {type: String, enum: ["car", "motorbike"], required: true},
     manufacturer_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Manufacturer",
+      required: true,
     },
 
-    // SKU & quản lý phiên bản
-    sku: {type: String, unique: true, index: true}, // SKU riêng từng cấu hình
+    // SKU & quản lý phiên bản, hoạt động
+    sku: {type: String, unique: true, index: true},
     version: {type: String}, // Eco, Plus, Pro...
+    release_status: {
+      type: String,
+      enum: ["coming_soon", "available", "discontinued"],
+      default: "available",
+    },
+    release_date: {type: Date},
     status: {type: String, enum: ["active", "inactive"], default: "active"},
 
     // Giá bán
-    price: {type: Number, required: true}, // giá niêm yết
-    on_road_price: {type: Number}, // giá lăn bánh tạm tính
-    price_history: [
-      {
-        price: Number,
-        updated_at: {type: Date, default: Date.now},
-      },
-    ],
+    price: {type: Number, required: true},
+    on_road_price: {type: Number},
 
     // Thông số pin & vận hành
-    battery_type: {type: String, enum: ["LFP", "NMC", "other"]}, // loại pin
+    battery_type: {type: String, enum: ["LFP", "NMC", "other"]},
     battery_capacity: {type: Number}, // kWh
-    range_km: {type: Number}, // quãng đường tối đa
+    range_km: {type: Number},
+    wltp_range_km: {type: Number},
     charging_fast: {type: Number}, // phút (10%-70%)
-    charging_slow: {type: Number}, // giờ (sạc thường)
+    charging_slow: {type: Number}, // giờ (AC)
+    charging_port_type: {
+      type: String,
+      enum: ["CCS2", "Type2", "CHAdeMO", "Tesla", "Other"],
+    },
     motor_power: {type: Number}, // kW
-    top_speed: {type: Number}, // km/h
-    acceleration: {type: Number}, // giây 0-100km/h
+    top_speed: {type: Number},
+    acceleration: {type: Number}, // 0–100 km/h (giây)
+    drivetrain: {type: String, enum: ["FWD", "RWD", "AWD"]},
 
     // Kích thước & tải trọng
     dimensions: {
       length: Number,
       width: Number,
       height: Number,
-      wheelbase: Number, // chiều dài cơ sở
-      ground_clearance: Number, // khoảng sáng gầm xe
+      wheelbase: Number,
+      ground_clearance: Number,
     },
-    weight: {type: Number}, // trọng lượng xe
-    payload: {type: Number}, // tải trọng tối đa
-    trunk_type: {type: String, enum: ["manual", "electric", "auto"]}, // cốp
+    weight: {type: Number},
+    payload: {type: Number},
+    seating_capacity: {type: Number},
+    tire_size: {type: String},
+    trunk_type: {type: String, enum: ["manual", "electric", "auto"]},
 
     // Trang bị & tính năng
-    safety_features: [{type: String}], // ABS, túi khí, radar...
+    safety_features: [{type: String}],
     interior_features: [
       {
-        name: {type: String, required: true}, // VD: Điều hòa
-        description: {type: String}, // VD: Chỉnh cơ
+        name: {type: String, required: true},
+        description: {type: String},
       },
     ],
-    driving_modes: [{type: String}], // Eco, Sport, Normal
-    software_version: {type: String}, // bản phần mềm hiện tại
-    ota_update: {type: Boolean, default: true}, // hỗ trợ FOTA/SOTA
+    driving_modes: [{type: String}],
+    software_version: {type: String},
+    ota_update: {type: Boolean, default: true},
 
     // Thông tin thương mại & quản lý
-    stock: {type: Number, default: 0},
+    stocks: [stockSchema],
     warranty_years: {type: Number},
+    battery_warranty_years: {type: Number},
     color_options: [{type: String}],
     images: [{type: String}],
     description: {type: String},
 
-    // Options & phụ kiện
-    options: [{type: mongoose.Schema.Types.ObjectId, ref: "Option"}],
-    accessories: [{type: mongoose.Schema.Types.ObjectId, ref: "Accessory"}],
+    // Khuyến mãi
     promotions: [{type: mongoose.Schema.Types.ObjectId, ref: "Promotion"}],
   },
   {timestamps: true}
