@@ -177,3 +177,12 @@ export const OptionMessage = {
 
   NOT_FOUND: "Option not found",
 };
+
+export const RoleMessage = {
+  CREATE_SUCCESS: "Role created successfully",
+  LIST_SUCCESS: "Fetched roles successfully",
+  DETAIL_SUCCESS: "Fetched role successfully",
+  NOT_FOUND: "Role not found",
+  INVALID_REQUEST: "Invalid role data",
+  ROLE_ALREADY_EXISTS: "Role already exists",
+};
