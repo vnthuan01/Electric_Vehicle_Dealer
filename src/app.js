@@ -26,6 +26,7 @@ import manufacturerRoutes from "./routes/manufacturerRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import accessoryRoutes from "./routes/accessoryRoutes.js";
 import optionRoutes from "./routes/optionRoutes.js";
+import roleRoutes from "./routes/roleRoutes.js";
 
 dotenv.config();
 
@@ -69,6 +70,7 @@ app.use(`${apiPrefix}/options`, optionRoutes);
 app.use(`${apiPrefix}/dealerships`, dealershipRoutes);
 app.use(`${apiPrefix}/manufacturers`, manufacturerRoutes);
 app.use(`${apiPrefix}/auth`, authRoutes);
+app.use(`${apiPrefix}/roles`, roleRoutes);
 
 console.log(`All routes mounted under prefix ${apiPrefix}`);
 
