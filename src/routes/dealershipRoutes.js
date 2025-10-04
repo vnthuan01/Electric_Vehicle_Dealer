@@ -7,6 +7,7 @@ import {
   getDealershipById,
   createDealership,
   deactivateDealership,
+  activateDealership,
 } from "../controllers/dealershipController.js";
 
 const router = Router();
@@ -319,13 +320,80 @@ router.get(
  *             properties:
  *               reason:
  *                 type: string
- *                 example: "Vi phạm hợp đồng"
+ *                 description: "Lý do vô hiệu hóa"
+ *                 example: "Vi phạm hợp đồng - không đạt chỉ tiêu doanh số"
  *     responses:
- *       200: { description: Dealership deactivated successfully }
+ *       200:
+ *         description: Dealership deactivated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Vô hiệu hóa đại lý thành công"
+ *                 data:
+ *                   type: object
+ *                   description: "Thông tin đại lý đã được vô hiệu hóa"
+ *       400: { description: Bad request - Đại lý đã được vô hiệu hóa trước đó }
  *       401: { description: Unauthorized }
  *       403: { description: Access denied }
  *       404: { description: Not Found }
  */
 router.patch("/:id/deactivate", checkRole([ROLE.EVM_STAFF]), deactivateDealership);
+
+/**
+ * @swagger
+ * /api/dealerships/{id}/activate:
+ *   patch:
+ *     summary: Activate/Reactivate dealership (EVM Staff only)
+ *     tags: [Dealerships]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Dealership ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: "Lý do kích hoạt lại"
+ *                 example: "Đã khắc phục vi phạm, đạt lại tiêu chuẩn hoạt động"
+ *     responses:
+ *       200:
+ *         description: Dealership activated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Kích hoạt đại lý thành công"
+ *                 data:
+ *                   type: object
+ *                   description: "Thông tin đại lý đã được kích hoạt"
+ *       400: { description: Bad request - Đại lý đã được kích hoạt trước đó }
+ *       401: { description: Unauthorized }
+ *       403: { description: Access denied }
+ *       404: { description: Not Found }
+ */
+router.patch("/:id/activate", checkRole([ROLE.EVM_STAFF]), activateDealership);
 
 export default router;

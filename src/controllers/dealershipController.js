@@ -137,8 +137,10 @@ export async function getDealershipById(req, res, next) {
 // 3. Tạo new dealership (EVM Staff only)
 export async function createDealership(req, res, next) {
   try {
-    const currentUser = await User.findById(req.user.id).populate("manufacturer_id");
-    
+    const currentUser = await User.findById(req.user.id).populate(
+      "manufacturer_id"
+    );
+
     if (!currentUser?.manufacturer_id) {
       return errorRes(res, "EVM Staff phải thuộc về một manufacturer", 400);
     }
@@ -156,19 +158,19 @@ export async function createDealership(req, res, next) {
       address,
       contact,
       capabilities,
-      notes
+      notes,
     } = req.body;
 
     // Check if code or tax_code already exists
     const existingDealership = await Dealership.findOne({
-      $or: [{ code }, { tax_code }]
+      $or: [{ code }, { tax_code }],
     });
 
     if (existingDealership) {
       return errorRes(
         res,
-        existingDealership.code === code 
-          ? "Mã đại lý đã tồn tại" 
+        existingDealership.code === code
+          ? "Mã đại lý đã tồn tại"
           : "Mã số thuế đã tồn tại",
         400
       );
@@ -184,7 +186,7 @@ export async function createDealership(req, res, next) {
     // Merge with provided services
     const finalCapabilities = {
       ...capabilities,
-      services: { ...defaultServices, ...capabilities?.services }
+      services: { ...defaultServices, ...capabilities?.services },
     };
 
     const newDealership = await Dealership.create({
@@ -203,7 +205,8 @@ export async function createDealership(req, res, next) {
       status: "active",
       isActive: true,
       created_by: req.user.id,
-      notes: notes || `Đại lý ${dealer_level} được tạo bởi ${currentUser.full_name}`,
+      notes:
+        notes || `Đại lý ${dealer_level} được tạo bởi ${currentUser.full_name}`,
     });
 
     const populatedDealership = await Dealership.findById(newDealership._id)
@@ -213,7 +216,7 @@ export async function createDealership(req, res, next) {
     return success(res, "Tạo đại lý thành công", populatedDealership, 201);
   } catch (err) {
     if (err.name === "ValidationError") {
-      const errors = Object.values(err.errors).map(e => e.message);
+      const errors = Object.values(err.errors).map((e) => e.message);
       return errorRes(res, `Validation Error: ${errors.join(", ")}`, 400);
     }
     next(err);
@@ -224,7 +227,7 @@ export async function createDealership(req, res, next) {
 export async function deactivateDealership(req, res, next) {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const reason = req.body?.reason || "";
 
     const dealership = await Dealership.findById(id);
     if (!dealership) {
@@ -242,9 +245,13 @@ export async function deactivateDealership(req, res, next) {
       {
         status: "inactive",
         isActive: false,
-        notes: reason 
-          ? `${dealership.notes || ""}\n[${new Date().toISOString()}] Vô hiệu hóa: ${reason}`
-          : `${dealership.notes || ""}\n[${new Date().toISOString()}] Đại lý đã được vô hiệu hóa`,
+        notes: reason
+          ? `${
+              dealership.notes || ""
+            }\n[${new Date().toISOString()}] Vô hiệu hóa: ${reason}`
+          : `${
+              dealership.notes || ""
+            }\n[${new Date().toISOString()}] Đại lý đã được vô hiệu hóa`,
       },
       { new: true }
     ).populate([
@@ -253,6 +260,48 @@ export async function deactivateDealership(req, res, next) {
     ]);
 
     return success(res, "Vô hiệu hóa đại lý thành công", updatedDealership);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// 5. Activate/Reactivate dealership (EVM Staff only)
+export async function activateDealership(req, res, next) {
+  try {
+    const { id } = req.params;
+    const reason = req.body?.reason || "";
+
+    const dealership = await Dealership.findById(id);
+    if (!dealership) {
+      return errorRes(res, DealerMessage.NOT_FOUND, 404);
+    }
+
+    // Check if already activated
+    if (dealership.isActive && dealership.status === "active") {
+      return errorRes(res, "Đại lý đã được kích hoạt trước đó", 400);
+    }
+
+    // Update status to active
+    const updatedDealership = await Dealership.findByIdAndUpdate(
+      id,
+      {
+        status: "active",
+        isActive: true,
+        notes: reason
+          ? `${
+              dealership.notes || ""
+            }\n[${new Date().toISOString()}] Kích hoạt lại: ${reason}`
+          : `${
+              dealership.notes || ""
+            }\n[${new Date().toISOString()}] Đại lý đã được kích hoạt lại`,
+      },
+      { new: true }
+    ).populate([
+      { path: "manufacturer_id", select: "name code" },
+      { path: "created_by", select: "full_name email" },
+    ]);
+
+    return success(res, "Kích hoạt đại lý thành công", updatedDealership);
   } catch (err) {
     next(err);
   }
