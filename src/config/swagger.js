@@ -20,7 +20,7 @@ const options = {
       `,
     },
     servers: [
-      { url: "http://localhost:3000/", description: "Local Development" },
+      {url: "http://localhost:5000/", description: "Local Development"},
       {
         url: "https://electric-vehicle-dealer.onrender.com/api",
         description: "Staging",
@@ -42,35 +42,35 @@ const options = {
         ApiResponse: {
           type: "object",
           properties: {
-            success: { type: "boolean", example: true },
-            message: { type: "string", example: "Request successful" },
-            data: { type: "object" },
-            error: { type: "string", example: "Unauthorized" },
+            success: {type: "boolean", example: true},
+            message: {type: "string", example: "Request successful"},
+            data: {type: "object"},
+            error: {type: "string", example: "Unauthorized"},
           },
         },
         // Placeholder schemas (expand later for 14 tables: User, Role, Vehicle, Order, Payment, Debt, etc.)
         User: {
           type: "object",
           properties: {
-            _id: { type: "string" },
-            full_name: { type: "string" },
-            email: { type: "string" },
+            _id: {type: "string"},
+            full_name: {type: "string"},
+            email: {type: "string"},
             role: {
               type: "string",
               enum: ["Dealer Staff", "Dealer Manager", "EVM Staff", "Admin"],
             },
-            createdAt: { type: "string", format: "date-time" },
+            createdAt: {type: "string", format: "date-time"},
           },
         },
         Vehicle: {
           type: "object",
           properties: {
-            _id: { type: "string" },
-            sku: { type: "string" },
-            name: { type: "string" },
-            version: { type: "string" },
-            color: { type: "string" },
-            price: { type: "number" },
+            _id: {type: "string"},
+            sku: {type: "string"},
+            name: {type: "string"},
+            version: {type: "string"},
+            color: {type: "string"},
+            price: {type: "number"},
             status: {
               type: "string",
               enum: ["in_stock", "allocated", "sold"],
@@ -79,7 +79,7 @@ const options = {
         },
       },
     },
-    security: [{ bearerAuth: [] }],
+    security: [{bearerAuth: []}],
   },
   apis: ["./src/routes/*.js", "./src/controllers/*.js"],
 };

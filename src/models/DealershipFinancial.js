@@ -19,35 +19,35 @@ const dealershipFinancialSchema = new mongoose.Schema(
 
     // === CHÍNH SÁCH KINH DOANH ===
     business_policy: {
-      annual_sales_target: { type: Number, required: true }, // Chỉ tiêu năm
-      dealer_margin_percent: { type: Number, required: true }, // % hoa hồng
-      payment_terms_days: { type: Number, default: 30 }, // Hạn thanh toán
-      credit_limit: { type: Number, required: true }, // Hạn mức tín dụng
+      annual_sales_target: {type: Number, required: true}, // Chỉ tiêu năm
+      dealer_margin_percent: {type: Number, required: true}, // % hoa hồng
+      payment_terms_days: {type: Number, default: 30}, // Hạn thanh toán
+      credit_limit: {type: Number, required: true}, // Hạn mức tín dụng
 
       // Chiết khấu theo khối lượng
       volume_discounts: [
         {
-          min_quantity: { type: Number, required: true },
-          discount_percent: { type: Number, required: true },
-          description: { type: String },
+          min_quantity: {type: Number, required: true},
+          discount_percent: {type: Number, required: true},
+          description: {type: String},
         },
       ],
     },
 
     // === TÌNH TRẠNG TÀI CHÍNH ===
     current_status: {
-      total_debt: { type: Number, default: 0 }, // Tổng công nợ
-      overdue_amount: { type: Number, default: 0 }, // Quá hạn
-      next_payment_due: { type: Date }, // Ngày đến hạn
-      last_payment_date: { type: Date },
-      last_payment_amount: { type: Number, default: 0 },
+      total_debt: {type: Number, default: 0}, // Tổng công nợ
+      overdue_amount: {type: Number, default: 0}, // Quá hạn
+      next_payment_due: {type: Date}, // Ngày đến hạn
+      last_payment_date: {type: Date},
+      last_payment_amount: {type: Number, default: 0},
 
       credit_rating: {
         type: String,
         enum: ["excellent", "good", "fair", "poor", "default"],
         default: "good",
       },
-      credit_score: { type: Number, min: 0, max: 1000, default: 700 }, // Điểm tín dụng
+      credit_score: {type: Number, min: 0, max: 1000, default: 700}, // Điểm tín dụng
 
       financial_health: {
         type: String,
@@ -58,21 +58,21 @@ const dealershipFinancialSchema = new mongoose.Schema(
 
     // === THỐNG KÊ GIAO DỊCH ===
     transaction_summary: {
-      total_payments_made: { type: Number, default: 0 },
-      total_amount_paid: { type: Number, default: 0 },
-      on_time_payment_rate: { type: Number, default: 100 }, // %
-      total_commission_earned: { type: Number, default: 0 },
+      total_payments_made: {type: Number, default: 0},
+      total_amount_paid: {type: Number, default: 0},
+      on_time_payment_rate: {type: Number, default: 100}, // %
+      total_commission_earned: {type: Number, default: 0},
     },
 
     // === METADATA ===
-    created_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    last_review_date: { type: Date },
-    notes: { type: String },
+    created_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
+    last_review_date: {type: Date},
+    notes: {type: String},
   },
   {
     timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
+    toJSON: {virtuals: true},
+    toObject: {virtuals: true},
   }
 );
 
@@ -105,7 +105,6 @@ dealershipFinancialSchema.methods.addDebt = function (amount) {
 };
 
 dealershipFinancialSchema.methods.makePayment = function (amount) {
-  ``;
   this.current_status.total_debt = Math.max(
     0,
     this.current_status.total_debt - amount
