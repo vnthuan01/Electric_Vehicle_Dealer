@@ -53,16 +53,12 @@ export async function getAllUsers(req, res, next) {
       ["full_name", "email", "phone"],
       filter
     );
+    console.log(result.data.map((u) => u.dealership_id));
 
-    // Populate cho từng user
-    const populatedData = await Promise.all(
-      result.data.map((u) =>
-        User.findById(u._id)
-          .populate("role_id", "name")
-          .populate("dealership_id", "name")
-          .populate("manufacturer_id", "name")
-      )
-    );
+    const populatedData = await User.populate(result.data, [
+      {path: "dealership_id", select: "code company_name", model: "Dealership"},
+      {path: "manufacturer_id", select: "code name", model: "Manufacturer"},
+    ]);
 
     return success(res, AuthMessage.FETCH_SUCCESS, {
       ...result,
@@ -83,15 +79,17 @@ export async function getUserById(req, res, next) {
 
     const user = await User.findById(id)
       .populate("role_id", "name")
-      .populate("dealership_id", "name")
+      .populate("dealership_id", "company_name")
       .populate("manufacturer_id", "name");
-
+    console.log(user);
     if (!user) throw new AppError("User not found", 404, 2001);
+    console.log(user);
 
     // Nếu là Dealer Manager, chỉ cho phép xem nhân viên trong cùng dealership
     if (currentUser.role_id.name === "Dealer Manager") {
       if (
-        user.dealership_id?.toString() !== currentUser.dealership_id?.toString()
+        user.dealership_id?._id.toString() !==
+        currentUser.dealership_id?._id.toString()
       ) {
         throw new AppError("Access denied", 403, 2010);
       }
@@ -112,15 +110,20 @@ export async function createUser(req, res, next) {
       phone,
       password,
       role_id,
-      dealership_id,
-      manufacturer_id,
+      dealership_id: reqDealershipId,
+      manufacturer_id: reqManufacturerId,
     } = req.body;
+
+    let dealership_id = reqDealershipId;
+    let manufacturer_id = reqManufacturerId;
 
     // Get current user with role info
     const currentUser = await User.findById(req.user.id).populate("role_id");
+    const currentRoleName = await Role.findById(role_id).select("name");
+
     // Nếu là Dealer Manager, chỉ cho phép tạo Dealer Staff trong dealership của họ
     if (currentUser.role_id.name === "Dealer Manager") {
-      if (role_name !== "Dealer Staff") {
+      if (currentRoleName.name !== "Dealer Staff") {
         throw new AppError(
           "Dealer Manager can only create Dealer Staff",
           403,
@@ -161,7 +164,7 @@ export async function createUser(req, res, next) {
       throw new AppError(AuthMessage.EMAIL_ALREADY_EXISTS, 400, 2002);
 
     // Kiểm tra role
-    const role = await Role.findOne({role_id});
+    const role = await Role.findById(role_id);
     if (!role) throw new AppError(AuthMessage.INVALID_ROLE, 400, 2003);
 
     const hashed = await hashPassword(password);
@@ -176,7 +179,6 @@ export async function createUser(req, res, next) {
       manufacturer_id: manufacturer_id || null,
     };
 
-    // Nếu client upload avatar
     if (req.file) {
       userData.avatar = req.file.path;
     }
@@ -189,7 +191,6 @@ export async function createUser(req, res, next) {
   }
 }
 
-// Update user (Admin or Dealer Manager)
 export async function updateUser(req, res, next) {
   try {
     const {id} = req.params;
@@ -199,9 +200,13 @@ export async function updateUser(req, res, next) {
       phone,
       password,
       role_name,
-      dealership_id,
-      manufacturer_id,
+      dealership_id: reqDealershipId,
+      manufacturer_id: reqManufacturerId,
     } = req.body;
+
+    // cho phép thay đổi hai biến này
+    let dealership_id = reqDealershipId;
+    let manufacturer_id = reqManufacturerId;
 
     // Get current user with role info
     const currentUser = await User.findById(req.user.id).populate("role_id");
@@ -261,7 +266,6 @@ export async function updateUser(req, res, next) {
     if (dealership_id) user.dealership_id = dealership_id;
     if (manufacturer_id) user.manufacturer_id = manufacturer_id;
 
-    // Nếu client upload avatar mới -> xóa cũ + upload mới
     if (req.file) {
       if (user.avatar) {
         // Implement Cloudinary deletion logic here if needed
@@ -283,7 +287,7 @@ export async function deleteUser(req, res, next) {
     const {id} = req.params;
 
     // Get current user with role info
-    const currentUser = await User.findById(req.user._id).populate("role_id");
+    const currentUser = await User.findById(req.user.id).populate("role_id");
 
     const user = await User.findById(id);
     if (!user) throw new AppError("User not found", 404, 2007);

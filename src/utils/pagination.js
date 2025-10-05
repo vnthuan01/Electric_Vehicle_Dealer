@@ -5,7 +5,7 @@ export const paginate = async (
   searchFields = [],
   extraQuery = {}
 ) => {
-  let {page = 1, limit = 10, search = "", sort} = req.query;
+  let { page = 1, limit = 10, search = "", sort } = req.query;
 
   page = parseInt(page) || 1;
   limit = parseInt(limit) || 10;
@@ -13,10 +13,10 @@ export const paginate = async (
   const skip = (page - 1) * limit;
 
   // ----- SEARCH -----
-  let searchQuery = {...extraQuery};
+  let searchQuery = { ...extraQuery };
   if (search && searchFields.length > 0) {
     const regex = new RegExp(search, "i"); // case-insensitive
-    searchQuery.$or = searchFields.map((field) => ({[field]: regex}));
+    searchQuery.$or = searchFields.map((field) => ({ [field]: regex }));
   }
 
   // ----- SORT -----
@@ -30,7 +30,7 @@ export const paginate = async (
     });
   } else {
     // default sort
-    sortQuery = {createdAt: -1};
+    sortQuery = { createdAt: -1 };
   }
 
   // ----- COUNT -----
