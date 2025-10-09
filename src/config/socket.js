@@ -41,7 +41,7 @@ export const socketConfig = (io) => {
 
 // Helper functions to emit notifications
 export const emitVehicleDistribution = (io, data) => {
-  const {dealershipId, manufacturerId, vehicle, quantity, totalAmount} = data;
+  const {dealershipId, vehicle, quantity, totalAmount} = data;
 
   const notification = {
     type: "vehicle_distribution",
