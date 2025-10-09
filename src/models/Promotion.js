@@ -6,13 +6,15 @@ const promotionSchema = new mongoose.Schema(
     name: {type: String, required: true},
     type: {
       type: String,
-      enum: ["percent", "amount", "service", "gift"],
+      enum: ["service", "gift"],
       required: true,
     },
     value: {type: Number, required: true},
     start_date: {type: Date},
     end_date: {type: Date},
     is_active: {type: Boolean, default: true},
+    is_deleted: {type: Boolean, default: false},
+    dealerships: [{type: mongoose.Schema.Types.ObjectId, ref: "Dealership"}], // Các đại lý được phân bổ
   },
   {timestamps: true}
 );

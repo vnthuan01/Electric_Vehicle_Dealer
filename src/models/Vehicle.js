@@ -87,8 +87,8 @@ const vehicleSchema = new mongoose.Schema(
     images: [{type: String}],
     description: {type: String},
 
-    // Khuyến mãi
-    promotions: [{type: mongoose.Schema.Types.ObjectId, ref: "Promotion"}],
+    //Delete
+    is_deleted: {type: Boolean, default: false},
   },
   {timestamps: true}
 );

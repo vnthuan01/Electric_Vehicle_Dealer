@@ -148,14 +148,32 @@ export const DealerMessage = {
 };
 
 export const PromotionMessage = {
+  // CRUD cơ bản
   CREATE_SUCCESS: "Promotion created successfully",
-  LIST_SUCCESS: "Fetched promotions successfully",
-  DETAIL_SUCCESS: "Fetched promotion successfully",
+  CREATE_FAILED: "Failed to create promotion",
+  FETCH_SUCCESS: "Fetched promotions successfully",
+  FETCH_ONE_SUCCESS: "Fetched promotion successfully",
   UPDATE_SUCCESS: "Promotion updated successfully",
   DELETE_SUCCESS: "Promotion deleted successfully",
-
   NOT_FOUND: "Promotion not found",
-  INVALID_REQUEST: "Invalid promotion data",
+
+  // Trạng thái
+  ACTIVATED: "Promotion activated successfully",
+  DEACTIVATED: "Promotion deactivated successfully",
+  EXPIRED: "Promotion has expired",
+
+  // Validation
+  INVALID_DATE_RANGE: "Invalid date range (end_date must be after start_date)",
+  INVALID_TYPE: "Invalid promotion type",
+  VALUE_REQUIRED: "Promotion value is required",
+
+  // Phân bổ cho đại lý
+  ASSIGN_SUCCESS: "Assigned promotion to dealerships successfully",
+  ASSIGN_FAILED: "Failed to assign promotion to dealerships",
+  DUPLICATE_DEALERSHIP:
+    "Some dealerships are already assigned to this promotion",
+  INVALID_DEALERSHIPS: "Invalid dealership list",
+  NO_VALID_DEALERSHIP: "No valid dealership found",
 };
 
 export const AccessoryMessage = {

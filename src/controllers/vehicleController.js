@@ -278,8 +278,7 @@ export async function deleteVehicle(req, res, next) {
     if (vehicle.status === "inactive") {
       return errorRes(res, "Vehicle already inactive", 400);
     }
-
-    vehicle.status = "inactive";
+    (vehicle.is_deleted = true), (vehicle.status = "inactive");
     await vehicle.save();
 
     return success(res, VehicleMessage.DELETE_SUCCESS, {id: vehicle._id});
