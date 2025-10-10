@@ -300,7 +300,7 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *     summary: Update order status and optionally paid amount
  *     description: |
  *       Transition allowed:
- *       - quote -> confirmed
+ *       - pending -> confirmed
  *       - confirmed -> contract_signed
  *       - contract_signed -> delivered
  *       Also allows updating paid amount for the order to reflect customer payment.
@@ -325,9 +325,6 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *               status:
  *                 type: string
  *                 enum: [quote, confirmed, contract_signed, delivered]
- *               paid_amount:
- *                 type: number
- *                 description: Amount paid by the customer
  *           example:
  *             status: "confirmed"
  *             paid_amount: 15000

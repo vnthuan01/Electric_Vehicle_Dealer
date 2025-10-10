@@ -263,6 +263,7 @@ export async function createOrder(req, res, next) {
         [
           {
             vehicle_id: item.vehicle_id,
+            color: item.color || null,
             quantity: item.quantity,
             options: item.options,
             accessories: item.accessories,
@@ -443,8 +444,67 @@ export async function updateOrder(req, res, next) {
 // ==================== Delete Order ====================
 export async function deleteOrder(req, res, next) {
   try {
-    const order = await Order.findByIdAndDelete(req.params.id);
+    const order = await Order.findById(req.params.id);
     if (!order) return errorRes(res, OrderMessage.NOT_FOUND, 404);
+
+    // --- restore stock nếu order đang pending hoặc đã trừ stock ---
+    if (order.status === "pending" && order.items?.length > 0) {
+      for (const item of order.items) {
+        // chỉ hoàn lại stock nếu trước đó có trừ (ở controller đang không trừ cho car)
+        if (item.category === "car") continue;
+        if (item.color) {
+          await Vehicle.findOneAndUpdate(
+            {
+              _id: item.vehicle_id,
+              "stocks.owner_type": "dealer",
+              "stocks.color": item.color,
+              "stocks.owner_id": order.dealership_id,
+            },
+            {$inc: {"stocks.$.quantity": item.quantity}}
+          );
+        } else {
+          // Không có màu: hoàn vào entry đầu tiên của dealer hoặc tạo mới
+          const vehicle = await Vehicle.findById(item.vehicle_id);
+          if (vehicle) {
+            let restored = false;
+            for (const s of vehicle.stocks || []) {
+              if (
+                s.owner_type === "dealer" &&
+                String(s.owner_id) === String(order.dealership_id)
+              ) {
+                s.quantity += item.quantity;
+                restored = true;
+                break;
+              }
+            }
+            if (!restored) {
+              vehicle.stocks.push({
+                owner_type: "dealer",
+                owner_id: order.dealership_id,
+                quantity: item.quantity,
+              });
+            }
+            await vehicle.save();
+          }
+        }
+      }
+    }
+
+    // --- Soft delete order ---
+    order.is_deleted = true;
+    order.deleted_at = new Date();
+    order.deleted_by = req.user._id;
+    await order.save();
+
+    // --- Soft delete debt liên quan ---
+    const debt = await Debt.findOne({order_id: order._id});
+    if (debt) {
+      debt.is_deleted = true;
+      debt.deleted_at = new Date();
+      debt.deleted_by = req.user._id;
+      await debt.save();
+    }
+
     return success(res, OrderMessage.DELETE_SUCCESS, {id: order._id});
   } catch (err) {
     next(err);

@@ -132,7 +132,9 @@ export const DealerMessage = {
   // Request creation
   REQUEST_CREATED_PENDING:
     "Vehicle request has been created and is pending approval.",
-
+  DUPLICATE_REQUEST:
+    "You have already sent a request for this vehicle with this color.",
+  DELETE_REQUEST_SUCCESS: "Vehicle request deleted successfully.",
   // Approval
   REQUEST_APPROVED: "Vehicle request has been approved successfully.",
   REQUEST_REJECTED: "Vehicle request has been rejected.",

@@ -21,6 +21,9 @@ const debtSchema = new mongoose.Schema(
       enum: ["open", "partial", "settled"],
       default: "open",
     },
+    is_deleted: {type: Boolean, default: false},
+    deleted_at: {type: Date},
+    deleted_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
   },
   {timestamps: true}
 );

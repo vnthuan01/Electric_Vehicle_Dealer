@@ -136,6 +136,9 @@ const orderSchema = new mongoose.Schema(
     },
 
     notes: String,
+    is_deleted: {type: Boolean, default: false},
+    deleted_at: {type: Date},
+    deleted_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
   },
   {timestamps: true}
 );

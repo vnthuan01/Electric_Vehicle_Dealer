@@ -37,7 +37,7 @@ router.use(authenticate);
  *                 type: string
  *               quantity:
  *                 type: number
- *               dealership_id:
+ *               color:
  *                 type: string
  *               notes:
  *                 type: string

@@ -11,13 +11,16 @@ const paymentSchema = new mongoose.Schema(
     customer_id: {type: mongoose.Schema.Types.ObjectId, ref: "Customer"},
     method: {
       type: String,
-      enum: ["cash", "installment"],
+      enum: ["cash", "bank", "qr", "card"],
       required: true,
     },
     amount: {type: Number, required: true},
     paid_at: {type: Date, default: Date.now},
     reference: {type: String}, // mã giao dịch, chứng từ
     notes: {type: String},
+    is_deleted: {type: Boolean, default: false},
+    deleted_at: {type: Date},
+    deleted_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
   },
   {timestamps: true}
 );
