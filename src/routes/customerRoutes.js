@@ -1,7 +1,7 @@
 import {Router} from "express";
 import {authenticate} from "../middlewares/authMiddleware.js";
 import {checkRole} from "../middlewares/checkRole.js";
-import {MANAGEMENT_ROLES} from "../enum/roleEnum.js";
+import {MANAGEMENT_ROLES, ROLE} from "../enum/roleEnum.js";
 import {
   createCustomer,
   getCustomers,
@@ -56,7 +56,7 @@ router.use(authenticate);
  *       500:
  *         description: Lỗi hệ thống
  */
-router.get("/", getCustomers);
+router.get("/", checkRole(ROLE.DEALER_MANAGER), getCustomers);
 
 /**
  * @openapi
