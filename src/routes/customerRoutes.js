@@ -8,6 +8,10 @@ import {
   getCustomerById,
   updateCustomer,
   deleteCustomer,
+  getCustomerOrders,
+  getCustomerPayments,
+  getCustomerTestDrives,
+  getCustomersOfYourself,
 } from "../controllers/customerController.js";
 
 const router = Router();
@@ -20,14 +24,79 @@ router.use(authenticate);
  *   get:
  *     tags:
  *       - Customers
- *     summary: List all customers
+ *     summary: Lấy danh sách khách hàng thuộc đại lý (dealership)
+ *     description: |
+ *       Trả về danh sách khách hàng thuộc đại lý của người dùng hiện tại.
+ *       Có thể tìm kiếm bằng từ khóa (`q`) theo họ tên, email hoặc số điện thoại.
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Từ khóa tìm kiếm (theo họ tên, email hoặc số điện thoại)
  *     responses:
  *       200:
- *         description: OK
+ *         description: Danh sách khách hàng được lấy thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Danh sách khách hàng đã được lấy thành công
+ *       401:
+ *         description: Người dùng chưa được xác thực (thiếu hoặc sai token)
+ *       500:
+ *         description: Lỗi hệ thống
  */
 router.get("/", getCustomers);
+
+/**
+ * @openapi
+ * /api/customers/yourself:
+ *   get:
+ *     tags:
+ *       - Customers
+ *     summary: Lấy danh sách khách hàng thuộc đại lý (dealership)
+ *     description: |
+ *       Trả về danh sách khách hàng đã sale bởi người dùng hiện tại.
+ *       Có thể tìm kiếm bằng từ khóa (`q`) theo họ tên, email hoặc số điện thoại.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Từ khóa tìm kiếm (theo họ tên, email hoặc số điện thoại)
+ *     responses:
+ *       200:
+ *         description: Danh sách khách hàng được lấy thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Danh sách khách hàng đã được lấy thành công
+ *       401:
+ *         description: Người dùng chưa được xác thực (thiếu hoặc sai token)
+ *       500:
+ *         description: Lỗi hệ thống
+ */
+router.get("/yourself", getCustomersOfYourself);
 
 /**
  * @openapi
@@ -157,5 +226,77 @@ router.put("/:id", updateCustomer);
  *         description: Not Found
  */
 router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteCustomer);
+
+/**
+ * @openapi
+ * /api/customers/{id}/orders:
+ *   get:
+ *     tags:
+ *       - Customers
+ *     summary: Get all orders of a customer
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer ID
+ *     responses:
+ *       200:
+ *         description: List of orders
+ *       404:
+ *         description: Customer not found
+ */
+router.get("/:id/orders", getCustomerOrders);
+
+/**
+ * @openapi
+ * /api/customers/{id}/payments:
+ *   get:
+ *     tags:
+ *       - Customers
+ *     summary: Get all payments of a customer
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer ID
+ *     responses:
+ *       200:
+ *         description: List of payments
+ *       404:
+ *         description: Customer not found
+ */
+router.get("/:id/payments", getCustomerPayments);
+
+/**
+ * @openapi
+ * /api/customers/{id}/testdrives:
+ *   get:
+ *     tags:
+ *       - Customers
+ *     summary: Get all testdrives of a customer
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer ID
+ *     responses:
+ *       200:
+ *         description: List of testdrives
+ *       404:
+ *         description: Customer not found
+ */
+router.get("/:id/testdrives", getCustomerTestDrives);
 
 export default router;

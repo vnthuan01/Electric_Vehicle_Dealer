@@ -5,23 +5,38 @@ import {created, success, error as errorRes} from "../utils/response.js";
 import {DealerMessage} from "../utils/MessageRes.js";
 import {paginate} from "../utils/pagination.js";
 import {emitRequestStatusUpdate} from "../config/socket.js";
+import Dealership from "../models/Dealership.js";
 
 //Dealer gửi request nhập xe (PENDING)
 export async function requestVehicleFromManufacturer(req, res, next) {
   try {
-    const {vehicle_id, quantity, dealership_id, notes} = req.body;
+    const {vehicle_id, quantity, dealership_id, notes, color} = req.body;
 
     if (!vehicle_id || !quantity || !dealership_id) {
       return errorRes(res, DealerMessage.MISSING_FIELDS, 400);
     }
 
-    const vehicle = await Vehicle.findById(vehicle_id);
-    if (!vehicle) return errorRes(res, DealerMessage.VEHICLE_NOT_FOUND, 404);
+    const dealership = await Dealership.findById({_id: dealership_id});
+
+    if (!dealership) {
+      return errorRes(res, DealerMessage.NOT_FOUND);
+    }
+
+    const vehicle = await Vehicle.findById({
+      _id: vehicle_id,
+      status: "active",
+      is_deleted: false,
+    });
+
+    if (!vehicle) {
+      return errorRes(res, DealerMessage.VEHICLE_NOT_FOUND, 404);
+    }
 
     const request = await RequestVehicle.create({
       vehicle_id,
       dealership_id,
       quantity,
+      color,
       notes,
       status: "pending",
     });
@@ -61,7 +76,9 @@ export async function approveRequest(req, res, next) {
     //Tìm xe và check stock của hãng
     const vehicle = await Vehicle.findById(request.vehicle_id);
     const manufacturerStock = vehicle.stocks.find(
-      (s) => s.owner_type === "manufacturer"
+      (s) =>
+        s.owner_type === "manufacturer" &&
+        (!request.color || s.color === request.color)
     );
 
     //Nếu stock nhỏ hơn số lượng request mà Admin, EVM Staff lỡ approved thì nó sẽ báo lỗi
@@ -78,7 +95,8 @@ export async function approveRequest(req, res, next) {
     let dealerStock = vehicle.stocks.find(
       (s) =>
         s.owner_type === "dealer" &&
-        s.owner_id.toString() === request.dealership_id.toString()
+        s.owner_id.toString() === request.dealership_id.toString() &&
+        (!request.color || s.color === request.color)
     );
     if (dealerStock) {
       dealerStock.quantity += request.quantity;
@@ -87,6 +105,7 @@ export async function approveRequest(req, res, next) {
         owner_type: "dealer",
         owner_id: request.dealership_id,
         quantity: request.quantity,
+        color: request.color,
       });
     }
     await vehicle.save();
@@ -102,6 +121,17 @@ export async function approveRequest(req, res, next) {
       debt.total_amount += total_amount;
       debt.remaining_amount += total_amount;
       debt.status = "open";
+      debt.items = debt.items || [];
+      debt.items.push({
+        request_id: request._id,
+        vehicle_id: vehicle._id,
+        vehicle_name: vehicle.name,
+        color: request.color,
+        unit_price: vehicle.price,
+        quantity: request.quantity,
+        amount: total_amount,
+        delivered_at: new Date(),
+      });
       await debt.save();
     } else {
       debt = await DealerManufacturerDebt.create({
@@ -111,6 +141,18 @@ export async function approveRequest(req, res, next) {
         paid_amount: 0,
         remaining_amount: total_amount,
         status: "open",
+        items: [
+          {
+            request_id: request._id,
+            vehicle_id: vehicle._id,
+            vehicle_name: vehicle.name,
+            color: request.color,
+            unit_price: vehicle.price,
+            quantity: request.quantity,
+            amount: total_amount,
+            delivered_at: new Date(),
+          },
+        ],
       });
     }
 

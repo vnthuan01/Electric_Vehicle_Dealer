@@ -7,6 +7,7 @@ const stockSchema = new mongoose.Schema({
     required: true,
     refPath: "stocks.owner_type",
   },
+  color: {type: String}, // <- thêm màu
   quantity: {type: Number, default: 0},
 });
 

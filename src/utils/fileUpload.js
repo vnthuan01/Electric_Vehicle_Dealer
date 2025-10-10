@@ -38,7 +38,18 @@ const optionImageStorage = new CloudinaryStorage({
   },
 });
 
+// ===== Contract Uploads =====
+const contractStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "contracts",
+    allowed_formats: ["pdf", "jpg", "jpeg", "png"],
+    transformation: [],
+  },
+});
+
 export const uploadUserAvatar = multer({storage: userAvatarStorage});
 export const uploadVehicleImage = multer({storage: vehicleImageStorage});
 export const uploadAccessoryImage = multer({storage: accessoryImageStorage});
 export const uploadOptionImage = multer({storage: optionImageStorage});
+export const uploadContract = multer({storage: contractStorage});

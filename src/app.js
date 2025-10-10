@@ -27,6 +27,11 @@ import authRoutes from "./routes/authRoutes.js";
 import accessoryRoutes from "./routes/accessoryRoutes.js";
 import optionRoutes from "./routes/optionRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
+import quoteRoutes from "./routes/quoteRoutes.js";
+import bankProfileRoutes from "./routes/bankProfileRoutes.js";
+import contractRoutes from "./routes/contractRoutes.js";
+import orderStatusLogRoutes from "./routes/orderStatusLogRoutes.js";
 
 dotenv.config();
 
@@ -72,6 +77,11 @@ app.use(`${apiPrefix}/dealerships`, dealershipRoutes);
 app.use(`${apiPrefix}/manufacturers`, manufacturerRoutes);
 app.use(`${apiPrefix}/auth`, authRoutes);
 app.use(`${apiPrefix}/roles`, roleRoutes);
+app.use(`${apiPrefix}/payments`, paymentRoutes);
+app.use(`${apiPrefix}/quotes`, quoteRoutes);
+app.use(`${apiPrefix}/bank-profiles`, bankProfileRoutes);
+app.use(`${apiPrefix}/contracts`, contractRoutes);
+app.use(`${apiPrefix}/order-status-logs`, orderStatusLogRoutes);
 
 console.log(`All routes mounted under prefix ${apiPrefix}`);
 

@@ -48,6 +48,7 @@ export const CustomerMessage = {
   LIST_RETRIEVED: "Customer list retrieved successfully",
   DETAIL_RETRIEVED: "Customer details retrieved successfully",
   NOT_FOUND: "Customer not found",
+  FORBIDDEN: "Forbidden",
 };
 
 export const VehicleMessage = {
@@ -60,7 +61,7 @@ export const VehicleMessage = {
   NOT_FOUND: "Vehicle not found",
   INVALID_REQUEST: "Invalid request or no valid vehicles to create",
   MISSING_REQUIRED_FIELDS:
-    "Missing required fields: sku, name, category, price, manufacturer_id",
+    "Missing required fields: sku, name, category, price",
   SKU_ALREADY_EXISTS: "Vehicle with this SKU already exists",
 };
 
@@ -122,7 +123,7 @@ export const DealerMessage = {
   NOT_FOUND: "Dealership not found",
   DEBTS_RETRIEVED: "Dealer debts retrieved successfully",
   MISSING_FIELDS: "Missing required fields.",
-  VEHICLE_NOT_FOUND: "Vehicle not found.",
+  VEHICLE_NOT_FOUND: "Vehicle not found or inactive/deleted",
   REQUEST_NOT_FOUND: "Request not found.",
 
   //Debts
@@ -156,6 +157,7 @@ export const PromotionMessage = {
   UPDATE_SUCCESS: "Promotion updated successfully",
   DELETE_SUCCESS: "Promotion deleted successfully",
   NOT_FOUND: "Promotion not found",
+  NOT_FOUND_OR_UNAUTHORIZED: "Promotion not found or unauthorized",
 
   // Trạng thái
   ACTIVATED: "Promotion activated successfully",
@@ -203,4 +205,18 @@ export const RoleMessage = {
   NOT_FOUND: "Role not found",
   INVALID_REQUEST: "Invalid role data",
   ROLE_ALREADY_EXISTS: "Role already exists",
+};
+
+export const PaymentMessage = {
+  CREATE_SUCCESS: "Payment created successfully",
+  LIST_RETRIEVED: "Payment list retrieved successfully",
+  MISSING_REQUIRED_FIELDS:
+    "Missing required fields: order_id, amount, or method",
+  ORDER_NOT_FOUND: "Order not found",
+  EXCEEDS_FINAL_AMOUNT: "Payment amount exceeds the final order total",
+  ALREADY_FULLY_PAID: "This order has already been fully paid",
+  DELETE_SUCCESS: "Payment deleted successfully",
+  UPDATE_SUCCESS: "Payment updated successfully",
+  NOT_FOUND: "Payment not found",
+  ACCESS_DENIED: "Access denied: Payment not in your dealership",
 };

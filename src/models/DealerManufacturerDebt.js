@@ -21,6 +21,35 @@ const dealerManufacturerDebtSchema = new mongoose.Schema(
       enum: ["open", "partial", "settled"],
       default: "open",
     },
+
+    // Chi tiết theo từng lô/phiếu nhập từ requestVehicle
+    items: [
+      {
+        request_id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "RequestVehicle",
+        },
+        vehicle_id: {type: mongoose.Schema.Types.ObjectId, ref: "Vehicle"},
+        vehicle_name: String,
+        color: String,
+        unit_price: Number,
+        quantity: Number,
+        amount: Number, // unit_price * quantity
+        delivered_at: {type: Date},
+        notes: String,
+      },
+    ],
+
+    // Lịch sử thanh toán đối trừ (hãng ↔ đại lý)
+    payments: [
+      {
+        amount: Number,
+        paid_at: {type: Date, default: Date.now},
+        method: {type: String}, // chuyển khoản/tiền mặt
+        order_id: {type: mongoose.Schema.Types.ObjectId, ref: "Order"},
+        note: String,
+      },
+    ],
   },
   {timestamps: true}
 );

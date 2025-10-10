@@ -56,7 +56,7 @@ router.use(authenticate);
  *       200: { description: OK }
  *       403: { description: Access denied }
  */
-router.get("/", checkRole([ROLE.EVM_STAFF]), getAllDealerships);
+router.get("/", checkRole([ROLE.EVM_STAFF, ROLE.ADMIN]), getAllDealerships);
 
 /**
  * @swagger
