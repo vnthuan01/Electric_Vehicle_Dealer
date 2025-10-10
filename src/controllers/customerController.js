@@ -2,7 +2,11 @@ import Customer from "../models/Customer.js";
 import User from "../models/User.js"; // model User có dealership_id
 import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
-import {CustomerMessage} from "../utils/MessageRes.js";
+import {CustomerMessage, PaymentMessage} from "../utils/MessageRes.js";
+import Order from "../models/Order.js";
+import Payment from "../models/Payment.js";
+import TestDrive from "../models/TestDrive.js";
+import {OrderMessage, TestDriveMessage} from "../utils/MessageRes.js";
 
 // Helper lấy dealership_id từ user.id
 async function getDealershipId(userId) {
@@ -46,6 +50,37 @@ export async function getCustomers(req, res, next) {
       ["full_name", "email", "phone"],
       cond
     );
+    return success(res, CustomerMessage.LIST_RETRIEVED, result);
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function getCustomersOfYourself(req, res, next) {
+  try {
+    const user_id = req.user.id; // ID của người hiện tại (người sale)
+    const {q} = req.query;
+
+    // Lọc khách hàng mà user này đã sale
+    const cond = {
+      salesperson_id: user_id, // chỉ lấy khách hàng thuộc user này
+    };
+
+    if (q) {
+      cond.$or = [
+        {full_name: {$regex: q, $options: "i"}},
+        {email: {$regex: q, $options: "i"}},
+        {phone: {$regex: q, $options: "i"}},
+      ];
+    }
+
+    const result = await paginate(
+      Customer,
+      req,
+      ["full_name", "email", "phone"],
+      cond
+    );
+
     return success(res, CustomerMessage.LIST_RETRIEVED, result);
   } catch (e) {
     next(e);
@@ -99,6 +134,53 @@ export async function deleteCustomer(req, res, next) {
 
     if (!item) return errorRes(res, CustomerMessage.NOT_FOUND, 404);
     return success(res, CustomerMessage.DELETE_SUCCESS, {id: item._id});
+  } catch (e) {
+    next(e);
+  }
+}
+
+// Lịch sử đơn hàng của khách hàng (đại lý)
+export async function getCustomerOrders(req, res, next) {
+  try {
+    const dealership_id = await getDealershipId(req.user.id);
+    const customer_id = req.params.id;
+    const extraQuery = {dealership_id, customer_id};
+    const result = await paginate(Order, req, ["code", "status"], extraQuery);
+    return success(res, OrderMessage.LIST_SUCCESS, result);
+  } catch (e) {
+    next(e);
+  }
+}
+
+// Lịch sử thanh toán của khách hàng (đại lý)
+export async function getCustomerPayments(req, res, next) {
+  try {
+    const dealership_id = await getDealershipId(req.user.id);
+    const customer_id = req.params.id;
+
+    // Lấy danh sách order thuộc customer này và dealership hiện tại
+    const orders = await Order.find({customer_id, dealership_id}).select("_id");
+
+    const orderIds = orders.map((o) => o._id);
+
+    const cond = {order_id: {$in: orderIds}};
+
+    const result = await paginate(Payment, req, ["reference", "method"], cond);
+
+    return success(res, PaymentMessage.LIST_SUCCESS, result);
+  } catch (e) {
+    next(e);
+  }
+}
+
+// Lịch sử lái thử của khách hàng (đại lý)
+export async function getCustomerTestDrives(req, res, next) {
+  try {
+    const dealership_id = await getDealershipId(req.user.id);
+    const customer_id = req.params.id;
+    const extraQuery = {dealership_id, customer_id};
+    const result = await paginate(TestDrive, req, ["status"], extraQuery);
+    return success(res, TestDriveMessage.LIST_SUCCESS, result);
   } catch (e) {
     next(e);
   }

@@ -24,6 +24,7 @@ const orderSchema = new mongoose.Schema(
         // --- snapshot vehicle ---
         vehicle_name: String,
         vehicle_price: Number,
+        color: String,
 
         quantity: {type: Number, min: 1, max: 100, default: 1},
         discount: {type: Number, default: 0},
@@ -71,9 +72,67 @@ const orderSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["quote", "confirmed", "contract_signed", "delivered"],
-      default: "quote",
+      enum: [
+        "pending",
+        "confirmed",
+        "halfPayment",
+        "fullyPayment",
+        "contract_signed",
+        "delivered",
+      ],
+      default: "pending",
       index: true,
+    },
+
+    // Thông tin giao xe
+    delivery: {
+      status: {
+        type: String,
+        enum: ["pending", "scheduled", "in_transit", "delivered", "failed"],
+        default: "pending",
+      },
+      scheduled_date: Date, // Ngày dự kiến giao
+      actual_date: Date, // Ngày thực tế giao
+      delivery_person: {
+        name: String,
+        phone: String,
+        id_card: String,
+      },
+      delivery_address: {
+        street: String,
+        ward: String,
+        district: String,
+        city: String,
+        full_address: String,
+      },
+      recipient_info: {
+        name: String,
+        phone: String,
+        relationship: String, // Mối quan hệ với khách hàng
+      },
+      delivery_notes: String,
+      delivery_documents: [
+        {
+          name: String, // Tên tài liệu
+          type: String, // Loại: receipt, inspection_report, etc.
+          file_url: String,
+          uploaded_at: {type: Date, default: Date.now},
+        },
+      ],
+      signed_at: Date, // Thời điểm ký nhận
+      signed_by: String, // Tên người ký nhận
+    },
+
+    // Thông tin hợp đồng
+    contract: {
+      signed_contract_url: String, // URL file hợp đồng đã ký
+      signed_at: Date, // Thời điểm ký
+      signed_by: String, // Tên người ký
+      uploaded_by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      template_used: String, // Template đã sử dụng
     },
 
     notes: String,

@@ -1,7 +1,7 @@
 import {Router} from "express";
 import {authenticate} from "../middlewares/authMiddleware.js";
 import {checkRole} from "../middlewares/checkRole.js";
-import {EVM_ADMIN_ROLES} from "../enum/roleEnum.js";
+import {EVM_ADMIN_ROLES, ROLE} from "../enum/roleEnum.js";
 import {
   createManufacturer,
   getManufacturers,
@@ -36,7 +36,7 @@ router.use(authenticate);
  *     responses:
  *       200: { description: OK }
  */
-router.get("/", getManufacturers);
+router.get("/", checkRole([ROLE.ADMIN]), getManufacturers);
 
 /**
  * @openapi
@@ -55,7 +55,7 @@ router.get("/", getManufacturers);
  *       200: { description: OK }
  *       404: { description: Not Found }
  */
-router.get("/:id", getManufacturerById);
+router.get("/:id", checkRole([ROLE.ADMIN]), getManufacturerById);
 
 /**
  * @openapi

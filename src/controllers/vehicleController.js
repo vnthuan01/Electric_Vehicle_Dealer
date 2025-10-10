@@ -1,18 +1,21 @@
 import Vehicle from "../models/Vehicle.js";
-import Promotion from "../models/Promotion.js";
 import DealerManufacturerDebt from "../models/DealerManufacturerDebt.js";
 import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
-import {VehicleMessage} from "../utils/MessageRes.js";
+import {DealerMessage, VehicleMessage} from "../utils/MessageRes.js";
 import fetch from "node-fetch";
 import {cleanEmpty} from "../utils/cleanEmpty.js";
 import {emitVehicleDistribution} from "../config/socket.js";
+import User from "../models/User.js";
+import Dealership from "../models/Dealership.js";
 
 // Create one or multiple vehicles (EVM Staff, Admin only)
 export async function createVehicle(req, res, next) {
   try {
     const vehiclesData = Array.isArray(req.body) ? req.body : [req.body];
-
+    const user = await User.findById(req.user.id);
+    const manufacturer_id = String(user.manufacturer_id);
+    console.log(manufacturer_id);
     const errors = [];
     const validVehicles = [];
 
@@ -22,7 +25,6 @@ export async function createVehicle(req, res, next) {
         name,
         model,
         category,
-        manufacturer_id,
         price,
 
         version,
@@ -56,16 +58,14 @@ export async function createVehicle(req, res, next) {
         software_version,
         ota_update,
 
-        stock,
         warranty_years,
         battery_warranty_years,
         color_options,
         description,
-        promotions,
       } = v;
 
       // Basic validation
-      if (!sku || !name || !category || !price || !manufacturer_id) {
+      if (!sku || !name || !category || !price) {
         errors.push({
           sku: sku || null,
           message: VehicleMessage.MISSING_REQUIRED_FIELDS,
@@ -79,32 +79,36 @@ export async function createVehicle(req, res, next) {
         continue;
       }
 
+      // Upload images
       let uploadedImages = [];
       if (req.files && req.files.length > 0) {
-        for (const file of req.files) {
-          uploadedImages.push(file.path);
-        }
+        uploadedImages = req.files.map((file) => file.path);
       }
 
-      // Interior_features phải đúng định dạng { name, description }
+      // Format interior_features
       let formattedInteriorFeatures = [];
       if (Array.isArray(interior_features)) {
         formattedInteriorFeatures = interior_features
           .filter((f) => f && f.name)
-          .map((f) => ({
-            name: f.name,
-            description: f.description || "",
-          }));
+          .map((f) => ({name: f.name, description: f.description || ""}));
       }
 
-      const stocks = [];
-      if (stock && manufacturer_id) {
-        stocks.push({
-          owner_type: "manufacturer",
-          owner_id: manufacturer_id,
-          quantity: stock,
-        });
+      // Parse stocks_by_color from multipart/form-data JSON string
+      let stocks_by_color = [];
+      if (req.body.stocks_by_color) {
+        try {
+          stocks_by_color = JSON.parse(req.body.stocks_by_color);
+        } catch (err) {
+          stocks_by_color = [];
+        }
       }
+
+      const stocks = stocks_by_color.map((sc) => ({
+        owner_type: "manufacturer",
+        owner_id: manufacturer_id,
+        color: sc.color,
+        quantity: sc.quantity,
+      }));
 
       validVehicles.push(
         cleanEmpty({
@@ -152,7 +156,6 @@ export async function createVehicle(req, res, next) {
           color_options,
           images: uploadedImages,
           description,
-          promotions,
         })
       );
     }
@@ -211,7 +214,6 @@ export async function getVehicles(req, res, next) {
 
     const dataWithPopulate = await Vehicle.populate(result.data, [
       {path: "manufacturer_id", select: "name address"},
-      {path: "promotions"},
     ]);
 
     return res.json({
@@ -228,9 +230,10 @@ export async function getVehicles(req, res, next) {
 // Get vehicle detail
 export async function getVehicleById(req, res, next) {
   try {
-    const vehicle = await Vehicle.findById(req.params.id)
-      .populate("manufacturer_id", "name address")
-      .populate("promotions");
+    const vehicle = await Vehicle.findById(req.params.id).populate(
+      "manufacturer_id",
+      "name address"
+    );
 
     if (!vehicle) return errorRes(res, "Vehicle not found", 404);
 
@@ -247,6 +250,7 @@ export async function updateVehicle(req, res, next) {
     const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) return res.status(404).json({message: "Vehicle not found"});
 
+    // --- Remove images if requested ---
     const {imagesToRemove} = req.body;
     if (imagesToRemove && imagesToRemove.length > 0) {
       vehicle.images = vehicle.images.filter(
@@ -254,15 +258,59 @@ export async function updateVehicle(req, res, next) {
       );
     }
 
+    // --- Add uploaded images ---
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         vehicle.images.push(file.path);
       }
     }
 
-    Object.assign(vehicle, req.body);
-    await vehicle.save();
+    // --- Parse stocks_by_color JSON string if needed ---
+    let stocks_by_color = req.body.stocks_by_color;
+    if (typeof stocks_by_color === "string") {
+      try {
+        stocks_by_color = JSON.parse(stocks_by_color);
+      } catch (err) {
+        stocks_by_color = [];
+      }
+    }
 
+    // --- Upsert manufacturer stocks by color ---
+    if (Array.isArray(stocks_by_color)) {
+      for (const sc of stocks_by_color) {
+        if (!sc || !sc.color) continue;
+        const qty = Number(sc.quantity || 0);
+        const col = sc.color;
+
+        // Tìm stock manufacturer đã tồn tại với color này
+        const idx = vehicle.stocks?.findIndex(
+          (s) => s.owner_type === "manufacturer" && s.color === col
+        );
+
+        if (idx >= 0) {
+          // Cập nhật quantity
+          vehicle.stocks[idx].quantity = qty;
+        } else {
+          // Thêm mới stock manufacturer
+          vehicle.stocks.push({
+            owner_type: "manufacturer",
+            owner_id: vehicle.manufacturer_id,
+            color: col,
+            quantity: qty,
+          });
+        }
+      }
+    }
+
+    // --- Update other fields ---
+    const skipFields = ["stocks_by_color", "imagesToRemove"];
+    for (const key of Object.keys(req.body)) {
+      if (!skipFields.includes(key)) {
+        vehicle[key] = req.body[key];
+      }
+    }
+
+    await vehicle.save();
     return res.json({success: true, vehicle});
   } catch (err) {
     next(err);
@@ -278,8 +326,7 @@ export async function deleteVehicle(req, res, next) {
     if (vehicle.status === "inactive") {
       return errorRes(res, "Vehicle already inactive", 400);
     }
-
-    vehicle.status = "inactive";
+    (vehicle.is_deleted = true), (vehicle.status = "inactive");
     await vehicle.save();
 
     return success(res, VehicleMessage.DELETE_SUCCESS, {id: vehicle._id});
@@ -383,13 +430,13 @@ export async function compareCars(req, res) {
 // Distribute vehicles to dealer (Manufacturer/EVM Staff/Admin only)
 export async function distributeVehicleToDealer(req, res, next) {
   try {
-    const {vehicle_id, dealership_id, quantity, notes} = req.body;
+    const {vehicle_id, dealership_id, quantity, notes, color} = req.body;
 
     // Validate required fields
     if (!vehicle_id || !dealership_id || !quantity) {
       return errorRes(
         res,
-        "Missing required fields: vehicle_id, dealership_id, quantity",
+        "Missing required fields: vehicle_id, dealership_id, quantity, color",
         400
       );
     }
@@ -398,15 +445,26 @@ export async function distributeVehicleToDealer(req, res, next) {
       return errorRes(res, "Quantity must be greater than 0", 400);
     }
 
+    const dealership = await Dealership.findById({_id: dealership_id});
+
+    if (!dealership) {
+      return errorRes(res, DealerMessage.NOT_FOUND);
+    }
+
     // Find vehicle
-    const vehicle = await Vehicle.findById(vehicle_id);
+    const vehicle = await Vehicle.findById({
+      _id: vehicle_id,
+      status: "active",
+      is_deleted: false,
+    });
+
     if (!vehicle) {
-      return errorRes(res, "Vehicle not found", 404);
+      return errorRes(res, DealerMessage.VEHICLE_NOT_FOUND, 404);
     }
 
     // Check manufacturer stock
     const manufacturerStock = vehicle.stocks.find(
-      (s) => s.owner_type === "manufacturer"
+      (s) => s.owner_type === "manufacturer" && (!color || s.color === color)
     );
 
     if (!manufacturerStock) {
@@ -432,7 +490,8 @@ export async function distributeVehicleToDealer(req, res, next) {
     let dealerStock = vehicle.stocks.find(
       (s) =>
         s.owner_type === "dealer" &&
-        s.owner_id.toString() === dealership_id.toString()
+        s.owner_id.toString() === dealership_id.toString() &&
+        (!color || s.color === color)
     );
 
     if (dealerStock) {
@@ -442,12 +501,13 @@ export async function distributeVehicleToDealer(req, res, next) {
         owner_type: "dealer",
         owner_id: dealership_id,
         quantity: quantity,
+        color,
       });
     }
 
     await vehicle.save();
 
-    // Create or update debt
+    // Create or update debt with item detail
     const total_amount = vehicle.price * quantity;
     let debt = await DealerManufacturerDebt.findOne({
       dealership_id: dealership_id,
@@ -458,6 +518,18 @@ export async function distributeVehicleToDealer(req, res, next) {
       debt.total_amount += total_amount;
       debt.remaining_amount += total_amount;
       debt.status = "open";
+      debt.items = debt.items || [];
+      debt.items.push({
+        request_id: null,
+        vehicle_id: vehicle._id,
+        vehicle_name: vehicle.name,
+        color,
+        unit_price: vehicle.price,
+        quantity,
+        amount: total_amount,
+        delivered_at: new Date(),
+        notes: notes || "Distribution",
+      });
       await debt.save();
     } else {
       debt = await DealerManufacturerDebt.create({
@@ -467,7 +539,19 @@ export async function distributeVehicleToDealer(req, res, next) {
         paid_amount: 0,
         remaining_amount: total_amount,
         status: "open",
-        notes: notes || `Vehicle distribution: ${vehicle.name} x${quantity}`,
+        items: [
+          {
+            request_id: null,
+            vehicle_id: vehicle._id,
+            vehicle_name: vehicle.name,
+            color,
+            unit_price: vehicle.price,
+            quantity,
+            amount: total_amount,
+            delivered_at: new Date(),
+            notes: notes || "Distribution",
+          },
+        ],
       });
     }
 

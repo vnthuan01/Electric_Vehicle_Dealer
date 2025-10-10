@@ -5,6 +5,7 @@ import {connectDatabase} from "./config/db.js";
 import {logInfo, logError} from "./utils/logger.js";
 import {socketConfig} from "./config/socket.js";
 import {Server} from "socket.io";
+import "./jobs/autoDeactivePromotions.js";
 
 dotenv.config();
 

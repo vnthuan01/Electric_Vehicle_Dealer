@@ -2,7 +2,7 @@ import {logError} from "../utils/logger.js";
 import {error as errorRes} from "../utils/response.js";
 
 // Middleware cho route không tồn tại
-export function notFoundHandler(req, res, next) {
+export function notFoundHandler(req, res) {
   return errorRes(res, "Endpoint not found", 404);
 }
 
@@ -14,6 +14,7 @@ export function errorHandler(err, req, res, next) {
 
   if (process.env.NODE_ENV !== "test") {
     logError(err);
+    next();
   }
 
   return errorRes(res, message, status, code);

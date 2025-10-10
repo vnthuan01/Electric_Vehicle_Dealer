@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { authenticate } from "../middlewares/authMiddleware.js";
-import { checkRole } from "../middlewares/checkRole.js";
-import { ROLE, EVM_ADMIN_ROLES, DEALER_ROLES } from "../enum/roleEnum.js";
+import {Router} from "express";
+import {authenticate} from "../middlewares/authMiddleware.js";
+import {checkRole} from "../middlewares/checkRole.js";
+import {ROLE, DEALER_ROLES} from "../enum/roleEnum.js";
 import {
   getAllDealerships,
   getDealershipById,
@@ -56,7 +56,7 @@ router.use(authenticate);
  *       200: { description: OK }
  *       403: { description: Access denied }
  */
-router.get("/", checkRole([ROLE.EVM_STAFF]), getAllDealerships);
+router.get("/", checkRole([ROLE.EVM_STAFF, ROLE.ADMIN]), getAllDealerships);
 
 /**
  * @swagger
@@ -344,7 +344,11 @@ router.get(
  *       403: { description: Access denied }
  *       404: { description: Not Found }
  */
-router.patch("/:id/deactivate", checkRole([ROLE.EVM_STAFF]), deactivateDealership);
+router.patch(
+  "/:id/deactivate",
+  checkRole([ROLE.EVM_STAFF]),
+  deactivateDealership
+);
 
 /**
  * @swagger

@@ -133,11 +133,7 @@ router.patch(
  *       200:
  *         description: Request rejected
  */
-router.patch(
-  "/:id/reject",
-  checkRole([ROLE.EVM_STAFF, ROLE.ADMIN]),
-  rejectRequest
-);
+router.patch("/:id/reject", checkRole([ROLE.EVM_STAFF]), rejectRequest);
 
 /**
  * @openapi

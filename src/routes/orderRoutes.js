@@ -66,6 +66,10 @@ router.use(authenticate);
  *                     vehicle_id:
  *                       type: string
  *                       example: "68d39a14fde880da56c7f0d0"
+ *                     color:
+ *                       type: string
+ *                       description: Vehicle color to deduct stock from. If omitted, stock will be deducted across available colors.
+ *                       example: "Red"
  *                     quantity:
  *                       type: number
  *                       default: 1
@@ -106,11 +110,11 @@ router.use(authenticate);
  *                             example: 2
  *           example:
  *             customer_id: "68d1245b394bfef73a507e47"
- *             dealership_id: "68d0e8a599679399fff9869a"
  *             payment_method: "cash"
  *             notes: "Khách hàng muốn giao xe trong tháng 10/ Kèm 2 accessories và 2 options"
  *             items:
  *               - vehicle_id: "68d39a14fde880da56c7f0d0"
+ *                 color: "Red"
  *                 quantity: 1
  *                 discount: 2000
  *                 promotion_id: "68d504d4a9f9cdb6420c9682"
@@ -215,6 +219,9 @@ router.get(
  *                   required: [vehicle_id]
  *                   properties:
  *                     vehicle_id: { type: string }
+ *                     color:
+ *                       type: string
+ *                       description: Vehicle color to deduct stock from. If omitted, stock will be deducted across available colors.
  *                     quantity: { type: number, default: 1 }
  *                     discount: { type: number, default: 0 }
  *                     promotion_id: { type: string }
@@ -238,6 +245,7 @@ router.get(
  *           example:
  *             items:
  *               - vehicle_id: "68d39a14fde880da56c7f0d0"
+ *                 color: "Blue"
  *                 quantity: 1
  *                 discount: 1000
  *                 promotion_id: "68d504d4a9f9cdb6420c9682"

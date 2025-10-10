@@ -187,7 +187,10 @@ router.post(
  *       content:
  *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/VehicleInputFull'
+ *             allOf:
+ *               - $ref: '#/components/schemas/VehicleInputFull'
+ *               - type: object
+ *
  *     responses:
  *       200:
  *         description: Vehicle updated successfully
@@ -244,6 +247,9 @@ router.delete("/:id", checkRole(EVM_ADMIN_ROLES), deleteVehicle);
  *                 type: integer
  *                 minimum: 1
  *                 description: Number of vehicles to distribute
+ *               color:
+ *                 type: string
+ *                 description: Color to distribute (matches manufacturer stock color)
  *               notes:
  *                 type: string
  *                 description: Optional notes for the distribution
@@ -251,6 +257,7 @@ router.delete("/:id", checkRole(EVM_ADMIN_ROLES), deleteVehicle);
  *               vehicle_id: "652f1b9a1234567890abcdef"
  *               dealership_id: "652f1b9a1234567890abcdea"
  *               quantity: 5
+ *               color: "Red"
  *               notes: "Initial stock allocation for new dealership"
  *     responses:
  *       200:
@@ -292,6 +299,19 @@ router.post(
  * @openapi
  * components:
  *   schemas:
+ *     Stock:
+ *       type: object
+ *       properties:
+ *         owner_type:
+ *           type: string
+ *           enum: [manufacturer, dealer]
+ *         owner_id:
+ *           type: string
+ *         color:
+ *           type: string
+ *         quantity:
+ *           type: number
+ *
  *     VehicleFull:
  *       type: object
  *       properties:
@@ -307,7 +327,7 @@ router.post(
  *         status: { type: string, enum: [active, inactive] }
  *         price: { type: number }
  *         on_road_price: { type: number }
- *         battery_type: { type: string, enum: [LFP, NMC, other] }
+ *         battery_type: { type: string, enum: [LFP, NMC, Li-ion, other] }
  *         battery_capacity: { type: number }
  *         range_km: { type: number }
  *         wltp_range_km: { type: number }
@@ -346,9 +366,10 @@ router.post(
  *           items: { type: string }
  *         software_version: { type: string }
  *         ota_update: { type: boolean }
- *         stock:
- *             type: number
- *             example: 50
+ *         stocks:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/Stock'
  *         warranty_years: { type: number }
  *         battery_warranty_years: { type: number }
  *         color_options:
@@ -370,7 +391,6 @@ router.post(
  *         name: { type: string }
  *         model: { type: string }
  *         category: { type: string, enum: [car, motorbike] }
- *         manufacturer_id: { type: string }
  *         sku: { type: string }
  *         version: { type: string }
  *         release_status: { type: string, enum: [coming_soon, available, discontinued] }
@@ -417,8 +437,9 @@ router.post(
  *           items: { type: string }
  *         software_version: { type: string }
  *         ota_update: { type: boolean }
- *         stock:
- *           type: number
+ *         stocks_by_color:
+ *           type: string
+ *           description: "JSON array of manufacturer stock entries by color. Example: '[{\"color\":\"Yellow\",\"quantity\":10},{\"color\":\"Red\",\"quantity\":5}]'"
  *         warranty_years: { type: number }
  *         battery_warranty_years: { type: number }
  *         color_options:
@@ -428,8 +449,6 @@ router.post(
  *           type: array
  *           items: { type: string, format: binary }
  *         description: { type: string }
- *         promotions:
- *           type: array
- *           items: { type: string }
  */
+
 export default router;

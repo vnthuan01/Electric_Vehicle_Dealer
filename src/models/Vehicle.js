@@ -7,6 +7,7 @@ const stockSchema = new mongoose.Schema({
     required: true,
     refPath: "stocks.owner_type",
   },
+  color: {type: String}, // <- thêm màu
   quantity: {type: Number, default: 0},
 });
 
@@ -87,8 +88,8 @@ const vehicleSchema = new mongoose.Schema(
     images: [{type: String}],
     description: {type: String},
 
-    // Khuyến mãi
-    promotions: [{type: mongoose.Schema.Types.ObjectId, ref: "Promotion"}],
+    //Delete
+    is_deleted: {type: Boolean, default: false},
   },
   {timestamps: true}
 );
