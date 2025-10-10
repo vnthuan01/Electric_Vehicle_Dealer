@@ -10,14 +10,13 @@ import Dealership from "../models/Dealership.js";
 //Dealer gửi request nhập xe (PENDING)
 export async function requestVehicleFromManufacturer(req, res, next) {
   try {
-    const {vehicle_id, quantity, dealership_id, notes, color} = req.body;
+    const {vehicle_id, quantity, notes, color} = req.body;
 
-    if (!vehicle_id || !quantity || !dealership_id) {
+    if (!vehicle_id || !quantity || !color) {
       return errorRes(res, DealerMessage.MISSING_FIELDS, 400);
     }
 
-    const dealership = await Dealership.findById({_id: dealership_id});
-
+    const dealership = await Dealership.findById(req.user.dealership_id);
     if (!dealership) {
       return errorRes(res, DealerMessage.NOT_FOUND);
     }
@@ -32,9 +31,21 @@ export async function requestVehicleFromManufacturer(req, res, next) {
       return errorRes(res, DealerMessage.VEHICLE_NOT_FOUND, 404);
     }
 
+    // Check duplicate request
+    const existingRequest = await RequestVehicle.findOne({
+      vehicle_id,
+      dealership_id: req.user.dealership_id,
+      color,
+      status: {$in: ["pending"]},
+    });
+
+    if (existingRequest) {
+      return errorRes(res, DealerMessage.DUPLICATE_REQUEST, 400);
+    }
+
     const request = await RequestVehicle.create({
       vehicle_id,
-      dealership_id,
+      dealership_id: req.user.dealership_id,
       quantity,
       color,
       notes,
@@ -46,7 +57,7 @@ export async function requestVehicleFromManufacturer(req, res, next) {
       emitRequestStatusUpdate(req.app.get("io"), {
         requestId: request._id,
         status: "pending",
-        dealershipId: dealership_id,
+        dealershipId: req.user.dealership_id,
         vehicle: {
           id: vehicle._id,
           name: vehicle.name,
@@ -235,7 +246,7 @@ export async function getAllRequests(req, res, next) {
       .sort(result.sort)
       .skip((result.page - 1) * result.limit)
       .limit(result.limit)
-      .populate("vehicle_id dealership_id debt_id");
+      .populate("vehicle_id dealership_id");
 
     return success(res, DealerMessage.REQUEST_LIST_SUCCESS, result);
   } catch (err) {
@@ -249,12 +260,12 @@ export async function deleteRequest(req, res, next) {
     const request = await RequestVehicle.findById(req.params.id);
     if (!request) return errorRes(res, DealerMessage.REQUEST_NOT_FOUND, 404);
 
-    if (request.status !== "pending") {
+    if (request.status !== "pending" && request.status !== "rejected") {
       return errorRes(res, DealerMessage.REQUEST_CANNOT_DELETE, 400);
     }
 
     await request.deleteOne();
-    return success(res, {id: req.params.id});
+    return success(res, DealerMessage.DELETE_REQUEST_SUCCESS);
   } catch (err) {
     next(err);
   }

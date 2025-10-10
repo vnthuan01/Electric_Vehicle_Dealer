@@ -13,6 +13,7 @@ const requestVehicleSchema = new mongoose.Schema(
       ref: "Dealership",
       required: true,
     },
+    color: {type: String},
     quantity: {type: Number, required: true},
     status: {
       type: String,

@@ -36,12 +36,28 @@ export async function updateCustomerDebtPayment(debtId, paidAmount) {
   const debt = await Debt.findById(debtId);
   if (!debt) throw new Error("Debt not found");
 
-  debt.paid_amount += paidAmount;
+  // --- kiểm tra nếu đã thanh toán hết ---
+  if (debt.status === "settled") {
+    throw new Error("This debt is already settled");
+  }
+
+  // --- tính toán an toàn, tránh trả lố ---
+  const newPaid = debt.paid_amount + paidAmount;
+
+  if (newPaid > debt.total_amount) {
+    throw new Error("Paid amount exceeds total debt");
+  }
+
+  debt.paid_amount = newPaid;
   debt.remaining_amount = debt.total_amount - debt.paid_amount;
 
-  if (debt.remaining_amount <= 0) debt.status = "settled";
-  else if (debt.paid_amount > 0) debt.status = "partial";
-  else debt.status = "open";
+  if (debt.remaining_amount <= 0) {
+    debt.status = "settled";
+  } else if (debt.paid_amount > 0) {
+    debt.status = "partial";
+  } else {
+    debt.status = "open";
+  }
 
   await debt.save();
   return debt;

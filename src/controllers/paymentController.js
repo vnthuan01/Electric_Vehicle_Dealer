@@ -10,13 +10,30 @@ import {
 } from "./debtController.js";
 import {createStatusLog} from "./orderStatusLogController.js";
 
+//Helpers
+const generatePaymentReference = (method) => {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+
+  const random = Math.floor(1000 + Math.random() * 9000);
+  const methodCode = method?.toUpperCase()?.slice(0, 4) || "GEN"; // VD: CASH, BANK, QR, CARD
+
+  const reference = `PAY-${methodCode}-${yy}${mm}${dd}${hh}-${random}`;
+  return {reference};
+};
+
 // ==================== Create Payment ====================
 export async function createPayment(req, res, next) {
   try {
-    const {order_id, amount, method, reference, notes} = req.body;
+    const {order_id, amount, method, notes} = req.body;
     if (!order_id || !amount || !method) {
       return errorRes(res, PaymentMessage.MISSING_REQUIRED_FIELDS, 400);
     }
+
+    const {reference} = generatePaymentReference(method);
 
     const dealership_id = req.user.dealership_id || null;
 
@@ -67,14 +84,12 @@ export async function createPayment(req, res, next) {
       order.status = "confirmed";
     }
 
-    // --- Cập nhật công nợ nếu method là cash ---
+    // --- Cập nhật công nợ ---
     // (nếu chuyển khoản hoặc ghi nợ thì chưa trừ ngay)
-    const debt = await Debt.findOne({order_id: order._id});
-    if (method === "cash") {
-      if (debt) {
-        await updateCustomerDebtPayment(debt._id, amount);
-        debt = await Debt.findById(debt._id).lean();
-      }
+    let debt = await Debt.findOne({order_id: order._id});
+    if (debt) {
+      await updateCustomerDebtPayment(debt._id, amount);
+      debt = await Debt.findById(debt._id).lean();
     }
 
     await order.save();
@@ -196,13 +211,16 @@ export async function deletePayment(req, res, next) {
       return errorRes(res, PaymentMessage.ACCESS_DENIED, 403);
     }
 
-    // Xoá payment
-    await payment.deleteOne();
+    // --- Soft delete ---
+    payment.is_deleted = true;
+    payment.deleted_at = new Date();
+    payment.deleted_by = req.user._id;
+    await payment.save();
 
-    // Cập nhật lại paid_amount của order
+    // --- Giảm paid_amount trong Order ---
     order.paid_amount = Math.max(0, (order.paid_amount || 0) - payment.amount);
 
-    // --- Cập nhật lại trạng thái theo số tiền còn lại ---
+    // --- Cập nhật trạng thái đơn hàng ---
     if (order.paid_amount >= order.final_amount) {
       order.status = "fullyPayment";
     } else if (order.paid_amount > 0) {
@@ -210,9 +228,21 @@ export async function deletePayment(req, res, next) {
     } else {
       order.status = "confirmed";
     }
-
     await order.save();
 
+    // --- Giảm công nợ nếu có ---
+    const debt = await Debt.findOne({order_id: order._id});
+    if (debt) {
+      // Trừ lại số tiền đã thanh toán tương ứng
+      debt.paid_amount = Math.max(0, debt.paid_amount - payment.amount);
+      debt.remaining_amount = Math.max(0, debt.total_amount - debt.paid_amount);
+
+      if (debt.remaining_amount <= 0) debt.status = "settled";
+      else if (debt.paid_amount > 0) debt.status = "partial";
+      else debt.status = "open";
+
+      await debt.save();
+    }
     return success(res, PaymentMessage.DELETE_SUCCESS, {id});
   } catch (e) {
     next(e);
