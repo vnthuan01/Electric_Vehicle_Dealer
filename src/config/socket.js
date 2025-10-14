@@ -46,8 +46,8 @@ export const emitVehicleDistribution = (io, data) => {
   const notification = {
     type: "vehicle_distribution",
     title: "Xe được phân bố",
-    message: `Đã phân bố ${quantity} chiếc ${vehicle.name} (${
-      vehicle.sku
+    message: `Đã phân bố ${quantity} chiếc ${vehicle.name} - (${
+      vehicle.color
     }) với tổng giá trị ${totalAmount.toLocaleString()} VND`,
     data: {
       vehicle: {
@@ -55,6 +55,7 @@ export const emitVehicleDistribution = (io, data) => {
         name: vehicle.name,
         sku: vehicle.sku,
         price: vehicle.price,
+        color: vehicle.color,
       },
       dealershipId,
       quantity,

@@ -10,6 +10,9 @@ import Debt from "../models/Debt.js";
 import Vehicle from "../models/Vehicle.js";
 import Payment from "../models/Payment.js";
 import {createStatusLog} from "./orderStatusLogController.js";
+import PromotionUsage from "../models/PromotionUsage.js";
+import OrderRequest from "../models/OrderRequest.js";
+import {ROLE} from "../enum/roleEnum.js";
 
 //Helper generate order Code - timestamp
 const generateOrderCode = () => {
@@ -23,6 +26,17 @@ const generateOrderCode = () => {
 
   return `ORD${yy}${mm}${dd}${hh}${min}${ss}`; // ví dụ: ORD250922162045
 };
+
+function generateRequestCode() {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  return `REQ${yy}${mm}${dd}${hh}${min}${ss}`;
+}
 
 // Helper tính toán số tiền cuối cùng dựa vào discount, promotion, options, accessories
 export async function calculateItemFinalAmount(item) {
@@ -158,6 +172,34 @@ export async function createOrder(req, res, next) {
       return res.status(400).json({message: "Dealership ID required"});
     }
 
+    // ================== VALIDATION DUPLICATE VEHICLE ==================
+    const vehicleIds = items.map((i) => i.vehicle_id);
+    const hasDuplicateVehicle = vehicleIds.some(
+      (id, idx) => vehicleIds.indexOf(id) !== idx
+    );
+    if (hasDuplicateVehicle) {
+      return res.status(400).json({
+        message: "Duplicate vehicles in the order are not allowed",
+      });
+    }
+
+    // ================== VALIDATION PROMOTION 1 LẦN/VEHICLE ==================
+    for (const item of items) {
+      if (item.promotion_id) {
+        const used = await Order.findOne({
+          customer_id,
+          "items.vehicle_id": item.vehicle_id,
+          "items.promotion_id": item.promotion_id,
+        }).lean();
+
+        if (used) {
+          return res.status(400).json({
+            message: `Promotion ${item.promotion_id} has already been used for vehicle ${item.vehicle_id} by this customer`,
+          });
+        }
+      }
+    }
+
     // ================== KIỂM TRA TỒN KHO ==================
     await checkStockAvailability(items, dealership_id);
 
@@ -241,10 +283,10 @@ export async function createOrder(req, res, next) {
       final_amount: totalAmount,
       notes,
       payment_method,
-      status: "quote",
+      status: "pending",
     };
 
-    // ================== Phân nhánh logic ==================
+    // ================== Phân nhánh logic payment ==================
     if (payment_method === "installment") {
       orderData.paid_amount = totalAmount;
       orderData.status = "fullyPayment";
@@ -253,10 +295,10 @@ export async function createOrder(req, res, next) {
       orderData.status = "pending";
     }
 
-    // ================== Tạo đơn hàng ==================
+    // ================== Tạo order ==================
     const order = await Order.create(orderData);
 
-    // ================== TRỪ STOCK SAU KHI TẠO ĐƠN THÀNH CÔNG ==================
+    // ================== Trừ stock ==================
     for (const item of itemsWithFinal) {
       if (item.category === "car") continue; // Không trừ stock cho category car
       await deductStock(
@@ -273,7 +315,7 @@ export async function createOrder(req, res, next) {
       );
     }
 
-    // ================== GHI LOG TRẠNG THÁI ==================
+    // ================== Ghi log trạng thái ==================
     await createStatusLog(
       order._id,
       null,
@@ -302,7 +344,73 @@ export async function createOrder(req, res, next) {
       });
     }
 
+    // Sau khi tạo order thành công, update promotion usage nếu có
+    for (const item of itemsWithFinal) {
+      if (item.promotion_id) {
+        await PromotionUsage.updateMany(
+          {
+            customer_id,
+            vehicle_id: item.vehicle_id,
+            promotion_id: item.promotion_id,
+            status: "pending",
+          },
+          {$set: {status: "used", order_id: order._id}}
+        );
+      }
+    }
+
     return created(res, OrderMessage.CREATE_SUCCESS, {order});
+  } catch (err) {
+    next(err);
+  }
+}
+
+//Request order cho dealer_staff tới dealer_manager
+//function accept requestOrder từ nhiều hãng xe 1 lúc
+export async function requestOrderAccordingToDemand(req, res, next) {
+  try {
+    const user = req.user;
+    const {items = [], notes} = req.body;
+
+    // --- Validate cơ bản ---
+    if (!items.length)
+      return errorRes(res, "At least one vehicle must be requested", 400);
+
+    if (!user.dealership_id)
+      return errorRes(res, "User must belong to a dealership", 400);
+
+    // --- Chuẩn bị item ---
+    const preparedItems = [];
+    for (const item of items) {
+      const vehicle = await Vehicle.findById(item.vehicle_id)
+        .select("_id name manufacturer_id")
+        .lean();
+      if (!vehicle)
+        return errorRes(res, `Vehicle not found: ${item.vehicle_id}`, 404);
+
+      preparedItems.push({
+        vehicle_id: vehicle._id,
+        vehicle_name: vehicle.name,
+        manufacturer_id: vehicle.manufacturer_id,
+        color: item.color || null,
+        quantity: item.quantity || 1,
+        notes: item.notes || "",
+      });
+    }
+
+    const code = generateRequestCode();
+
+    // --- Tạo OrderRequest ---
+    const request = await OrderRequest.create({
+      code,
+      requested_by: user.id,
+      dealership_id: user.dealership_id,
+      items: preparedItems,
+      notes,
+      status: "pending",
+    });
+
+    return created(res, "Order request created successfully", request);
   } catch (err) {
     next(err);
   }
@@ -327,6 +435,51 @@ export async function getOrders(req, res, next) {
     // Populate customer only; vehicles are inside item snapshots
     const populatedData = await Order.populate(result.data, [
       {path: "customer_id"},
+    ]);
+
+    return success(res, OrderMessage.LIST_SUCCESS, {
+      ...result,
+      data: populatedData,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getOrdersForYours(req, res, next) {
+  try {
+    const {status, startDate, endDate} = req.query;
+    const user_id = req.user.id;
+
+    // ----- BASE QUERY -----
+    const baseQuery = {salesperson_id: user_id}; // chỉ lấy order của chính user này
+
+    // Nếu chưa có order nào của user này thì trả rỗng luôn
+    const countOrders = await Order.countDocuments(baseQuery);
+    if (countOrders === 0) {
+      return success(res, OrderMessage.LIST_SUCCESS, {
+        data: [],
+        totalRecords: 0,
+        limit: parseInt(req.query.limit) || 10,
+        totalPages: 0,
+        page: parseInt(req.query.page) || 1,
+      });
+    }
+
+    // ----- FILTER EXTRA -----
+    if (status) baseQuery.status = status;
+    if (startDate || endDate) {
+      baseQuery.createdAt = {};
+      if (startDate) baseQuery.createdAt.$gte = new Date(startDate);
+      if (endDate) baseQuery.createdAt.$lte = new Date(endDate);
+    }
+
+    // ----- PAGINATE -----
+    const result = await paginate(Order, req, ["code"], baseQuery);
+
+    // ----- POPULATE CUSTOMER -----
+    const populatedData = await Order.populate(result.data, [
+      {path: "customer_id", select: "full_name email phone"},
     ]);
 
     return success(res, OrderMessage.LIST_SUCCESS, {
@@ -520,6 +673,7 @@ export async function updateOrderStatus(req, res, next) {
       "confirmed",
       "halfPayment",
       "fullyPayment",
+      "closed",
       "contract_signed",
       "delivered",
     ];
@@ -534,6 +688,118 @@ export async function updateOrderStatus(req, res, next) {
     await order.save();
 
     return success(res, OrderMessage.STATUS_UPDATE_SUCCESS, {order});
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ==================== List Order Requests ====================
+export async function listOrderRequests(req, res, next) {
+  try {
+    const {status, startDate, endDate, q} = req.query;
+    const user = req.user;
+
+    // --- Base query ---
+    const query = {};
+
+    // --- Role-based filters ---
+    if (user.role.includes(ROLE.DEALER_STAFF)) {
+      // Nhân viên chỉ xem request chính mình tạo
+      query.requested_by = user.id;
+    } else if (user.role.includes(ROLE.DEALER_MANAGER)) {
+      // Manager xem được tất cả request của dealership
+      query.dealership_id = user.dealership_id;
+    } else if (user.role.includes(ROLE.EVM_STAFF)) {
+      // Manufacturer xem request có chứa xe của hãng mình
+      query["items.manufacturer_id"] = user.manufacturer_id;
+    }
+
+    // --- Filters ---
+    if (status) query.status = status;
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    // --- Search by code ---
+    if (q) query.code = {$regex: q, $options: "i"};
+
+    // --- Pagination ---
+    const result = await paginate(OrderRequest, req, ["code"], query);
+
+    const populated = await OrderRequest.populate(result.data, [
+      {path: "requested_by", select: "full_name email"},
+      {path: "dealership_id", select: "name"},
+    ]);
+
+    return success(res, "List order requests successfully", {
+      ...result,
+      data: populated,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ==================== Reject Order Request ====================
+export async function rejectOrderRequest(req, res, next) {
+  try {
+    const user = req.user;
+    const {reason} = req.body;
+
+    // --- Validate input ---
+    if (!reason || !reason.trim()) {
+      return errorRes(res, "Rejection reason is required", 400);
+    }
+
+    // --- Find request ---
+    const request = await OrderRequest.findById(req.params.id);
+    if (!request) return errorRes(res, "Order request not found", 404);
+
+    // --- Validate status ---
+    if (request.status !== "pending") {
+      return errorRes(res, "Request already processed", 400);
+    }
+
+    // --- Update request ---
+    request.status = "rejected";
+    request.rejected_by = user.id;
+    request.rejected_at = new Date();
+    request.rejection_reason = reason.trim();
+
+    await request.save();
+
+    return success(res, "Order request rejected successfully", {
+      id: request._id,
+      code: request.code,
+      status: request.status,
+      rejection_reason: request.rejection_reason,
+      rejected_by: user.id,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ==================== Approve Order Request (multi-manufacturer support) ====================
+export async function approveOrderRequestMethodCash(req, res, next) {
+  try {
+    const user = req.user;
+
+    const request = await OrderRequest.findById(req.params.id);
+    if (!request) return errorRes(res, "Order request not found", 404);
+
+    if (request.status !== "pending")
+      return errorRes(res, "Request already processed", 400);
+
+    request.status = "approved";
+    request.approved_by = user.id;
+    request.approved_at = new Date();
+    await request.save();
+
+    return success(res, "Order request approved successfully", request);
   } catch (err) {
     next(err);
   }

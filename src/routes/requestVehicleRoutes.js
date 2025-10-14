@@ -140,7 +140,7 @@ router.patch("/:id/reject", checkRole([ROLE.EVM_STAFF]), rejectRequest);
  * /api/request-vehicles/{id}:
  *   delete:
  *     tags: [Dealer Requests]
- *     summary: Delete a pending request (Admin only)
+ *     summary: Delete a pending request (Manager only)
  *     security:
  *       - bearerAuth: []
  *     parameters:

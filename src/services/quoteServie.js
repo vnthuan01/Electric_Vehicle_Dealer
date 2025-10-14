@@ -53,6 +53,7 @@ const DEFAULT_QUOTE_TEMPLATE = `
     <tr>
       <th>#</th>
       <th>Tên xe</th>
+      <th>Màu</th>
       <th>Giá xe (VNĐ)</th>
       <th>Số lượng</th>
       <th>Options</th>
@@ -66,6 +67,7 @@ const DEFAULT_QUOTE_TEMPLATE = `
     <tr>
       <td>{{@index}}</td>
       <td>{{vehicle_name}}</td>
+      <td>{{color}}</td>
       <td>{{formatCurrency vehicle_price}}</td>
       <td>{{quantity}}</td>
       <td>
@@ -75,7 +77,7 @@ const DEFAULT_QUOTE_TEMPLATE = `
       </td>
       <td>
         {{#if accessories}}
-          {{#each accessories}}{{name}} x {{quantity}} ({{formatCurrency price}}){{#unless @last}}, {{/unless}}{{/each}}
+          {{#each accessories}}{{name}} x {{quantity}} ({{formatCurrency price}} VNĐ){{#unless @last}}, {{/unless}}{{/each}}
         {{else}}-{{/if}}
       </td>
       <td>{{formatCurrency discount}}</td>

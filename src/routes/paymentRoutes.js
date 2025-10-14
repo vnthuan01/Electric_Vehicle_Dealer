@@ -7,6 +7,7 @@ import {
   getPaymentsByOrder,
   deletePayment,
   updatePayment,
+  getPaymentById,
 } from "../controllers/paymentController.js";
 
 const router = Router();
@@ -39,9 +40,7 @@ router.use(authenticate);
  *                 type: number
  *               method:
  *                 type: string
- *                 enum: [cash, installment]
- *               reference:
- *                 type: string
+ *                 enum: [cash, bank, qr, card]
  *               notes:
  *                 type: string
  *     responses:
@@ -76,6 +75,29 @@ router.get("/order/:orderId", getPaymentsByOrder);
 /**
  * @openapi
  * /api/payments/{id}:
+ *   get:
+ *     tags:
+ *       - Payments
+ *     summary: Get payment by ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Payment detail
+ *       404:
+ *         description: Payment not found
+ */
+router.get("/:id", checkRole(DEALER_ROLES), getPaymentById);
+
+/**
+ * @openapi
+ * /api/payments/{id}:
  *   put:
  *     tags:
  *       - Payments
@@ -94,8 +116,6 @@ router.get("/order/:orderId", getPaymentsByOrder);
  *           schema:
  *             type: object
  *             properties:
- *               reference:
- *                 type: string
  *               notes:
  *                 type: string
  *     responses:

@@ -1,12 +1,18 @@
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
+import Customer from "../models/Customer.js";
 import {success, created, error as errorRes} from "../utils/response.js";
-import {PaymentMessage, OrderMessage} from "../utils/MessageRes.js";
+import {
+  PaymentMessage,
+  OrderMessage,
+  CustomerMessage,
+} from "../utils/MessageRes.js";
 import {paginate} from "../utils/pagination.js";
 import Debt from "../models/Debt.js";
 import {
   updateCustomerDebtPayment,
   settleDealerManufacturerByOrderPayment,
+  revertDealerManufacturerByOrderPayment,
 } from "./debtController.js";
 import {createStatusLog} from "./orderStatusLogController.js";
 
@@ -55,7 +61,11 @@ export async function createPayment(req, res, next) {
 
     // Kiểm tra không vượt quá tổng đơn
     if (totalPaid + amount > finalAmount) {
-      return errorRes(res, PaymentMessage.EXCEEDS_FINAL_AMOUNT, 400);
+      return errorRes(
+        res,
+        PaymentMessage.EXCEEDS_FINAL_AMOUNT(finalAmount - totalPaid),
+        400
+      );
     }
 
     // Tạo payment
@@ -139,6 +149,46 @@ export async function createPayment(req, res, next) {
   }
 }
 
+// ==================== Get Payment by ID ====================
+export async function getPaymentById(req, res, next) {
+  try {
+    const {id} = req.params;
+    const dealership_id = req.user.dealership_id || null;
+
+    const payment = await Payment.findById(id).lean();
+    if (!payment) return errorRes(res, PaymentMessage.NOT_FOUND, 404);
+
+    const customer = await Customer.findById(payment.customer_id).lean();
+    if (!customer) return errorRes(res, CustomerMessage.NOT_FOUND, 404);
+
+    const order = await Order.findById(payment.order_id).lean();
+    if (!order) return errorRes(res, OrderMessage.NOT_FOUND, 404);
+
+    if (String(order.dealership_id) !== String(dealership_id)) {
+      return errorRes(res, PaymentMessage.ACCESS_DENIED, 403);
+    }
+
+    return success(res, PaymentMessage.DETAIL_RETRIEVED, {
+      payment,
+      order: {
+        _id: order._id,
+        code: order.code,
+        status: order.status,
+        final_amount: order.final_amount,
+        paid_amount: order.paid_amount,
+      },
+      customer: {
+        email: customer.email,
+        full_name: customer.full_name,
+        phone: customer.phone,
+        address: customer.address,
+      },
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
 // ==================== Get Payments by Order ====================
 export async function getPaymentsByOrder(req, res, next) {
   try {
@@ -166,11 +216,14 @@ export async function getPaymentsByOrder(req, res, next) {
   }
 }
 
-// ==================== Update Payment (chỉ cho sửa note/reference) ====================
+// ==================== Update Payment (chỉ cho sửa note) ====================
 export async function updatePayment(req, res, next) {
   try {
     const {id} = req.params;
-    const {reference, notes} = req.body;
+    const {notes} = req.body;
+
+    if (!notes)
+      return errorRes(res, PaymentMessage.MISSING_REQUIRED_FIELDS_UPDATE, 400);
 
     const dealership_id = req.user.dealership_id || null;
 
@@ -184,8 +237,7 @@ export async function updatePayment(req, res, next) {
       return errorRes(res, PaymentMessage.ACCESS_DENIED, 403);
     }
 
-    // Chỉ update note/reference, không được phép đổi số tiền
-    if (reference !== undefined) payment.reference = reference;
+    // Chỉ update note, không được phép đổi số tiền
     if (notes !== undefined) payment.notes = notes;
     await payment.save();
 
@@ -243,6 +295,10 @@ export async function deletePayment(req, res, next) {
 
       await debt.save();
     }
+
+    // --- Hoàn lại công nợ Đại lý ↔ Hãng ---
+    await revertDealerManufacturerByOrderPayment(order, payment);
+
     return success(res, PaymentMessage.DELETE_SUCCESS, {id});
   } catch (e) {
     next(e);

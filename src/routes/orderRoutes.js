@@ -1,7 +1,7 @@
 import {Router} from "express";
 import {authenticate} from "../middlewares/authMiddleware.js";
 import {checkRole} from "../middlewares/checkRole.js";
-import {DEALER_ROLES, MANAGEMENT_ROLES} from "../enum/roleEnum.js";
+import {DEALER_ROLES, MANAGEMENT_ROLES, ROLE} from "../enum/roleEnum.js";
 import {
   createOrder,
   getOrders,
@@ -9,6 +9,7 @@ import {
   updateOrder,
   deleteOrder,
   updateOrderStatus,
+  getOrdersForYours,
 } from "../controllers/orderController.js";
 
 const router = Router();
@@ -69,7 +70,7 @@ router.use(authenticate);
  *                     color:
  *                       type: string
  *                       description: Vehicle color to deduct stock from. If omitted, stock will be deducted across available colors.
- *                       example: "Red"
+ *                       example: "Đỏ"
  *                     quantity:
  *                       type: number
  *                       default: 1
@@ -114,7 +115,7 @@ router.use(authenticate);
  *             notes: "Khách hàng muốn giao xe trong tháng 10/ Kèm 2 accessories và 2 options"
  *             items:
  *               - vehicle_id: "68d39a14fde880da56c7f0d0"
- *                 color: "Red"
+ *                 color: "Đỏ"
  *                 quantity: 1
  *                 discount: 2000
  *                 promotion_id: "68d504d4a9f9cdb6420c9682"
@@ -130,11 +131,7 @@ router.use(authenticate);
  *       400:
  *         description: Bad Request
  */
-router.post(
-  "/",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  createOrder
-);
+router.post("/", checkRole([DEALER_ROLES]), createOrder);
 
 /**
  * @openapi
@@ -150,16 +147,57 @@ router.post(
  *         name: status
  *         schema:
  *           type: string
- *           enum: [quote, confirmed, contract_signed, delivered]
+ *           enum: [pending, confirmed, halfPayment, fullyPayment, closed, contract_signed, delivered]
+ *         description: |
+ *           Lọc theo trạng thái đơn hàng. - DEALER_MANAGER only
  *       - in: query
  *         name: q
  *         schema:
  *           type: string
+ *         description: |
+ *           Tìm kiếm theo mã đơn hàng, ID khách hàng hoặc ID saler.
+ *           - Nếu `q` trùng với `_id` của Order → lọc theo đơn đó.
+ *           - Nếu `q` trùng với `_id` của Customer → lọc các đơn của khách đó.
+ *           - Nếu `q` trùng với `_id` của Salesperson → lọc các đơn do nhân viên đó phụ trách.
+ *           - Nếu `q` là chuỗi thông thường → tìm theo mã đơn hàng (`code`) gần đúng.
  *     responses:
  *       200:
- *         description: OK
+ *         description: Danh sách đơn hàng phù hợp
  */
-router.get("/", checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]), getOrders);
+router.get("/", checkRole(ROLE.DEALER_MANAGER), getOrders);
+
+/**
+ * @openapi
+ * /api/orders/yourself:
+ *   get:
+ *     tags:
+ *       - Orders
+ *     summary: List orders of yourself
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, confirmed, halfPayment, fullyPayment, closed, contract_signed, delivered]
+ *         description: |
+ *           Lọc theo trạng thái đơn hàng.
+ *       - in: query
+ *         name: q
+ *         schema:
+ *           type: string
+ *         description: |
+ *           Tìm kiếm theo mã đơn hàng, ID khách hàng hoặc ID saler.
+ *           - Nếu `q` trùng với `_id` của Order → lọc theo đơn đó.
+ *           - Nếu `q` trùng với `_id` của Customer → lọc các đơn của khách đó.
+ *           - Nếu `q` trùng với `_id` của Salesperson → lọc các đơn do nhân viên đó phụ trách.
+ *           - Nếu `q` là chuỗi thông thường → tìm theo mã đơn hàng (`code`) gần đúng.
+ *     responses:
+ *       200:
+ *         description: Danh sách đơn hàng phù hợp
+ */
+router.get("/yourself", checkRole(DEALER_ROLES), getOrdersForYours);
 
 /**
  * @openapi
@@ -182,11 +220,7 @@ router.get("/", checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]), getOrders);
  *       404:
  *         description: Not Found
  */
-router.get(
-  "/:id",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  getOrderById
-);
+router.get("/:id", checkRole(DEALER_ROLES), getOrderById);
 
 /**
  * @openapi
@@ -262,11 +296,7 @@ router.get(
  *       404:
  *         description: Not Found
  */
-router.put(
-  "/:id",
-  checkRole([...DEALER_ROLES, ...MANAGEMENT_ROLES]),
-  updateOrder
-);
+router.put("/:id", checkRole(DEALER_ROLES), updateOrder);
 
 /**
  * @openapi
@@ -283,6 +313,8 @@ router.put(
  *         required: true
  *         schema:
  *           type: string
+ *         description: |
+ *           Xóa order. - DEALER_MANAGER only
  *     responses:
  *       200:
  *         description: OK
@@ -301,7 +333,10 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *     description: |
  *       Transition allowed:
  *       - pending -> confirmed
- *       - confirmed -> contract_signed
+ *       - confirmed -> halfPayment
+ *       - halfPayment -> fullyPayment
+ *       - fullyPayment -> closed
+ *       - closed -> contract_signed
  *       - contract_signed -> delivered
  *       Also allows updating paid amount for the order to reflect customer payment.
  *     security:
@@ -324,10 +359,9 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [quote, confirmed, contract_signed, delivered]
+ *                 enum: [pending, confirmed, halfPayment, fullyPayment, closed, contract_signed, delivered]
  *           example:
  *             status: "confirmed"
- *             paid_amount: 15000
  *     responses:
  *       200:
  *         description: OK, order status updated and paid amount recorded

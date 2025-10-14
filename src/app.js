@@ -32,6 +32,7 @@ import quoteRoutes from "./routes/quoteRoutes.js";
 import bankProfileRoutes from "./routes/bankProfileRoutes.js";
 import contractRoutes from "./routes/contractRoutes.js";
 import orderStatusLogRoutes from "./routes/orderStatusLogRoutes.js";
+import orderRequestRoutes from "./routes/orderRequestRoutes.js";
 
 dotenv.config();
 
@@ -62,6 +63,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // --- Mount routes with /api prefix ---
 const apiPrefix = "/api";
 // app.use(`${apiPrefix}/sms`, smsRoutes);
+app.use(`${apiPrefix}/order-request`, orderRequestRoutes);
 app.use(`${apiPrefix}/users`, userRoutes);
 app.use(`${apiPrefix}/debts`, debtRoutes);
 app.use(`${apiPrefix}/request-vehicles`, requestVehicleRoutes);

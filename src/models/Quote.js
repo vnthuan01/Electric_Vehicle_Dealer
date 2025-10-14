@@ -3,6 +3,11 @@ import mongoose from "mongoose";
 const quoteSchema = new mongoose.Schema(
   {
     code: {type: String, required: true, unique: true, index: true},
+    customer_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      required: true,
+    },
 
     items: [
       {
@@ -15,6 +20,7 @@ const quoteSchema = new mongoose.Schema(
         // --- snapshot vehicle ---
         vehicle_name: String,
         vehicle_price: Number,
+        color: String, // vehicle color chosen
 
         quantity: {type: Number, min: 1, max: 100, default: 1},
         discount: {type: Number, default: 0},

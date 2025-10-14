@@ -12,6 +12,7 @@ const customerSchema = new mongoose.Schema({
     required: true,
   },
   createdAt: {type: Date, default: Date.now},
+  active: {type: Boolean, default: true},
 });
 
 export default mongoose.model("Customer", customerSchema);
