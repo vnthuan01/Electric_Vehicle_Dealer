@@ -2,12 +2,17 @@ import Vehicle from "../models/Vehicle.js";
 import DealerManufacturerDebt from "../models/DealerManufacturerDebt.js";
 import {success, created, error as errorRes} from "../utils/response.js";
 import {paginate} from "../utils/pagination.js";
-import {DealerMessage, VehicleMessage} from "../utils/MessageRes.js";
+import {
+  DealerMessage,
+  ManufacturerMessage,
+  VehicleMessage,
+} from "../utils/MessageRes.js";
 import fetch from "node-fetch";
 import {cleanEmpty} from "../utils/cleanEmpty.js";
 import {emitVehicleDistribution} from "../config/socket.js";
 import User from "../models/User.js";
 import Dealership from "../models/Dealership.js";
+import {capitalizeVietnamese} from "../utils/validateWord.js";
 
 // Create one or multiple vehicles (EVM Staff, Admin only)
 export async function createVehicle(req, res, next) {
@@ -431,18 +436,18 @@ export async function compareCars(req, res) {
 export async function distributeVehicleToDealer(req, res, next) {
   try {
     const {vehicle_id, dealership_id, quantity, notes, color} = req.body;
-
+    console.log(req.body);
     // Validate required fields
-    if (!vehicle_id || !dealership_id || !quantity) {
+    if (!vehicle_id || !dealership_id || !quantity || !color) {
       return errorRes(
         res,
-        "Missing required fields: vehicle_id, dealership_id, quantity, color",
+        VehicleMessage.MISSING_REQUIRED_FIELDS_DISTRIBUTE,
         400
       );
     }
 
     if (quantity <= 0) {
-      return errorRes(res, "Quantity must be greater than 0", 400);
+      return errorRes(res, VehicleMessage.QUANTITY_MUST_BE_GREATER_THAN_0, 400);
     }
 
     const dealership = await Dealership.findById({_id: dealership_id});
@@ -452,26 +457,32 @@ export async function distributeVehicleToDealer(req, res, next) {
     }
 
     // Find vehicle
-    const vehicle = await Vehicle.findById({
+    const vehicle = await Vehicle.findOne({
       _id: vehicle_id,
       status: "active",
       is_deleted: false,
     });
 
-    if (!vehicle) {
+    if (!vehicle || vehicle.is_deleted || vehicle.status !== "active") {
       return errorRes(res, DealerMessage.VEHICLE_NOT_FOUND, 404);
     }
 
+    const normalizedColor = capitalizeVietnamese(color || "");
     // Check manufacturer stock
-    const manufacturerStock = vehicle.stocks.find(
-      (s) => s.owner_type === "manufacturer" && (!color || s.color === color)
-    );
+    const manufacturerStock = vehicle.stocks.find((s) => {
+      if (s.owner_type !== "manufacturer") return false;
+      if (!color) return true;
+
+      const stockColor = s.color.trim() || "";
+      return stockColor === normalizedColor;
+    });
 
     if (!manufacturerStock) {
       return errorRes(
         res,
-        "No manufacturer stock available for this vehicle",
-        400
+        ManufacturerMessage.NO_STOCK_AVAILABLE,
+        400,
+        "Stock color is not available"
       );
     }
 
@@ -501,7 +512,7 @@ export async function distributeVehicleToDealer(req, res, next) {
         owner_type: "dealer",
         owner_id: dealership_id,
         quantity: quantity,
-        color,
+        color: normalizedColor,
       });
     }
 
@@ -523,7 +534,7 @@ export async function distributeVehicleToDealer(req, res, next) {
         request_id: null,
         vehicle_id: vehicle._id,
         vehicle_name: vehicle.name,
-        color,
+        color: color.trim(),
         unit_price: vehicle.price,
         quantity,
         amount: total_amount,
@@ -544,7 +555,7 @@ export async function distributeVehicleToDealer(req, res, next) {
             request_id: null,
             vehicle_id: vehicle._id,
             vehicle_name: vehicle.name,
-            color,
+            color: normalizedColor,
             unit_price: vehicle.price,
             quantity,
             amount: total_amount,
@@ -564,6 +575,7 @@ export async function distributeVehicleToDealer(req, res, next) {
           id: vehicle._id,
           name: vehicle.name,
           sku: vehicle.sku,
+          color: normalizedColor,
           price: vehicle.price,
         },
         quantity,
@@ -571,11 +583,12 @@ export async function distributeVehicleToDealer(req, res, next) {
       });
     }
 
-    return success(res, "Vehicle distributed successfully", {
+    return success(res, VehicleMessage.VEHICLE_DISTRIBUTED_SUCCESS, {
       vehicle: {
         id: vehicle._id,
         name: vehicle.name,
         sku: vehicle.sku,
+        color: normalizedColor,
       },
       dealership_id,
       quantity,

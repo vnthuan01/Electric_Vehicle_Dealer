@@ -10,3 +10,10 @@ export function cleanEmpty(obj) {
   }
   return obj;
 }
+
+export const normalizeText = (text) =>
+  (text || "")
+    .toLowerCase()
+    .normalize("NFD") // tách dấu
+    .replace(/[\u0300-\u036f]/g, "") // bỏ dấu tiếng Việt
+    .trim();

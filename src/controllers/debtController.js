@@ -153,6 +153,83 @@ export async function settleDealerManufacturerByOrderPayment(order, payment) {
   return true;
 }
 
+export async function revertDealerManufacturerByOrderPayment(order, payment) {
+  try {
+    if (!order || !payment) return;
+
+    const manufacturerAmountById = new Map();
+
+    // Lấy danh sách vehicle trong đơn
+    const vehicleIds = Array.from(
+      new Set((order.items || []).map((i) => String(i.vehicle_id)))
+    );
+    const vehicles = await Vehicle.find({_id: {$in: vehicleIds}})
+      .select("_id manufacturer_id")
+      .lean();
+
+    const vehicleIdToManufacturer = new Map(
+      vehicles.map((v) => [String(v._id), String(v.manufacturer_id)])
+    );
+
+    // Tính tổng doanh thu của từng hãng trong đơn
+    for (const it of order.items || []) {
+      const manufacturerId = vehicleIdToManufacturer.get(String(it.vehicle_id));
+      if (!manufacturerId) continue;
+      const amountPortion =
+        Number(it.vehicle_price || 0) * Number(it.quantity || 1);
+      manufacturerAmountById.set(
+        manufacturerId,
+        (manufacturerAmountById.get(manufacturerId) || 0) + amountPortion
+      );
+    }
+
+    const orderManufacturerBaseTotal = Array.from(
+      manufacturerAmountById.values()
+    ).reduce((s, v) => s + v, 0);
+    if (orderManufacturerBaseTotal <= 0) return;
+
+    const paid = Number(payment.amount || 0);
+    const dealershipId = order.dealership_id;
+
+    // --- Giảm công nợ cho từng hãng ---
+    for (const [manufacturerId, base] of manufacturerAmountById.entries()) {
+      const ratio = base / orderManufacturerBaseTotal;
+      const allocate = Math.round(paid * ratio);
+
+      const debt = await DealerManufacturerDebt.findOne({
+        dealership_id: dealershipId,
+        manufacturer_id: manufacturerId,
+      });
+      if (!debt) continue;
+
+      // Giảm số tiền thanh toán
+      debt.paid_amount = Math.max(0, (debt.paid_amount || 0) - allocate);
+      debt.remaining_amount = Math.max(
+        0,
+        (debt.total_amount || 0) - (debt.paid_amount || 0)
+      );
+
+      // Cập nhật trạng thái
+      if (debt.remaining_amount <= 0) debt.status = "settled";
+      else if (debt.paid_amount > 0) debt.status = "partial";
+      else debt.status = "open";
+
+      // Ghi lại log trong payments nếu có
+      if (debt.payments?.length) {
+        debt.payments = debt.payments.filter(
+          (p) => p.ref !== payment.reference
+        );
+      }
+
+      await debt.save();
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Failed to revert dealer-manufacturer debt:", err);
+  }
+}
+
 /**
  * GET /api/debts/customers
  * Lấy danh sách công nợ khách hàng

@@ -76,15 +76,21 @@ router.use(authenticate);
  *                           quantity:
  *                             type: number
  *                             default: 1
+ *                     color:
+ *                       type: string
+ *                       description: Vehicle color chosen
+ *                       example: "Red"
  *               notes:
  *                 type: string
  *           example:
  *             notes: "Quotation valid for 7 days, includes 2 accessories."
+ *             customer_id: "68da326b8de50de3aa8abed5"
  *             items:
- *               - vehicle_id: "68d39a14fde880da56c7f0d0"
+ *               - vehicle_id: "68eb1bb987b0bc1a6f817efb"
  *                 quantity: 1
  *                 discount: 2000
- *                 promotion_id: "68d504d4a9f9cdb6420c9682"
+ *                 color: "Red"
+ *                 promotion_id: "68e66da88a31a08794fd0b64"
  *                 options:
  *                   - option_id: "68d137662d41dc0589f4c9a4"
  *                   - option_id: "68d137662d41dc0589f4c9a3"
@@ -206,6 +212,7 @@ router.get("/:id", checkRole([...DEALER_ROLES]), getQuoteById);
  *                         properties:
  *                           accessory_id: { type: string }
  *                           quantity: { type: number, default: 1 }
+ *                     color: { type: string, description: "Vehicle color chosen" }
  *               notes: { type: string }
  *               status:
  *                 type: string
@@ -216,6 +223,7 @@ router.get("/:id", checkRole([...DEALER_ROLES]), getQuoteById);
  *               - vehicle_id: "68d39a14fde880da56c7f0d0"
  *                 quantity: 1
  *                 discount: 1500
+ *                 color: "Blue"
  *                 promotion_id: ""
  *                 options: []
  *                 accessories: []

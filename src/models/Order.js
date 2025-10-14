@@ -77,6 +77,7 @@ const orderSchema = new mongoose.Schema(
         "confirmed",
         "halfPayment",
         "fullyPayment",
+        "closed",
         "contract_signed",
         "delivered",
       ],

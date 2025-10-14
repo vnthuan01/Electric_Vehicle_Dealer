@@ -1,7 +1,7 @@
 import {Router} from "express";
 import {authenticate} from "../middlewares/authMiddleware.js";
 import {checkRole} from "../middlewares/checkRole.js";
-import {MANAGEMENT_ROLES, ROLE} from "../enum/roleEnum.js";
+import {DEALER_ROLES, ROLE} from "../enum/roleEnum.js";
 import {
   createCustomer,
   getCustomers,
@@ -12,6 +12,7 @@ import {
   getCustomerPayments,
   getCustomerTestDrives,
   getCustomersOfYourself,
+  reActiveCustomer,
 } from "../controllers/customerController.js";
 
 const router = Router();
@@ -96,7 +97,7 @@ router.get("/", checkRole(ROLE.DEALER_MANAGER), getCustomers);
  *       500:
  *         description: Lỗi hệ thống
  */
-router.get("/yourself", getCustomersOfYourself);
+router.get("/yourself", checkRole(DEALER_ROLES), getCustomersOfYourself);
 
 /**
  * @openapi
@@ -136,7 +137,7 @@ router.get("/yourself", getCustomersOfYourself);
  *       400:
  *         description: Bad Request
  */
-router.post("/", createCustomer);
+router.post("/", checkRole(DEALER_ROLES), createCustomer);
 
 /**
  * @openapi
@@ -159,7 +160,7 @@ router.post("/", createCustomer);
  *       404:
  *         description: Not Found
  */
-router.get("/:id", getCustomerById);
+router.get("/:id", checkRole(DEALER_ROLES), getCustomerById);
 
 /**
  * @openapi
@@ -202,7 +203,30 @@ router.get("/:id", getCustomerById);
  *       404:
  *         description: Not Found
  */
-router.put("/:id", updateCustomer);
+router.put("/:id", checkRole(DEALER_ROLES), updateCustomer);
+
+/**
+ * @openapi
+ * /api/customers/{id}:
+ *   patch:
+ *     tags:
+ *       - Customers
+ *     summary: Re-Active customer
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: OK
+ *       404:
+ *         description: Not Found
+ */
+router.patch("/:id", checkRole(ROLE.DEALER_MANAGER), reActiveCustomer);
 
 /**
  * @openapi
@@ -225,7 +249,7 @@ router.put("/:id", updateCustomer);
  *       404:
  *         description: Not Found
  */
-router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteCustomer);
+router.delete("/:id", checkRole(ROLE.DEALER_MANAGER), deleteCustomer);
 
 /**
  * @openapi
@@ -249,7 +273,7 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteCustomer);
  *       404:
  *         description: Customer not found
  */
-router.get("/:id/orders", getCustomerOrders);
+router.get("/:id/orders", checkRole(DEALER_ROLES), getCustomerOrders);
 
 /**
  * @openapi
@@ -273,7 +297,7 @@ router.get("/:id/orders", getCustomerOrders);
  *       404:
  *         description: Customer not found
  */
-router.get("/:id/payments", getCustomerPayments);
+router.get("/:id/payments", checkRole(DEALER_ROLES), getCustomerPayments);
 
 /**
  * @openapi
@@ -297,6 +321,6 @@ router.get("/:id/payments", getCustomerPayments);
  *       404:
  *         description: Customer not found
  */
-router.get("/:id/testdrives", getCustomerTestDrives);
+router.get("/:id/testdrives", checkRole(DEALER_ROLES), getCustomerTestDrives);
 
 export default router;

@@ -3,7 +3,9 @@ import Vehicle from "../models/Vehicle.js";
 import Option from "../models/Option.js";
 import Accessory from "../models/Accessory.js";
 import Promotion from "../models/Promotion.js";
+import PromotionUsage from "../models/PromotionUsage.js";
 import {success, created, error as errorRes} from "../utils/response.js";
+import {QuoteMessage} from "../utils/MessageRes.js";
 import {paginate} from "../utils/pagination.js";
 import {generateQuotePDF} from "../services/quoteServie.js";
 
@@ -22,6 +24,7 @@ function generateQuoteCode() {
 // Helper tính giá cuối cùng cho item quote
 async function calculateQuoteItem({
   vehicle_id,
+  color,
   quantity,
   discount,
   promotion_id,
@@ -77,6 +80,7 @@ async function calculateQuoteItem({
     vehicle_id: vehicle._id,
     vehicle_name: vehicle.name,
     vehicle_price: vehicle.price,
+    color,
     quantity: quantity || 1,
     discount: discount || 0,
     promotion_id,
@@ -89,29 +93,96 @@ async function calculateQuoteItem({
 // =================== CREATE QUOTE ===================
 export async function createQuote(req, res, next) {
   try {
-    const {items = [], notes} = req.body;
+    const {items = [], notes, customer_id} = req.body;
+    const userId = req.user._id;
+
+    if (!customer_id) return errorRes(res, QuoteMessage.MISSING_CUSTOMER, 400);
+
     if (!Array.isArray(items) || items.length === 0)
-      return errorRes(res, "Empty items", 400);
-    // Tính từng item
+      return errorRes(res, QuoteMessage.EMPTY_ITEMS, 400);
+
+    // --- Check vehicle trùng ---
+    const vehicleIds = items.map((i) => i.vehicle_id);
+    const hasDuplicateVehicle = vehicleIds.some(
+      (id, idx) => vehicleIds.indexOf(id) !== idx
+    );
+    if (hasDuplicateVehicle) {
+      return errorRes(res, QuoteMessage.DUPLICATE_VEHICLES, 400);
+    }
+
+    // --- Check promotion từng user chỉ dùng 1 lần ---
+    for (const item of items) {
+      if (item.promotion_id) {
+        const used = await PromotionUsage.findOne({
+          customer_id,
+          vehicle_id: item.vehicle_id,
+          promotion_id: item.promotion_id,
+          status: "used",
+        });
+        if (used) {
+          return errorRes(
+            res,
+            QuoteMessage.PROMOTION_ALREADY_USED(item.promotion_id),
+            400
+          );
+        }
+      }
+    }
+    // Khi tạo quote, đánh dấu pending cho mỗi promotion
+    for (const item of items) {
+      if (item.promotion_id) {
+        await PromotionUsage.create({
+          customer_id,
+          vehicle_id: item.vehicle_id,
+          promotion_id: item.promotion_id,
+          quote_id: null, // sẽ update bên dưới sau khi tạo quote
+          order_id: null,
+          status: "pending",
+        });
+      }
+    }
+
+    // --- Tính từng item ---
     const itemsWithFinal = [];
     for (const item of items) {
       itemsWithFinal.push(await calculateQuoteItem(item));
     }
+
     const total = itemsWithFinal.reduce((sum, i) => sum + i.final_amount, 0);
     const code = generateQuoteCode();
     const now = new Date();
     const startDate = now;
     const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
     const quote = await Quote.create({
       code,
+      customer_id,
       items: itemsWithFinal,
       final_amount: total,
       notes,
       startDate,
       endDate,
       status: "valid",
+      created_by: userId,
     });
-    return created(res, "Quote created", quote);
+
+    // Sau khi có quote._id, update PromotionUsage.pending gán quote_id
+    for (const item of items) {
+      if (item.promotion_id) {
+        await PromotionUsage.updateMany(
+          {
+            customer_id,
+            vehicle_id: item.vehicle_id,
+            promotion_id: item.promotion_id,
+            status: "pending",
+            quote_id: null,
+          },
+          {$set: {quote_id: quote._id}}
+        );
+      }
+    }
+
+    return created(res, QuoteMessage.CREATE_SUCCESS, quote);
   } catch (e) {
     next(e);
   }
@@ -124,7 +195,7 @@ export async function getQuotes(req, res, next) {
     const now = new Date();
     const cond = {status: {$ne: "canceled"}, endDate: {$gte: now}};
     const result = await paginate(Quote, req, ["code", "notes"], cond);
-    return success(res, "List quotes", result);
+    return success(res, QuoteMessage.LIST_SUCCESS, result);
   } catch (e) {
     next(e);
   }
@@ -134,13 +205,13 @@ export async function getQuotes(req, res, next) {
 export async function getQuoteById(req, res, next) {
   try {
     const quote = await Quote.findById(req.params.id);
-    if (!quote) return errorRes(res, "Quote not found", 404);
+    if (!quote) return errorRes(res, QuoteMessage.NOT_FOUND, 404);
     const now = new Date();
     if (quote.status === "valid" && quote.endDate < now) {
       quote.status = "expired";
       await quote.save();
     }
-    return success(res, "Get quote detail", quote);
+    return success(res, QuoteMessage.DETAIL_SUCCESS, quote);
   } catch (e) {
     next(e);
   }
@@ -152,11 +223,11 @@ export async function updateQuote(req, res, next) {
     const {id} = req.params;
     const {items, notes, status} = req.body;
     const quote = await Quote.findById(id);
-    if (!quote) return errorRes(res, "Quote not found", 404);
+    if (!quote) return errorRes(res, QuoteMessage.NOT_FOUND, 404);
 
     const now = new Date();
     if (quote.status !== "valid" || quote.endDate < now)
-      return errorRes(res, "Quote is expired/canceled", 400);
+      return errorRes(res, QuoteMessage.QUOTE_EXPIRED_OR_CANCELED, 400);
 
     let changed = false;
 
@@ -209,7 +280,7 @@ export async function updateQuote(req, res, next) {
     }
 
     if (changed) await quote.save();
-    return success(res, "Quote updated", quote);
+    return success(res, QuoteMessage.UPDATE_SUCCESS, quote);
   } catch (e) {
     next(e);
   }
@@ -225,7 +296,7 @@ export async function deleteQuote(req, res, next) {
 
     // Nếu đã hết hạn hoặc đã bị hủy thì không cần hủy thêm
     if (["canceled"].includes(quote.status)) {
-      return errorRes(res, "Quote already canceled", 400);
+      return errorRes(res, QuoteMessage.QUOTE_ALREADY_CANCELED, 400);
     }
 
     // Soft delete: cập nhật trạng thái
@@ -234,7 +305,7 @@ export async function deleteQuote(req, res, next) {
 
     await quote.save();
 
-    return success(res, "Quote canceled successfully", {
+    return success(res, QuoteMessage.CANCEL_SUCCESS, {
       id: quote._id,
       status: quote.status,
       canceled_at: quote.canceled_at,
@@ -248,8 +319,9 @@ export async function exportQuotePDF(req, res, next) {
   try {
     const {id} = req.params;
     const quote = await Quote.findById(id).lean();
-    if (!quote) return errorRes(res, "Quote not found", 404);
-    console.log(quote);
+    if (!quote) return errorRes(res, QuoteMessage.NOT_FOUND, 404);
+    if (quote.status !== "valid")
+      return errorRes(res, QuoteMessage.QUOTE_NOT_VALID, 400);
     const pdfBuffer = await generateQuotePDF(quote);
 
     const filename = `Tổng-Kết-Báo-Giá-${quote.code}.pdf`;

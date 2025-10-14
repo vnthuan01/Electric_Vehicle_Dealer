@@ -6,6 +6,7 @@ import {DealerMessage} from "../utils/MessageRes.js";
 import {paginate} from "../utils/pagination.js";
 import {emitRequestStatusUpdate} from "../config/socket.js";
 import Dealership from "../models/Dealership.js";
+import {capitalizeVietnamese} from "../utils/validateWord.js";
 
 //Dealer gửi request nhập xe (PENDING)
 export async function requestVehicleFromManufacturer(req, res, next) {
@@ -21,7 +22,7 @@ export async function requestVehicleFromManufacturer(req, res, next) {
       return errorRes(res, DealerMessage.NOT_FOUND);
     }
 
-    const vehicle = await Vehicle.findById({
+    const vehicle = await Vehicle.findOne({
       _id: vehicle_id,
       status: "active",
       is_deleted: false,
@@ -31,11 +32,14 @@ export async function requestVehicleFromManufacturer(req, res, next) {
       return errorRes(res, DealerMessage.VEHICLE_NOT_FOUND, 404);
     }
 
+    //Chuẩn hoá màu khi lưu request
+    const normalizedColor = capitalizeVietnamese(color.trim());
+
     // Check duplicate request
     const existingRequest = await RequestVehicle.findOne({
       vehicle_id,
       dealership_id: req.user.dealership_id,
-      color,
+      color: normalizedColor,
       status: {$in: ["pending"]},
     });
 
@@ -47,12 +51,12 @@ export async function requestVehicleFromManufacturer(req, res, next) {
       vehicle_id,
       dealership_id: req.user.dealership_id,
       quantity,
-      color,
+      color: normalizedColor,
       notes,
       status: "pending",
     });
 
-    // Emit socket notification for new request
+    // Emit socket notification
     if (req.app.get("io")) {
       emitRequestStatusUpdate(req.app.get("io"), {
         requestId: request._id,
@@ -62,6 +66,7 @@ export async function requestVehicleFromManufacturer(req, res, next) {
           id: vehicle._id,
           name: vehicle.name,
           sku: vehicle.sku,
+          color: normalizedColor,
         },
         quantity,
       });
@@ -86,6 +91,7 @@ export async function approveRequest(req, res, next) {
 
     //Tìm xe và check stock của hãng
     const vehicle = await Vehicle.findById(request.vehicle_id);
+    if (!vehicle) return errorRes(res, DealerMessage.VEHICLE_NOT_FOUND, 404);
     const manufacturerStock = vehicle.stocks.find(
       (s) =>
         s.owner_type === "manufacturer" &&

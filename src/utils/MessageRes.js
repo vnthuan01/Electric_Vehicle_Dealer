@@ -62,6 +62,10 @@ export const VehicleMessage = {
   INVALID_REQUEST: "Invalid request or no valid vehicles to create",
   MISSING_REQUIRED_FIELDS:
     "Missing required fields: sku, name, category, price",
+  MISSING_REQUIRED_FIELDS_DISTRIBUTE:
+    "Missing required fields: vehicle_id, dealership_id, quantity, color",
+  VEHICLE_DISTRIBUTED_SUCCESS: "Vehicle distributed successfully.",
+  QUANTITY_MUST_BE_GREATER_THAN_0: "Quantity must be greater than 0",
   SKU_ALREADY_EXISTS: "Vehicle with this SKU already exists",
 };
 
@@ -105,7 +109,7 @@ export const ManufacturerMessage = {
 
   NOT_FOUND: "Manufacturer not found",
   INVALID_REQUEST: "Invalid manufacturer data",
-
+  NO_STOCK_AVAILABLE: "No manufacturer stock available for this vehicle's color",
   //Debts
   DEBTS_RETRIEVED: "Manufacturer debts retrieved successfully",
 };
@@ -214,11 +218,30 @@ export const PaymentMessage = {
   LIST_RETRIEVED: "Payment list retrieved successfully",
   MISSING_REQUIRED_FIELDS:
     "Missing required fields: order_id, amount, or method",
+  MISSING_REQUIRED_FIELDS_UPDATE: "Missing required notes field.",
   ORDER_NOT_FOUND: "Order not found",
-  EXCEEDS_FINAL_AMOUNT: "Payment amount exceeds the final order total",
+  EXCEEDS_FINAL_AMOUNT: (amount) =>
+    `Payment amount exceeds the final order total. You only need to pay ${amount.toLocaleString()} VNĐ more`,
   ALREADY_FULLY_PAID: "This order has already been fully paid",
   DELETE_SUCCESS: "Payment deleted successfully",
   UPDATE_SUCCESS: "Payment updated successfully",
   NOT_FOUND: "Payment not found",
   ACCESS_DENIED: "Access denied: Payment not in your dealership",
+};
+
+export const QuoteMessage = {
+  CREATE_SUCCESS: "Quote created successfully",
+  LIST_SUCCESS: "Quote list retrieved successfully",
+  DETAIL_SUCCESS: "Quote detail retrieved successfully",
+  UPDATE_SUCCESS: "Quote updated successfully",
+  DELETE_SUCCESS: "Quote deleted successfully",
+  NOT_FOUND: "Quote not found",
+  QUOTE_NOT_VALID: "Quote is not valid",
+  QUOTE_EXPIRED_OR_CANCELED: "Quote is expired or canceled",
+  QUOTE_ALREADY_CANCELED: "Quote is already canceled",
+  EMPTY_ITEMS: "Empty items",
+  CANCEL_SUCCESS: "Quote canceled successfully",
+  DUPLICATE_VEHICLES: "Duplicate vehicles in quote are not allowed",
+  PROMOTION_ALREADY_USED: (promotionId) =>
+    `Promotion ${promotionId} has already been used`,
 };
