@@ -2,7 +2,7 @@ import puppeteer from "puppeteer";
 import Handlebars from "handlebars";
 import fs from "fs";
 import path from "path";
-import {fileURLToPath} from "url";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -418,7 +418,7 @@ export async function generateContractPDF(orderData, templateData = {}) {
     });
 
     const page = await browser.newPage();
-    await page.setContent(html, {waitUntil: "networkidle0"});
+    await page.setContent(html, { waitUntil: "networkidle0" });
 
     const pdf = await page.pdf({
       format: "A4",
@@ -468,7 +468,7 @@ export async function saveCustomTemplate(
 
     // Tạo thư mục nếu chưa có
     if (!fs.existsSync(templateDir)) {
-      fs.mkdirSync(templateDir, {recursive: true});
+      fs.mkdirSync(templateDir, { recursive: true });
     }
 
     // Lưu file HTML
@@ -487,7 +487,7 @@ export async function saveCustomTemplate(
       JSON.stringify(metadata, null, 2)
     );
 
-    return {success: true, path: templatePath};
+    return { success: true, path: templatePath };
   } catch (error) {
     console.error("Error saving custom template:", error);
     throw new Error(`Failed to save template: ${error.message}`);
@@ -522,7 +522,7 @@ export async function getAvailableTemplates() {
             const fileContent = fs.readFileSync(metadataPath, "utf8");
             const parsed = JSON.parse(fileContent);
             console.log(`Loaded metadata for ${templateName}:`, parsed);
-            metadata = {...metadata, ...parsed};
+            metadata = { ...metadata, ...parsed };
           } catch (err) {
             console.warn(`Lỗi đọc metadata của ${templateName}:`, err.message);
           }
@@ -543,6 +543,6 @@ export async function getAvailableTemplates() {
     return templates;
   } catch (error) {
     console.error("Error getting available templates:", error);
-    return [{name: "default", description: "Template mặc định"}];
+    return [{ name: "default", description: "Template mặc định" }];
   }
 }
