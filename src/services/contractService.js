@@ -8,236 +8,274 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Template mẫu cho hợp đồng mua bán xe điện
-const DEFAULT_CONTRACT_TEMPLATE = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Hợp đồng mua bán xe điện</title>
+const DEFAULT_CONTRACT_TEMPLATE = `<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Hợp Đồng Mua Bán Xe Điện</title>
     <style>
-        body {
-            font-family: 'Times New Roman', serif;
-            font-size: 13px;
-            line-height: 1.5;
-            margin: 40px;
-            color: #333;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .title {
-            font-size: 18px;
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        }
-        .subtitle {
-            font-size: 14px;
-            font-style: italic;
-        }
-        .section {
-            margin-bottom: 20px;
-        }
-        .section-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-            text-decoration: underline;
-        }
-        .info-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-        }
-        .info-table td {
-            padding: 5px 10px;
-            border: 1px solid #ddd;
-            vertical-align: top;
-        }
-        .label {
-            font-weight: bold;
-            width: 30%;
-            background-color: #f5f5f5;
-        }
-        .signature-section {
-            margin-top: 40px;
-            display: flex;
-            justify-content: space-between;
-        }
-        .signature-box {
-            text-align: center;
-            width: 45%;
-        }
-        .date-location {
-            margin-bottom: 30px;
-            text-align: right;
-        }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 40px;
+        font-size: 14px;
+        line-height: 1.7;
+        color: #333;
+        background-color: #fafafa;
+      }
+
+      .header, .footer {
+        text-align: center;
+      }
+
+      .header h2 {
+        margin-bottom: 0;
+        font-size: 16px;
+        font-weight: normal;
+        color: #555;
+      }
+
+      .header h1 {
+        margin: 5px 0 20px;
+        font-size: 22px;
+        color: #111;
+      }
+
+      .contract-info {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .contract-info strong {
+        color: #444;
+      }
+
+      .section {
+        margin-bottom: 25px;
+      }
+
+      .section-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 4px;
+        color: #222;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 15px;
+      }
+
+      th, td {
+        border: 1px solid #ccc;
+        padding: 8px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background-color: #f0f0f0;
+        font-weight: 600;
+      }
+
+      .vehicle-card {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 15px;
+        background-color: #fff;
+      }
+
+      .vehicle-card p {
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+
+      .vehicle-card ul {
+        padding-left: 20px;
+        margin: 0;
+      }
+
+      .vehicle-card li {
+        margin-bottom: 4px;
+      }
+
+      .highlight {
+        font-weight: 600;
+        color: #1a73e8;
+      }
+
+      .amount {
+        font-weight: bold;
+        color: #d93025;
+      }
+
+      .note {
+        background-color: #eef7ff;
+        border-left: 4px solid #1a73e8;
+        padding: 8px 12px;
+        margin-top: 10px;
+        font-style: italic;
+        color: #333;
+        border-radius: 4px;
+      }
+
+      .signature-table {
+        width: 100%;
+        margin-top: 40px;
+        text-align: center;
+      }
+
+      .signature-table td {
+        height: 90px;
+        vertical-align: bottom;
+      }
+
+      .signature-table th {
+        text-align: center;
+        font-weight: normal;
+        padding-bottom: 5px;
+      }
+
+      .payment-summary {
+        margin-top: 10px;
+        border: 1px solid #ccc;
+        padding: 10px;
+        border-radius: 6px;
+        background-color: #fff;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="header">
-        <div class="title">Hợp đồng mua bán xe điện</div>
-        <div class="subtitle">Số: {{contractNumber}}</div>
+      <h2>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
+      <h2>Độc Lập – Tự Do – Hạnh Phúc</h2>
+      <h1>HỢP ĐỒNG MUA BÁN XE ĐIỆN</h1>
     </div>
 
-    <div class="date-location">
-        <strong>{{location}}</strong>, ngày {{day}} tháng {{month}} năm {{year}}
+    <p class="contract-info">
+      Số hợp đồng: <strong>{{contractNumber}}</strong><br />
+      Địa điểm: {{location}}, Ngày {{day}} tháng {{month}} năm {{year}}
+    </p>
+
+    <div class="section">
+      <div class="section-title">ĐIỀU 1: THÔNG TIN CÁC BÊN</div>
+      <table>
+        <tr>
+          <th style="width: 50%;">Bên A (Bên bán)</th>
+          <th>Bên B (Bên mua)</th>
+        </tr>
+        <tr>
+          <td>
+            <div><span class="highlight">Tên đại lý:</span> {{dealership.name}}</div>
+            <div><span class="highlight">Địa chỉ:</span> {{dealership.address}}</div>
+            <div><span class="highlight">Điện thoại:</span> {{dealership.phone}}</div>
+            <div><span class="highlight">Mã số thuế:</span> {{dealership.tax_code}}</div>
+            <div><span class="highlight">Người đại diện:</span> {{dealership.representative}}</div>
+          </td>
+          <td>
+            <div><span class="highlight">Họ và tên:</span> {{customer.full_name}}</div>
+            <div><span class="highlight">Địa chỉ:</span> {{customer.address}}</div>
+            <div><span class="highlight">Điện thoại:</span> {{customer.phone}}</div>
+            <div><span class="highlight">Email:</span> {{customer.email}}</div>
+          </td>
+        </tr>
+      </table>
     </div>
 
     <div class="section">
-        <div class="section-title">ĐIỀU 1: THÔNG TIN CÁC BÊN</div>
-        
-        <p><strong>Bên A (Bên bán):</strong></p>
-        <table class="info-table">
-            <tr>
-                <td class="label">Tên đại lý:</td>
-                <td>{{dealership.name}}</td>
-            </tr>
-            <tr>
-                <td class="label">Địa chỉ:</td>
-                <td>{{dealership.address}}</td>
-            </tr>
-            <tr>
-                <td class="label">Điện thoại:</td>
-                <td>{{dealership.phone}}</td>
-            </tr>
-            <tr>
-                <td class="label">Mã số thuế:</td>
-                <td>{{dealership.tax_code}}</td>
-            </tr>
-            <tr>
-                <td class="label">Người đại diện:</td>
-                <td>{{dealership.representative}}</td>
-            </tr>
-        </table>
+      <div class="section-title">ĐIỀU 2: THÔNG TIN XE VÀ GIÁ BÁN</div>
+      {{#each vehicles}}
+      <div class="vehicle-card">
+        <p>Xe {{index}}: {{name}} (Màu {{color}})</p>
+        <ul>
+          <li>Giá: <span class="amount">{{formatCurrencyVND unit_price}} VNĐ</span></li>
+          <li>Số lượng: {{quantity}}</li>
+          <li>Khuyến mãi: {{#if promotion}}{{promotion.name}} ({{promotion.type}}){{else}}Không có{{/if}}</li>
+          <li>Phụ kiện: {{#if accessories.length}}{{#each accessories}}{{name}} (x{{quantity}}){{#unless @last}}, {{/unless}}{{/each}}{{else}}Không có{{/if}}</li>
+          <li>Tùy chọn thêm: {{#if options.length}}{{#each options}}{{name}} ({{formatCurrencyVND price}}){{#unless @last}}, {{/unless}}{{/each}}{{else}}Không có{{/if}}</li>
+          <li><strong>Tổng giá trị:</strong> <span class="amount">{{formatCurrencyVND final_amount}}</span></li>
+        </ul>
+      </div>
+      {{/each}}
 
-        <p><strong>Bên B (Bên mua):</strong></p>
-        <table class="info-table">
-            <tr>
-                <td class="label">Họ và tên:</td>
-                <td>{{customer.full_name}}</td>
-            </tr>
-            <tr>
-                <td class="label">Ngày sinh:</td>
-                <td>{{customer.date_of_birth}}</td>
-            </tr>
-            <tr>
-                <td class="label">Số CMND/CCCD:</td>
-                <td>{{customer.id_card}}</td>
-            </tr>
-            <tr>
-                <td class="label">Địa chỉ:</td>
-                <td>{{customer.address}}</td>
-            </tr>
-            <tr>
-                <td class="label">Điện thoại:</td>
-                <td>{{customer.phone}}</td>
-            </tr>
-            <tr>
-                <td class="label">Email:</td>
-                <td>{{customer.email}}</td>
-            </tr>
-        </table>
+      <div class="payment-summary">
+        <div><strong>Phương thức thanh toán:</strong> {{paymentMethodText}}</div>
+        <div><strong>Đã thanh toán:</strong> <span class="amount">{{formatCurrencyVND paidAmount}} VNĐ</span></div>
+        <div><strong>Còn lại:</strong> <span class="amount">{{formatCurrencyVND remainingAmount}} VNĐ</span></div>
+      </div>
     </div>
 
     <div class="section">
-        <div class="section-title">ĐIỀU 2: THÔNG TIN XE ĐIỆN</div>
-        <table class="info-table">
-            {{#each vehicles}}
-            <tr>
-                <td class="label">Xe {{@index}}</td>
-                <td>
-                    <strong>{{vehicle_name}}</strong><br>
-                    Giá: {{formatCurrency vehicle_price}} VNĐ<br>
-                    Số lượng: {{quantity}}<br>
-                    {{#if options}}
-                    Tùy chọn: {{#each options}}{{name}} ({{formatCurrency price}} VNĐ){{#unless @last}}, {{/unless}}{{/each}}<br>
-                    {{/if}}
-                    {{#if accessories}}
-                    Phụ kiện: {{#each accessories}}{{name}} x {{quantity}} ({{formatCurrency price}} VNĐ){{#unless @last}}, {{/unless}}{{/each}}<br>
-                    {{/if}}
-                    {{#if discount}}
-                    Giảm giá: {{formatCurrency discount}} VNĐ<br>
-                    {{/if}}
-                    <strong>Thành tiền: {{formatCurrency final_amount}} VNĐ</strong>
-                </td>
-            </tr>
-            {{/each}}
-        </table>
+      <div class="section-title">ĐIỀU 3: NHẬN XE</div>
+      <p>
+        Xe sẽ được giao tại địa chỉ đại lý: {{dealership.address}}<br />
+        Hoặc giao xe đến địa chỉ: {{deliveryAddress}}<br />
+        Ngày giao xe dự kiến: {{deliveryDate}}<br />
+        Khách hàng chịu trách nhiệm nhận xe và các giấy tờ liên quan.
+      </p>
     </div>
 
     <div class="section">
-        <div class="section-title">ĐIỀU 3: GIÁ TRỊ VÀ PHƯƠNG THỨC THANH TOÁN</div>
-        <table class="info-table">
-            <tr>
-                <td class="label">Tổng giá trị hợp đồng:</td>
-                <td><strong>{{formatCurrency totalAmount}} VNĐ</strong></td>
-            </tr>
-            <tr>
-                <td class="label">Phương thức thanh toán:</td>
-                <td>{{paymentMethodText}}</td>
-            </tr>
-            {{#if downPayment}}
-            <tr>
-                <td class="label">Số tiền đặt cọc:</td>
-                <td>{{formatCurrency downPayment}} VNĐ</td>
-            </tr>
-            {{/if}}
-            {{#if remainingAmount}}
-            <tr>
-                <td class="label">Số tiền còn lại:</td>
-                <td>{{formatCurrency remainingAmount}} VNĐ</td>
-            </tr>
-            {{/if}}
-        </table>
+      <div class="section-title">ĐIỀU 4: BẢO HÀNH VÀ TRÁCH NHIỆM</div>
+      <ol>
+        <li>Bên A cam kết cung cấp bảo hành chính hãng theo quy định.</li>
+        <li>Bên B có trách nhiệm sử dụng xe đúng hướng dẫn và bảo quản xe.</li>
+        <li>Xe chỉ hoạt động tốt khi sử dụng pin và thiết bị sạc chính hãng.</li>
+        <li>Mọi tranh chấp sẽ được giải quyết thông qua đàm phán, hòa giải.</li>
+      </ol>
     </div>
 
     <div class="section">
-        <div class="section-title">ĐIỀU 4: THỜI HẠN VÀ ĐỊA ĐIỂM GIAO XE</div>
-        <p>Bên A cam kết giao xe cho Bên B tại địa chỉ: <strong>{{deliveryAddress}}</strong></p>
-        <p>Thời gian giao xe dự kiến: <strong>{{deliveryDate}}</strong></p>
-        {{#if deliveryNotes}}
-        <p>Ghi chú giao xe: {{deliveryNotes}}</p>
-        {{/if}}
+      <div class="section-title">ĐIỀU 5: CHUYỂN RỦI RO VÀ QUYỀN SỞ HỮU</div>
+      <p>
+        Toàn bộ quyền sở hữu, rủi ro và lợi ích liên quan đến xe sẽ chuyển giao cho Khách hàng khi xe được bàn giao hoặc khi Khách hàng thanh toán đầy đủ giá trị hợp đồng.
+      </p>
     </div>
 
     <div class="section">
-        <div class="section-title">ĐIỀU 5: BẢO HÀNH VÀ TRÁCH NHIỆM</div>
-        <p>1. Bên A cam kết cung cấp bảo hành chính hãng theo quy định của nhà sản xuất.</p>
-        <p>2. Bên B có trách nhiệm sử dụng xe đúng mục đích và bảo quản xe theo hướng dẫn.</p>
-        <p>3. Mọi tranh chấp sẽ được giải quyết thông qua đàm phán, hòa giải.</p>
+      <div class="section-title">ĐIỀU 6: BẢO VỆ DỮ LIỆU CÁ NHÂN</div>
+      <p>
+        Khách hàng đồng ý cho Bên bán xử lý dữ liệu cá nhân liên quan đến việc vận hành, bảo trì và các tính năng thông minh của xe theo quy định pháp luật hiện hành.
+      </p>
     </div>
 
     <div class="section">
-        <div class="section-title">ĐIỀU 6: ĐIỀU KHOẢN CHUNG</div>
-        <p>1. Hợp đồng này có hiệu lực kể từ ngày ký và có giá trị pháp lý.</p>
-        <p>2. Mọi thay đổi về nội dung hợp đồng phải được thỏa thuận bằng văn bản.</p>
-        <p>3. Hợp đồng được lập thành 02 bản có giá trị pháp lý như nhau.</p>
-        {{#if notes}}
-        <p><strong>Ghi chú thêm:</strong> {{notes}}</p>
-        {{/if}}
+      <div class="section-title">ĐIỀU 7: CÁC ĐIỀU KHOẢN KHÁC</div>
+      <ol>
+        <li>Hợp đồng có hiệu lực kể từ ngày ký.</li>
+        <li>Mọi thay đổi hợp đồng phải được thỏa thuận bằng văn bản.</li>
+        <li>Hợp đồng được lập thành 2 bản có giá trị pháp lý như nhau.</li>
+      </ol>
     </div>
 
-    <div class="signature-section">
-        <div class="signature-box">
-            <p><strong>BÊN A (BÊN BÁN)</strong></p>
-            <br><br><br>
-            <p><em>(Ký tên và đóng dấu)</em></p>
-            <p><strong>{{dealership.representative}}</strong></p>
-        </div>
-        <div class="signature-box">
-            <p><strong>BÊN B (BÊN MUA)</strong></p>
-            <br><br><br>
-            <p><em>(Ký tên)</em></p>
-            <p><strong>{{customer.full_name}}</strong></p>
-        </div>
+    {{#if notes}}
+    <p class="note"><strong>Ghi chú thêm:</strong> {{notes}}</p>
+    {{/if}}
+
+    <table class="signature-table">
+      <tr>
+        <th>ĐẠI DIỆN BÊN A</th>
+        <th>ĐẠI DIỆN BÊN B</th>
+      </tr>
+      <tr>
+        <td>(Ký, ghi rõ họ tên)</td>
+        <td>(Ký, ghi rõ họ tên)</td>
+      </tr>
+    </table>
+
+    <div class="footer">
+      <p style="margin-top: 40px; color: #777; font-size: 12px;">
+        Đây là hợp đồng mẫu, được tạo tự động.
+      </p>
     </div>
-</body>
+  </body>
 </html>
 `;
-
 // Helper để format tiền tệ
-Handlebars.registerHelper("formatCurrency", function (amount) {
+Handlebars.registerHelper("formatCurrencyVND", function (amount) {
   if (!amount) return "0";
   return new Intl.NumberFormat("vi-VN").format(amount);
 });
@@ -248,17 +286,22 @@ Handlebars.registerHelper("formatCurrency", function (amount) {
  * @param {Object} templateData - Dữ liệu template (tùy chọn)
  * @returns {Buffer} - PDF buffer
  */
+
 export async function generateContractPDF(orderData, templateData = {}) {
   let browser;
   try {
-    // Chuẩn bị dữ liệu cho template
+    // ==========================
+    //  Chuẩn bị dữ liệu hợp đồng
+    // ==========================
     const now = new Date();
+
     const contractData = {
       contractNumber: orderData.code || `HD${Date.now()}`,
       location: templateData.location || "Thành phố Hồ Chí Minh",
       day: now.getDate(),
       month: now.getMonth() + 1,
       year: now.getFullYear(),
+
       dealership: {
         name: templateData.dealership?.name || "Đại lý xe điện ABC",
         address:
@@ -268,50 +311,117 @@ export async function generateContractPDF(orderData, templateData = {}) {
         representative:
           templateData.dealership?.representative || "Nguyễn Văn A",
       },
+
       customer: {
-        full_name: orderData.customer?.full_name || "Khách hàng",
-        date_of_birth: orderData.customer?.date_of_birth || "",
-        id_card: orderData.customer?.id_card || "",
-        address: orderData.customer?.address || "",
-        phone: orderData.customer?.phone || "",
-        email: orderData.customer?.email || "",
+        full_name: orderData.customer_id?.full_name || "Khách hàng",
+        address: orderData.customer_id?.address || "Chưa có địa chỉ",
+        phone: orderData.customer_id?.phone || "",
+        email: orderData.customer_id?.email || "",
       },
-      vehicles: orderData.items || [],
+
+      vehicles: orderData.items.map((item, index) => ({
+        name: item.vehicle_name || "Xe điện",
+        color: item.color || "Không rõ",
+        unit_price: item.vehicle_price || 0,
+        quantity: item.quantity || 1,
+        discount: item.discount || 0,
+        final_amount: item.final_amount || 0,
+        accessories:
+          item.accessories?.map((a) => ({
+            name: a.name,
+            quantity: a.quantity,
+            price: a.price,
+            total: a.price * a.quantity,
+          })) || [],
+        options:
+          item.options?.map((o) => ({
+            name: o.name,
+            price: o.price,
+          })) || [],
+        promotion: item.promotion_id
+          ? {
+              name: item.promotion_id.name,
+              type: item.promotion_id.type,
+            }
+          : null,
+        index: index + 1, // nếu cần đánh số xe
+      })),
+
       totalAmount: orderData.final_amount || 0,
+      paidAmount: orderData.paid_amount || 0,
+      remainingAmount:
+        (orderData.final_amount || 0) - (orderData.paid_amount || 0),
+
       paymentMethodText:
         orderData.payment_method === "installment"
           ? "Trả góp qua ngân hàng"
           : "Thanh toán tiền mặt",
-      downPayment: templateData.downPayment || 0,
-      remainingAmount: orderData.final_amount - (templateData.downPayment || 0),
+
       deliveryAddress:
         orderData.delivery?.delivery_address?.full_address ||
-        orderData.customer?.address ||
-        "Địa chỉ giao hàng",
+        "Địa chỉ giao xe theo thỏa thuận",
       deliveryDate: orderData.delivery?.scheduled_date
         ? new Date(orderData.delivery.scheduled_date).toLocaleDateString(
             "vi-VN"
           )
         : "Theo thỏa thuận",
-      deliveryNotes: orderData.delivery?.delivery_notes || "",
+      deliveryNotes: orderData.delivery?.notes || "Không có ghi chú",
       notes: orderData.notes || "",
     };
 
-    // Compile template
+    // Đăng ký helper "inc"
+    Handlebars.registerHelper("inc", function (value) {
+      return parseInt(value) + 1;
+    });
+
+    // ==========================
+    // Chuẩn hóa & tìm file template
+    // ==========================
+    if (templateData.template_name && !templateData.html) {
+      //  Chuẩn hóa tên file tiếng Việt thành định dạng không dấu, có "_"
+      const safeName = templateData.template_name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // bỏ dấu tiếng Việt
+        .toLowerCase()
+        .replace(/\s+/g, "_") // thay khoảng trắng = "_"
+        .replace(/[^a-z0-9_]/g, ""); // loại ký tự đặc biệt
+
+      const templatePath = path.join(
+        __dirname,
+        "../templates/contracts",
+        `${safeName}.html`
+      );
+      console.log("template_name:", templateData.template_name);
+      console.log("📄 Template path:", templatePath);
+      if (fs.existsSync(templatePath)) {
+        templateData.html = fs.readFileSync(templatePath, "utf8");
+        console.log(`Đã load template: ${templatePath}`);
+      } else {
+        console.warn(
+          `Template "${safeName}.html" không tồn tại, dùng template mặc định`
+        );
+      }
+    }
+
+    // ==========================
+    //  Compile template HTML
+    // ==========================
     const template = Handlebars.compile(
       templateData.html || DEFAULT_CONTRACT_TEMPLATE
     );
     const html = template(contractData);
 
-    // Khởi tạo Puppeteer
+    // ==========================
+    //  Dùng Puppeteer xuất PDF
+    // ==========================
     browser = await puppeteer.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
-    const page = await browser.newPage();
 
-    // Set content và generate PDF
+    const page = await browser.newPage();
     await page.setContent(html, {waitUntil: "networkidle0"});
+
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
@@ -346,30 +456,38 @@ export async function saveCustomTemplate(
   description
 ) {
   try {
-    const templatePath = path.join(
-      __dirname,
-      "../templates/contracts",
-      `${templateName}.html`
-    );
+    // 🔹 Chuẩn hóa tên file
+    const safeName = templateName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "");
+
+    // Đường dẫn lưu file
+    const templateDir = path.join(__dirname, "../templates/contracts");
+    const templatePath = path.join(templateDir, `${safeName}.html`);
 
     // Tạo thư mục nếu chưa có
-    const templateDir = path.dirname(templatePath);
     if (!fs.existsSync(templateDir)) {
       fs.mkdirSync(templateDir, {recursive: true});
     }
 
-    // Lưu template
+    // Lưu file HTML
     fs.writeFileSync(templatePath, htmlContent);
 
     // Lưu metadata
-    const metadataPath = path.join(templateDir, `${templateName}.json`);
     const metadata = {
       name: templateName,
-      description: description,
+      file: `${safeName}.html`,
+      description,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    fs.writeFileSync(
+      path.join(templateDir, `${safeName}.json`),
+      JSON.stringify(metadata, null, 2)
+    );
 
     return {success: true, path: templatePath};
   } catch (error) {
@@ -394,9 +512,24 @@ export async function getAvailableTemplates() {
         const templateName = htmlFile.replace(".html", "");
         const metadataPath = path.join(templatesDir, `${templateName}.json`);
 
-        let metadata = {name: templateName, description: ""};
+        let metadata = {
+          name: templateName,
+          description: "",
+          created_at: null,
+          updated_at: null,
+        };
+
         if (fs.existsSync(metadataPath)) {
-          metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+          try {
+            const fileContent = fs.readFileSync(metadataPath, "utf8");
+            const parsed = JSON.parse(fileContent);
+            console.log(`Loaded metadata for ${templateName}:`, parsed);
+            metadata = {...metadata, ...parsed};
+          } catch (err) {
+            console.warn(`Lỗi đọc metadata của ${templateName}:`, err.message);
+          }
+        } else {
+          console.warn(`Không tìm thấy file metadata cho ${templateName}`);
         }
 
         templates.push(metadata);
