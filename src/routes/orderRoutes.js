@@ -131,7 +131,7 @@ router.use(authenticate);
  *       400:
  *         description: Bad Request
  */
-router.post("/", checkRole([DEALER_ROLES]), createOrder);
+router.post("/", checkRole(DEALER_ROLES), createOrder);
 
 /**
  * @openapi
