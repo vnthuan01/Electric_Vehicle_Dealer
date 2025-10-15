@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer-core";
+import puppeteer from "puppeteer";
 import Handlebars from "handlebars";
 import fs from "fs";
 import path from "path";
@@ -412,9 +412,7 @@ export async function generateContractPDF(orderData, templateData = {}) {
     const html = template(contractData);
 
     // Khởi tạo Puppeteer
-    // --- Đây là phần quan trọng: dùng puppeteer-core với Chromium có sẵn ---
     browser = await puppeteer.launch({
-      executablePath: "/usr/bin/chromium-browser",
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });

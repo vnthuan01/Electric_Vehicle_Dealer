@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer-core";
+import puppeteer from "puppeteer";
 import Handlebars from "handlebars";
 
 // --- Helpers ---
@@ -123,9 +123,7 @@ export async function generateQuotePDF(quote, templateData = {}) {
     );
     const html = template(data);
 
-    // --- Đây là phần quan trọng: dùng puppeteer-core với Chromium có sẵn ---
     browser = await puppeteer.launch({
-      executablePath: "/usr/bin/chromium-browser",
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
