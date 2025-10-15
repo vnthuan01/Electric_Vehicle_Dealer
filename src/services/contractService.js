@@ -414,7 +414,7 @@ export async function generateContractPDF(orderData, templateData = {}) {
     // Khởi tạo Puppeteer
     // --- Đây là phần quan trọng: dùng puppeteer-core với Chromium có sẵn ---
     browser = await puppeteer.launch({
-      executablePath: "/usr/bin/chromium-browser",
+      executablePath: "/usr/bin/chromium",
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
