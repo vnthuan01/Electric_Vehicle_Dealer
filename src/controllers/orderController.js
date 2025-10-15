@@ -173,19 +173,30 @@ export async function createOrder(req, res, next) {
     }
 
     // ================== VALIDATION DUPLICATE VEHICLE ==================
-    const vehicleIds = items.map((i) => i.vehicle_id);
-    const hasDuplicateVehicle = vehicleIds.some(
-      (id, idx) => vehicleIds.indexOf(id) !== idx
-    );
-    if (hasDuplicateVehicle) {
+    const hasDuplicateVehicleWithColor = items.some((item, idx) => {
+      return (
+        items.findIndex(
+          (i) => i.vehicle_id === item.vehicle_id && i.color === item.color
+        ) !== idx
+      );
+    });
+
+    if (hasDuplicateVehicleWithColor) {
       return res.status(400).json({
-        message: "Duplicate vehicles in the order are not allowed",
+        message:
+          "Duplicate vehicles with the same color in the order are not allowed",
       });
     }
 
     // ================== VALIDATION PROMOTION 1 LẦN/VEHICLE ==================
     for (const item of items) {
       if (item.promotion_id) {
+        const promotion = await Promotion.findById(item.promotion_id).lean();
+        if (!promotion) {
+          return res.status(400).json({
+            message: `Promotion ${item.promotion_id} not found`,
+          });
+        }
         const used = await Order.findOne({
           customer_id,
           "items.vehicle_id": item.vehicle_id,

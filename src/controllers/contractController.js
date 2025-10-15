@@ -12,13 +12,17 @@ import fs from "fs";
 export async function generateContract(req, res, next) {
   try {
     const {order_id} = req.params;
-    const {template_name = "default", template_data = {}} = req.body;
+    const {template_name, template_data = {}} = req.body;
 
-    // Lấy thông tin đơn hàng
     const order = await Order.findById(order_id)
       .populate("customer_id")
       .populate("dealership_id")
+      .populate({
+        path: "items.promotion_id",
+        select: "name type",
+      })
       .lean();
+    console.log(order);
 
     if (!order) return errorRes(res, "Order not found", 404);
     // Kiểm tra quyền truy cập
