@@ -17,11 +17,14 @@ const requestVehicleSchema = new mongoose.Schema(
     quantity: {type: Number, required: true},
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "in_progress", "delivered"],
       default: "pending",
     },
     notes: {
       type: String,
+    },
+    delivered_at: {
+      type: Date,
     },
     debt_id: {
       type: mongoose.Schema.Types.ObjectId,

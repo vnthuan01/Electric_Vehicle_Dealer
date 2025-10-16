@@ -5,6 +5,8 @@ import {
   rejectRequest,
   getAllRequests,
   deleteRequest,
+  updateRequestVehicleStatus,
+  inProgressRequest,
 } from "../controllers/requestVehicleController.js";
 import {ROLE} from "../enum/roleEnum.js";
 import {checkRole} from "../middlewares/checkRole.js";
@@ -96,7 +98,7 @@ router.get(
  * /api/request-vehicles/{id}/approve:
  *   patch:
  *     tags: [Dealer Requests]
- *     summary: Approve a pending vehicle request (EVM Staff/Admin only)
+ *     summary: Approve a pending vehicle request (EVM Staff)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -109,10 +111,30 @@ router.get(
  *       200:
  *         description: Request approved and stock/debt updated
  */
+router.patch("/:id/approve", checkRole(ROLE.EVM_STAFF), approveRequest);
+
+/**
+ * @openapi
+ * /api/request-vehicles/{id}/in-progress:
+ *   patch:
+ *     tags: [Dealer Requests]
+ *     summary: In_progress a approved vehicle request (EVM Staff)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Request in_progress
+ */
 router.patch(
-  "/:id/approve",
-  checkRole([ROLE.EVM_STAFF, ROLE.ADMIN]),
-  approveRequest
+  "/:id/in-progress",
+  checkRole([ROLE.EVM_STAFF]),
+  inProgressRequest
 );
 
 /**
@@ -120,7 +142,7 @@ router.patch(
  * /api/request-vehicles/{id}/reject:
  *   patch:
  *     tags: [Dealer Requests]
- *     summary: Reject a pending vehicle request (EVM Staff/Admin only)
+ *     summary: Reject a pending vehicle request (EVM Staff)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -134,6 +156,39 @@ router.patch(
  *         description: Request rejected
  */
 router.patch("/:id/reject", checkRole([ROLE.EVM_STAFF]), rejectRequest);
+
+/**
+ * @openapi
+ * /api/request-vehicles/{id}/delivered:
+ *   patch:
+ *     tags: [Dealer Requests]
+ *     summary: Update delivery status and notes [EVM Staff]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Request status updated
+ */
+router.patch(
+  "/:id/delivered",
+  checkRole(ROLE.EVM_STAFF),
+  updateRequestVehicleStatus
+);
 
 /**
  * @openapi

@@ -38,7 +38,6 @@ const orderRequestSchema = new mongoose.Schema(
         vehicle_name: String,
         color: String,
         quantity: {type: Number, default: 1},
-        notes: String,
       },
     ],
 

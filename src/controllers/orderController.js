@@ -13,6 +13,12 @@ import {createStatusLog} from "./orderStatusLogController.js";
 import PromotionUsage from "../models/PromotionUsage.js";
 import OrderRequest from "../models/OrderRequest.js";
 import {ROLE} from "../enum/roleEnum.js";
+import Customer from "../models/Customer.js";
+import Quote from "../models/Quote.js";
+import Dealership from "../models/Dealership.js";
+import {capitalizeVietnamese} from "../utils/validateWord.js";
+import RequestVehicle from "../models/RequestVehicle.js";
+import {emitRequestStatusUpdate} from "../config/socket.js";
 
 //Helper generate order Code - timestamp
 const generateOrderCode = () => {
@@ -154,12 +160,34 @@ async function deductStock(items, dealership_id) {
 // ==================== Create Order ====================
 export async function createOrder(req, res, next) {
   try {
-    const {
+    const {payment_method = "cash", quote_id} = req.body;
+    let items = [],
       customer_id,
-      payment_method = "cash",
-      notes,
-      items = [], // [{ vehicle_id, quantity, discount, promotion_id, options:[], accessories:[{ accessory_id, quantity }] }]
-    } = req.body;
+      notes = "";
+
+    const dealership_id = req.user?.dealership_id;
+    if (!dealership_id) {
+      return res.status(400).json({message: "Dealership ID required."});
+    }
+
+    if (quote_id) {
+      // --- Lấy dữ liệu từ quote ---
+      const quote = await Quote.findById(quote_id).lean();
+      if (!quote) {
+        return res.status(404).json({message: "Quote not found."});
+      }
+      if (["expired", "canceled"].includes(quote.status)) {
+        return res.status(400).json({message: "Quote is expired or canceled."});
+      }
+      customer_id = quote.customer_id;
+      items = quote.items;
+      notes = quote.notes || "";
+    } else {
+      // Lấy theo luồng cũ (items truyền lên)
+      items = req.body.items || [];
+      customer_id = req.body.customer_id;
+      notes = req.body.notes || "";
+    }
 
     if (!items.length) {
       return res
@@ -167,20 +195,21 @@ export async function createOrder(req, res, next) {
         .json({message: OrderMessage.MISSING_REQUIRED_FIELDS});
     }
 
-    const dealership_id = req.user?.dealership_id;
-    if (!dealership_id) {
-      return res.status(400).json({message: "Dealership ID required"});
+    const customer = await Customer.findById(customer_id);
+    if (!customer) {
+      return res.status(404).json({message: "Customer not found."});
     }
 
-    // ================== VALIDATION DUPLICATE VEHICLE ==================
+    // VALIDATION DUPLICATE VEHICLE
     const hasDuplicateVehicleWithColor = items.some((item, idx) => {
       return (
         items.findIndex(
-          (i) => i.vehicle_id === item.vehicle_id && i.color === item.color
+          (i) =>
+            String(i.vehicle_id) === String(item.vehicle_id) &&
+            i.color === item.color
         ) !== idx
       );
     });
-
     if (hasDuplicateVehicleWithColor) {
       return res.status(400).json({
         message:
@@ -188,70 +217,75 @@ export async function createOrder(req, res, next) {
       });
     }
 
-    // ================== VALIDATION PROMOTION 1 LẦN/VEHICLE ==================
-    for (const item of items) {
-      if (item.promotion_id) {
-        const promotion = await Promotion.findById(item.promotion_id).lean();
-        if (!promotion) {
-          return res.status(400).json({
-            message: `Promotion ${item.promotion_id} not found`,
-          });
-        }
-        const used = await Order.findOne({
-          customer_id,
-          "items.vehicle_id": item.vehicle_id,
-          "items.promotion_id": item.promotion_id,
-        }).lean();
-
-        if (used) {
-          return res.status(400).json({
-            message: `Promotion ${item.promotion_id} has already been used for vehicle ${item.vehicle_id} by this customer`,
-          });
+    // VALIDATION PROMOTION 1 LẦN/VEHICLE (nếu không phải từ quote)
+    if (!quote_id) {
+      for (const item of items) {
+        if (item.promotion_id) {
+          const promotion = await Promotion.findById(item.promotion_id).lean();
+          if (!promotion) {
+            return res.status(400).json({
+              message: `Promotion ${item.promotion_id} not found`,
+            });
+          }
+          const used = await Order.findOne({
+            customer_id,
+            "items.vehicle_id": item.vehicle_id,
+            "items.promotion_id": item.promotion_id,
+            is_deleted: false,
+          }).lean();
+          if (used) {
+            return res.status(400).json({
+              message: `Promotion ${item.promotion_id} has already been used for vehicle ${item.vehicle_id} by this customer`,
+            });
+          }
         }
       }
     }
 
-    // ================== KIỂM TRA TỒN KHO ==================
+    // Kiểm tra tồn kho
     await checkStockAvailability(items, dealership_id);
 
+    // Tạo snapshot itemsWithFinal (tính lại giá cuối cùng/ghi lại options/accessories...)
     const itemsWithFinal = [];
-
     for (const item of items) {
-      // --- Vehicle snapshot ---
       const vehicle = await Vehicle.findById(item.vehicle_id).lean();
       if (!vehicle)
         throw new Error(VehicleMessage.NOT_FOUND + ": " + item.vehicle_id);
 
-      // --- Options snapshot ---
-      let optionSnapshots = [];
-      if (item.options?.length) {
-        const optionIds = item.options.map((o) =>
-          typeof o === "string" ? o : o.option_id
-        );
-        const optionDocs = await Option.find({_id: {$in: optionIds}}).lean();
-        optionSnapshots = optionDocs.map((o) => ({
-          option_id: o._id,
-          name: o.name,
-          price: o.price,
-        }));
-      }
-
-      // --- Accessories snapshot ---
-      let accessorySnapshots = [];
-      if (item.accessories?.length) {
-        const ids = item.accessories.map((a) => a.accessory_id);
-        const accessoryDocs = await Accessory.find({_id: {$in: ids}}).lean();
-        accessorySnapshots = accessoryDocs.map((a) => {
-          const input = item.accessories.find(
-            (x) => x.accessory_id == a._id.toString()
+      let optionSnapshots = item.options || [];
+      let accessorySnapshots = item.accessories || [];
+      if (!quote_id) {
+        // Nếu không phải lấy từ quote thì snapshot lại (giữ cũ cho data khi lấy từ quote)
+        // --- Options snapshot ---
+        optionSnapshots = [];
+        if (item.options?.length) {
+          const optionIds = item.options.map((o) =>
+            typeof o === "string" ? o : o.option_id
           );
-          return {
-            accessory_id: a._id,
-            name: a.name,
-            price: a.price,
-            quantity: input?.quantity || 1,
-          };
-        });
+          const optionDocs = await Option.find({_id: {$in: optionIds}}).lean();
+          optionSnapshots = optionDocs.map((o) => ({
+            option_id: o._id,
+            name: o.name,
+            price: o.price,
+          }));
+        }
+        // --- Accessories snapshot ---
+        accessorySnapshots = [];
+        if (item.accessories?.length) {
+          const ids = item.accessories.map((a) => a.accessory_id);
+          const accessoryDocs = await Accessory.find({_id: {$in: ids}}).lean();
+          accessorySnapshots = accessoryDocs.map((a) => {
+            const input = item.accessories.find(
+              (x) => x.accessory_id == a._id.toString()
+            );
+            return {
+              accessory_id: a._id,
+              name: a.name,
+              price: a.price,
+              quantity: input?.quantity || 1,
+            };
+          });
+        }
       }
 
       // --- Final amount per item ---
@@ -262,7 +296,6 @@ export async function createOrder(req, res, next) {
         options: optionSnapshots,
         accessories: accessorySnapshots,
       });
-
       itemsWithFinal.push({
         vehicle_id: vehicle._id,
         vehicle_name: vehicle.name,
@@ -278,7 +311,7 @@ export async function createOrder(req, res, next) {
       });
     }
 
-    // --- Tổng tiền toàn order ---
+    // Tổng tiền toàn order
     const totalAmount = itemsWithFinal.reduce(
       (sum, i) => sum + i.final_amount,
       0
@@ -297,7 +330,7 @@ export async function createOrder(req, res, next) {
       status: "pending",
     };
 
-    // ================== Phân nhánh logic payment ==================
+    // Logic payment method ảnh hưởng status ban đầu
     if (payment_method === "installment") {
       orderData.paid_amount = totalAmount;
       orderData.status = "fullyPayment";
@@ -306,12 +339,11 @@ export async function createOrder(req, res, next) {
       orderData.status = "pending";
     }
 
-    // ================== Tạo order ==================
+    // Tạo order
     const order = await Order.create(orderData);
 
-    // ================== Trừ stock ==================
+    // Trừ stock
     for (const item of itemsWithFinal) {
-      if (item.category === "car") continue; // Không trừ stock cho category car
       await deductStock(
         [
           {
@@ -326,14 +358,14 @@ export async function createOrder(req, res, next) {
       );
     }
 
-    // ================== Ghi log trạng thái ==================
+    // Ghi log trạng thái
     await createStatusLog(
       order._id,
       null,
       orderData.status,
       req.user?.id,
       "Order created",
-      `Order created with ${items.length} items, total amount: ${totalAmount}`,
+      `Order created with ${itemsWithFinal.length} items, total amount: ${totalAmount}`,
       {
         changed_by_name: req.user?.full_name || "System",
         ip_address: req.ip,
@@ -341,7 +373,7 @@ export async function createOrder(req, res, next) {
       }
     );
 
-    // ================== Tạo công nợ & payment ==================
+    // Tạo công nợ/payment
     if (payment_method === "cash") {
       await createCustomerDebt(order);
     } else if (payment_method === "installment") {
@@ -355,20 +387,73 @@ export async function createOrder(req, res, next) {
       });
     }
 
-    // Sau khi tạo order thành công, update promotion usage nếu có
-    for (const item of itemsWithFinal) {
-      if (item.promotion_id) {
-        await PromotionUsage.updateMany(
-          {
-            customer_id,
-            vehicle_id: item.vehicle_id,
-            promotion_id: item.promotion_id,
-            status: "pending",
-          },
-          {$set: {status: "used", order_id: order._id}}
-        );
+    // ------------ Update PromotionUsage ------------
+    if (quote_id) {
+      // chỉ đổi status 'used' cho các promotion usage đúng với quote_id này
+      for (const item of itemsWithFinal) {
+        if (item.promotion_id) {
+          // 1. Đổi status 'used' đúng usage này (khớp quote_id+promotion+customer+vehicle+status=pending+order_id:null)
+          await PromotionUsage.updateMany(
+            {
+              customer_id,
+              vehicle_id: item.vehicle_id,
+              promotion_id: item.promotion_id,
+              quote_id,
+              status: {$in: ["pending", "available"]},
+              order_id: null,
+            },
+            {$set: {status: "used", order_id: order._id}}
+          );
+
+          // 2. Cancel all PromotionUsage còn 'pending' | 'available' cùng promotion này nhưng quote_id != current của customer này
+          const canceledUsages = await PromotionUsage.updateMany(
+            {
+              customer_id,
+              vehicle_id: item.vehicle_id,
+              promotion_id: item.promotion_id,
+              status: {$in: ["pending", "available"]},
+              quote_id: {$ne: quote_id},
+            },
+            {$set: {status: "canceled"}}
+          );
+          // 3. Nếu có usage bị cancel -> cập nhật trạng thái của các quote tương ứng
+          if (canceledUsages.modifiedCount > 0) {
+            // Lấy danh sách các quote bị ảnh hưởng
+            const affectedQuotes = await PromotionUsage.distinct("quote_id", {
+              customer_id,
+              vehicle_id: item.vehicle_id,
+              promotion_id: item.promotion_id,
+              status: "canceled",
+              quote_id: {$ne: quote_id},
+            });
+            console.log(affectedQuotes);
+
+            if (affectedQuotes.length > 0) {
+              await Quote.updateMany(
+                {_id: {$in: affectedQuotes}, status: "valid"},
+                {$set: {status: "cancelled"}}
+              );
+            }
+          }
+        }
+      }
+    } else {
+      // Luồng không qua quote, giữ nguyên logic cũ nếu cần
+      for (const item of itemsWithFinal) {
+        if (item.promotion_id) {
+          await PromotionUsage.updateMany(
+            {
+              customer_id,
+              vehicle_id: item.vehicle_id,
+              promotion_id: item.promotion_id,
+              status: {$in: ["pending", "available"]},
+            },
+            {$set: {status: "used", order_id: order._id}}
+          );
+        }
       }
     }
+    // ------------ END PromotionUsage update ------------
 
     return created(res, OrderMessage.CREATE_SUCCESS, {order});
   } catch (err) {
@@ -405,7 +490,6 @@ export async function requestOrderAccordingToDemand(req, res, next) {
         manufacturer_id: vehicle.manufacturer_id,
         color: item.color || null,
         quantity: item.quantity || 1,
-        notes: item.notes || "",
       });
     }
 
@@ -615,17 +699,39 @@ export async function deleteOrder(req, res, next) {
     if (order.status === "pending" && order.items?.length > 0) {
       for (const item of order.items) {
         // chỉ hoàn lại stock nếu trước đó có trừ (ở controller đang không trừ cho car)
-        if (item.category === "car") continue;
+        // if (item.category === "car") continue;
         if (item.color) {
-          await Vehicle.findOneAndUpdate(
+          const updateResult = await Vehicle.updateOne(
+            {_id: item.vehicle_id},
             {
-              _id: item.vehicle_id,
-              "stocks.owner_type": "dealer",
-              "stocks.color": item.color,
-              "stocks.owner_id": order.dealership_id,
+              $inc: {"stocks.$[elem].quantity": item.quantity},
             },
-            {$inc: {"stocks.$.quantity": item.quantity}}
+            {
+              arrayFilters: [
+                {
+                  "elem.owner_type": "dealer",
+                  "elem.owner_id": order.dealership_id,
+                  "elem.color": item.color,
+                },
+              ],
+            }
           );
+
+          if (updateResult.modifiedCount === 0) {
+            await Vehicle.updateOne(
+              {_id: item.vehicle_id},
+              {
+                $push: {
+                  stocks: {
+                    owner_type: "dealer",
+                    owner_id: order.dealership_id,
+                    color: item.color,
+                    quantity: item.quantity,
+                  },
+                },
+              }
+            );
+          }
         } else {
           // Không có màu: hoàn vào entry đầu tiên của dealer hoặc tạo mới
           const vehicle = await Vehicle.findById(item.vehicle_id);
@@ -649,6 +755,46 @@ export async function deleteOrder(req, res, next) {
               });
             }
             await vehicle.save();
+          }
+        }
+      }
+    }
+
+    // --- Update PromotionUsage trạng thái khi huỷ order ---
+    if (order.items && order.items.length > 0) {
+      for (const item of order.items) {
+        if (item.promotion_id) {
+          // Tìm các usage liên quan đơn này
+          const usageList = await PromotionUsage.find({
+            order_id: order._id,
+            promotion_id: item.promotion_id,
+            status: {$in: ["used", "canceled"]},
+          });
+
+          for (const usage of usageList) {
+            // Kiểm tra còn quote nào của customer này, promotion này, ở trạng thái pending không
+            const pendingQuotes = await PromotionUsage.find({
+              customer_id: order.customer_id,
+              promotion_id: item.promotion_id,
+              status: {$in: ["pending", "available"]},
+            });
+
+            if (pendingQuotes.length > 0) {
+              // Có promotion này đang pending cho quote khác -> các usage này nên chuyển canceled
+              await PromotionUsage.updateMany(
+                {
+                  _id: {$in: pendingQuotes.map((q) => q._id)},
+                },
+                {$set: {status: "canceled"}}
+              );
+              // Usage của order này cũng chuyển về cancelled
+              usage.status = "canceled";
+              await usage.save();
+            } else {
+              // Không có pending nào khác, trả usage về available
+              usage.status = "available";
+              await usage.save();
+            }
           }
         }
       }
@@ -799,18 +945,90 @@ export async function approveOrderRequestMethodCash(req, res, next) {
   try {
     const user = req.user;
 
-    const request = await OrderRequest.findById(req.params.id);
+    const request = await OrderRequest.findById(req.params.id).populate(
+      "items.vehicle_id"
+    );
     if (!request) return errorRes(res, "Order request not found", 404);
 
     if (request.status !== "pending")
       return errorRes(res, "Request already processed", 400);
 
+    // Cập nhật trạng thái approve
     request.status = "approved";
     request.approved_by = user.id;
     request.approved_at = new Date();
     await request.save();
 
-    return success(res, "Order request approved successfully", request);
+    // Tạo request cho Manufacturer (nếu có items)
+    const dealership = await Dealership.findById(request.dealership_id);
+    if (!dealership) {
+      return errorRes(res, "Dealership not found", 404);
+    }
+
+    const createdRequests = [];
+
+    for (const item of request.items) {
+      const vehicle = await Vehicle.findOne({
+        _id: item.vehicle_id,
+        status: "active",
+        is_deleted: false,
+      });
+
+      if (!vehicle) continue;
+
+      const normalizedColor = capitalizeVietnamese(item.color?.trim() || "");
+
+      // Check duplicate pending request (cùng xe, màu, đại lý)
+      const existing = await RequestVehicle.findOne({
+        vehicle_id: item.vehicle_id,
+        dealership_id: request.dealership_id,
+        color: normalizedColor,
+        status: "pending",
+      });
+
+      if (existing) {
+        console.log(
+          ` Duplicate request for ${vehicle.name} (${normalizedColor}) skipped`
+        );
+        continue;
+      }
+
+      const newReq = await RequestVehicle.create({
+        vehicle_id: item.vehicle_id,
+        dealership_id: request.dealership_id,
+        quantity: item.quantity,
+        color: normalizedColor,
+        notes: request.notes,
+        status: "pending",
+      });
+
+      createdRequests.push(newReq);
+
+      // Emit socket for new request
+      if (req.app.get("io")) {
+        emitRequestStatusUpdate(req.app.get("io"), {
+          requestId: newReq._id,
+          status: "pending",
+          dealershipId: request.dealership_id,
+          vehicle: {
+            id: vehicle._id,
+            name: vehicle.name,
+            sku: vehicle.sku,
+            color: normalizedColor,
+          },
+          quantity: item.quantity,
+        });
+      }
+    }
+
+    return success(
+      res,
+      "Order request approved and manufacturer requests created",
+      {
+        orderRequest: request,
+        createdManufacturerRequests: createdRequests,
+      }
+    );
   } catch (err) {
     next(err);
   }
