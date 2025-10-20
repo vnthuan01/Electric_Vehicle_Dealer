@@ -5,6 +5,8 @@ import {
   getTestDriveById,
   updateTestDrive,
   deleteTestDrive,
+  assignTestDriveStaff,
+  updateTestDriveStatus,
 } from "../controllers/testDriveController.js";
 import {checkRole} from "../middlewares/checkRole.js";
 import {DEALER_ROLES} from "../enum/roleEnum.js";
@@ -121,5 +123,72 @@ router.put("/:id", checkRole(DEALER_ROLES), updateTestDrive);
  *       404: { description: Test drive not found }
  */
 router.delete("/:id", checkRole(DEALER_ROLES), deleteTestDrive);
+
+/**
+ * @openapi
+ * /api/testdrives/{id}/assign:
+ *   patch:
+ *     tags: [TestDrives]
+ *     summary: Assign a staff to a test drive
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [assigned_staff_id]
+ *             properties:
+ *               assigned_staff_id: { type: string }
+ *     responses:
+ *       200: { description: Staff assigned successfully }
+ */
+router.patch("/:id/assign", checkRole(DEALER_ROLES), assignTestDriveStaff);
+
+/**
+ * @openapi
+ * /api/testdrives/{id}/status:
+ *   patch:
+ *     tags:
+ *       - TestDrives
+ *     summary: Cập nhật trạng thái lịch lái thử
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: "ID của lịch lái thử cần cập nhật"
+ *     description: "Trạng thái mới của lịch lái thử (pending, confirmed, completed, cancelled)"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum:
+ *                   - pending
+ *                   - confirmed
+ *                   - completed
+ *                   - cancelled
+ *                 example: confirmed
+ *     responses:
+ *       200:
+ *         description: "Cập nhật trạng thái lịch lái thử thành công"
+ */
+router.patch("/:id/status", checkRole(DEALER_ROLES), updateTestDriveStatus);
 
 export default router;

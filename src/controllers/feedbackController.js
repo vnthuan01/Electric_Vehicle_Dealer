@@ -1,27 +1,23 @@
 import Feedback from "../models/Feedback.js";
-import Customer from "../models/Customer.js";
 import {created, success, error as errorRes} from "../utils/response.js";
 import {FeedbackMessage} from "../utils/MessageRes.js";
 import {paginate} from "../utils/pagination.js";
 
 export async function createFeedback(req, res, next) {
   try {
-    const {customer_id, order_id, content, handler_id} = req.body;
+    const {customer_id, content} = req.body;
 
-    if (!customer_id || !content || !handler_id) {
+    if (!customer_id || !content) {
       return errorRes(res, FeedbackMessage.MISSING_REQUIRED_FIELDS, 400);
     }
 
     const feedback = await Feedback.create({
       customer_id,
-      order_id,
+      dealership_id: req.user?.dealership_id,
       content,
-      handler_id,
-      status: "in_progress",
+      status: "new",
     });
-    const populated = await feedback.populate(
-      "customer_id order_id handler_id"
-    );
+    const populated = await feedback.populate("customer_id");
 
     return created(res, FeedbackMessage.CREATE_SUCCESS, populated);
   } catch (err) {
@@ -31,19 +27,21 @@ export async function createFeedback(req, res, next) {
 
 export async function getFeedbacks(req, res, next) {
   try {
-    // ----- Paginate -----
-    const result = await paginate(Feedback, req, ["content", "status"], {});
+    // ----- Paginate, scoped by dealership -----
+    const baseQuery = {dealership_id: req.user?.dealership_id};
+    const result = await paginate(
+      Feedback,
+      req,
+      ["content", "status"],
+      baseQuery
+    );
 
     // ----- Populate after paginate -----
     const dataWithPopulate = await Feedback.populate(result.data, [
       {path: "customer_id", select: "name email phone"},
-      {path: "order_id"},
-      {path: "handler_id", select: "name role"},
     ]);
 
-    return res.json({
-      success: true,
-      message: FeedbackMessage.RETRIEVED_SUCCESS,
+    return success(res, FeedbackMessage.RETRIEVED_SUCCESS, {
       ...result,
       data: dataWithPopulate,
     });
@@ -52,49 +50,40 @@ export async function getFeedbacks(req, res, next) {
   }
 }
 
-export async function getFeedbackById(req, res, next) {
+// Update only status field
+export async function updateFeedbackStatus(req, res, next) {
   try {
-    const item = await Feedback.findById(req.params.id).populate(
-      "customer_id order_id handler_id"
-    );
-    if (!item) return errorRes(res, FeedbackMessage.NOT_FOUND, 404);
-    return success(res, item);
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function updateFeedback(req, res, next) {
-  try {
-    const feedback = await Feedback.findById(req.params.id);
-    if (!feedback) return errorRes(res, FeedbackMessage.NOT_FOUND, 404);
-
-    // Chỉ Staff/Manager mới update
-    const allowedRoles = ["Dealer Staff", "Dealer Manager"];
-    if (!allowedRoles.includes(req.user.role)) {
-      return errorRes(res, FeedbackMessage.FORBIDDEN, 403);
+    const {status} = req.body;
+    const allowed = ["new", "in_progress", "resolved", "rejected"];
+    if (!status || !allowed.includes(status)) {
+      return errorRes(res, FeedbackMessage.INVALID_REQUEST, 400);
     }
-
-    // Chỉ update các field ngoài status
-    const {status, ...updateData} = req.body;
-
-    const updated = await Feedback.findByIdAndUpdate(
-      req.params.id,
-      updateData,
+    const updated = await Feedback.findOneAndUpdate(
+      {_id: req.params.id, dealership_id: req.user?.dealership_id},
+      {status},
       {new: true}
-    ).populate("customer_id order_id handler_id");
-
-    return success(res, updated);
+    ).populate("customer_id");
+    if (!updated) return errorRes(res, FeedbackMessage.NOT_FOUND, 404);
+    return success(res, FeedbackMessage.STATUS_UPDATE_SUCCESS, updated);
   } catch (err) {
     next(err);
   }
 }
 
-export async function deleteFeedback(req, res, next) {
+// Add a processing comment
+export async function addFeedbackComment(req, res, next) {
   try {
-    const deleted = await Feedback.findByIdAndDelete(req.params.id);
-    if (!deleted) return errorRes(res, FeedbackMessage.NOT_FOUND, 404);
-    return success(res, true);
+    const {comment, user_id} = req.body;
+    if (!comment || !user_id) {
+      return errorRes(res, FeedbackMessage.MISSING_REQUIRED_FIELDS, 400);
+    }
+    const updated = await Feedback.findOneAndUpdate(
+      {_id: req.params.id, dealership_id: req.user?.dealership_id},
+      {$push: {comments: {comment, user_id}}},
+      {new: true}
+    ).populate("customer_id");
+    if (!updated) return errorRes(res, FeedbackMessage.NOT_FOUND, 404);
+    return success(res, FeedbackMessage.COMMENT_ADDED, updated);
   } catch (err) {
     next(err);
   }

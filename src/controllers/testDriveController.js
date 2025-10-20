@@ -29,7 +29,7 @@ export async function createTestDrive(req, res, next) {
       notes,
     });
     const populated = await testDrive.populate(
-      "customer_id vehicle_id dealership_id"
+      "customer_id vehicle_id dealership_id assigned_staff_id"
     );
 
     return created(res, TestDriveMessage.CREATE_SUCCESS, populated);
@@ -47,7 +47,7 @@ export async function getTestDrives(req, res, next) {
     const populatedData = await Promise.all(
       result.data.map((td) =>
         TestDrive.findById(td._id).populate(
-          "customer_id vehicle_id dealership_id"
+          "customer_id vehicle_id dealership_id assigned_staff_id"
         )
       )
     );
@@ -64,7 +64,7 @@ export async function getTestDrives(req, res, next) {
 export async function getTestDriveById(req, res, next) {
   try {
     const item = await TestDrive.findById(req.params.id).populate(
-      "customer_id vehicle_id dealership_id"
+      "customer_id vehicle_id dealership_id assigned_staff_id"
     );
     if (!item) return errorRes(res, TestDriveMessage.INVALID_REQUEST, 404);
     return success(res, item);
@@ -77,7 +77,7 @@ export async function updateTestDrive(req, res, next) {
   try {
     const updated = await TestDrive.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
-    }).populate("customer_id vehicle_id dealership_id");
+    }).populate("customer_id vehicle_id dealership_id assigned_staff_id");
     if (!updated) return errorRes(res, TestDriveMessage.INVALID_REQUEST, 404);
     return success(res, updated);
   } catch (err) {
@@ -90,6 +90,45 @@ export async function deleteTestDrive(req, res, next) {
     const deleted = await TestDrive.findByIdAndDelete(req.params.id);
     if (!deleted) return errorRes(res, TestDriveMessage.INVALID_REQUEST, 404);
     return success(res, true);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Assign a staff to handle the test drive
+export async function assignTestDriveStaff(req, res, next) {
+  try {
+    const {assigned_staff_id} = req.body;
+    if (!assigned_staff_id) {
+      return errorRes(res, TestDriveMessage.MISSING_REQUIRED_FIELDS, 400);
+    }
+    const updated = await TestDrive.findByIdAndUpdate(
+      req.params.id,
+      {assigned_staff_id},
+      {new: true}
+    ).populate("customer_id vehicle_id dealership_id assigned_staff_id");
+    if (!updated) return errorRes(res, TestDriveMessage.INVALID_REQUEST, 404);
+    return success(res, TestDriveMessage.ASSIGN_SUCCESS, updated);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Update only status field for a test drive
+export async function updateTestDriveStatus(req, res, next) {
+  try {
+    const {status} = req.body;
+    const allowed = ["pending", "confirmed", "completed", "cancelled"];
+    if (!status || !allowed.includes(status)) {
+      return errorRes(res, TestDriveMessage.INVALID_REQUEST, 400);
+    }
+    const updated = await TestDrive.findByIdAndUpdate(
+      req.params.id,
+      {status},
+      {new: true}
+    ).populate("customer_id vehicle_id dealership_id assigned_staff_id");
+    if (!updated) return errorRes(res, TestDriveMessage.INVALID_REQUEST, 404);
+    return success(res, TestDriveMessage.STATUS_UPDATE_SUCCESS, updated);
   } catch (err) {
     next(err);
   }

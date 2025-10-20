@@ -88,6 +88,8 @@ export const TestDriveMessage = {
   MISSING_REQUIRED_FIELDS: "Missing required fields",
   CUSTOMER_NOT_FOUND: "Customer not found",
   VEHICLE_NOT_FOUND: "Vehicle not found",
+  ASSIGN_SUCCESS: "Assigned staff to test drive successfully",
+  STATUS_UPDATE_SUCCESS: "Test drive status updated successfully",
 };
 
 export const FeedbackMessage = {
@@ -98,6 +100,8 @@ export const FeedbackMessage = {
   HANDLER_INVALID: "Invalid handler",
   NOT_FOUND: "Feedback/Complaint not found",
   FORBIDDEN: "You are not allowed to update this feedback",
+  STATUS_UPDATE_SUCCESS: "Feedback status updated successfully",
+  COMMENT_ADDED: "Comment added to feedback",
 };
 
 export const ManufacturerMessage = {
@@ -109,7 +113,8 @@ export const ManufacturerMessage = {
 
   NOT_FOUND: "Manufacturer not found",
   INVALID_REQUEST: "Invalid manufacturer data",
-  NO_STOCK_AVAILABLE: "No manufacturer stock available for this vehicle's color",
+  NO_STOCK_AVAILABLE:
+    "No manufacturer stock available for this vehicle's color",
   //Debts
   DEBTS_RETRIEVED: "Manufacturer debts retrieved successfully",
 };
