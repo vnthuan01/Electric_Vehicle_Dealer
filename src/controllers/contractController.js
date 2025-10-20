@@ -40,10 +40,13 @@ export async function generateContract(req, res, next) {
     };
 
     // Generate PDF
-    const pdfBuffer = await generateContractPDF(orderData, {
-      ...template_data,
-      template_name,
-    });
+    const pdfBuffer = await generateContractPDF(
+      orderData,
+      {
+        ...template_data,
+      },
+      template_name
+    );
 
     // Set headers để download PDF
     res.setHeader("Content-Type", "application/pdf");

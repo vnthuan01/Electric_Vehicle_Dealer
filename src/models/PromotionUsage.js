@@ -20,7 +20,7 @@ const promotionUsageSchema = new mongoose.Schema({
   quote_id: {type: mongoose.Schema.Types.ObjectId, ref: "Quote", default: null},
   status: {
     type: String,
-    enum: ["pending", "used", "cancelled"],
+    enum: ["pending", "used", "canceled", "available"],
     required: true,
   },
   created_at: {type: Date, default: Date.now},

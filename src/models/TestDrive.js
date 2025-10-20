@@ -20,9 +20,15 @@ const testDriveSchema = new mongoose.Schema(
       enum: ["pending", "confirmed", "completed", "cancelled"],
       default: "pending",
     },
+    assigned_staff_id: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
     notes: {type: String},
   },
   {timestamps: true}
 );
+
+// Indexes for common queries
+testDriveSchema.index({schedule_at: 1});
+testDriveSchema.index({status: 1});
+testDriveSchema.index({assigned_staff_id: 1});
 
 export default mongoose.model("TestDrive", testDriveSchema);

@@ -39,92 +39,20 @@ router.use(authenticate);
  *           schema:
  *             type: object
  *             required:
- *               - customer_id
- *               - items
+ *               - quote_id
+ *               - payment_method
  *             properties:
- *               customer_id:
+ *               quote_id:
  *                 type: string
  *                 example: "68d1245b394bfef73a507e47"
- *               dealership_id:
- *                 type: string
- *                 example: "68d0e8a599679399fff9869a"
  *               payment_method:
  *                 type: string
  *                 enum: [cash, installment]
  *                 default: cash
  *                 example: "cash"
- *               notes:
- *                 type: string
- *                 example: "Khách hàng muốn giao xe trong tháng 10/ Kèm 2 accessories và 2 options"
- *               items:
- *                 type: array
- *                 description: List of vehicles in the order
- *                 items:
- *                   type: object
- *                   required:
- *                     - vehicle_id
- *                   properties:
- *                     vehicle_id:
- *                       type: string
- *                       example: "68d39a14fde880da56c7f0d0"
- *                     color:
- *                       type: string
- *                       description: Vehicle color to deduct stock from. If omitted, stock will be deducted across available colors.
- *                       example: "Đỏ"
- *                     quantity:
- *                       type: number
- *                       default: 1
- *                       example: 1
- *                     discount:
- *                       type: number
- *                       default: 0
- *                       example: 2000
- *                     promotion_id:
- *                       type: string
- *                       example: "68d504d4a9f9cdb6420c9682"
- *                     options:
- *                       type: array
- *                       description: List of options for this vehicle. Accepts objects with option_id (recommended). Also supports plain string ObjectIds.
- *                       items:
- *                         type: object
- *                         required:
- *                           - option_id
- *                         properties:
- *                           option_id:
- *                             type: string
- *                             example: "68d137662d41dc0589f4c9a4"
- *                     accessories:
- *                       type: array
- *                       description: List of accessories selected for this vehicle
- *                       items:
- *                         type: object
- *                         required:
- *                           - accessory_id
- *                           - quantity
- *                         properties:
- *                           accessory_id:
- *                             type: string
- *                             example: "68d137ac2d41dc0589f4c9ab"
- *                           quantity:
- *                             type: number
- *                             default: 1
- *                             example: 2
  *           example:
- *             customer_id: "68d1245b394bfef73a507e47"
+ *             quote_id: "68d1245b394bfef73a507e47"
  *             payment_method: "cash"
- *             notes: "Khách hàng muốn giao xe trong tháng 10/ Kèm 2 accessories và 2 options"
- *             items:
- *               - vehicle_id: "68d39a14fde880da56c7f0d0"
- *                 color: "Đỏ"
- *                 quantity: 1
- *                 discount: 2000
- *                 promotion_id: "68d504d4a9f9cdb6420c9682"
- *                 options:
- *                   - option_id: "68d137662d41dc0589f4c9a4"
- *                   - option_id: "68d137662d41dc0589f4c9a3"
- *                 accessories:
- *                   - accessory_id: "68d137ac2d41dc0589f4c9ab"
- *                     quantity: 2
  *     responses:
  *       201:
  *         description: Created

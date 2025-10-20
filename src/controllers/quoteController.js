@@ -102,14 +102,21 @@ export async function createQuote(req, res, next) {
       return errorRes(res, QuoteMessage.EMPTY_ITEMS, 400);
 
     // --- Check vehicle trùng ---
-    const vehicleIds = items.map((i) => i.vehicle_id);
-    const hasDuplicateVehicle = vehicleIds.some(
-      (id, idx) => vehicleIds.indexOf(id) !== idx
-    );
-    if (hasDuplicateVehicle) {
-      return errorRes(res, QuoteMessage.DUPLICATE_VEHICLES, 400);
+    const hasDuplicateVehicleWithColor = items.some((item, idx) => {
+      return (
+        items.findIndex(
+          (i) =>
+            String(i.vehicle_id) === String(item.vehicle_id) &&
+            i.color === item.color
+        ) !== idx
+      );
+    });
+    if (hasDuplicateVehicleWithColor) {
+      return res.status(400).json({
+        message:
+          "Duplicate vehicles with the same color in the order are not allowed",
+      });
     }
-
     // --- Check promotion từng user chỉ dùng 1 lần ---
     for (const item of items) {
       if (item.promotion_id) {
@@ -304,6 +311,15 @@ export async function deleteQuote(req, res, next) {
     quote.canceled_at = new Date();
 
     await quote.save();
+
+    // --- Cập nhật trạng thái PromotionUsage liên quan khi quote bị huỷ ---
+    await PromotionUsage.updateMany(
+      {
+        quote_id: quote._id,
+        status: "pending",
+      },
+      {$set: {status: "canceled"}}
+    );
 
     return success(res, QuoteMessage.CANCEL_SUCCESS, {
       id: quote._id,

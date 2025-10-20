@@ -2,13 +2,12 @@ import express from "express";
 import {
   createFeedback,
   getFeedbacks,
-  getFeedbackById,
-  updateFeedback,
-  deleteFeedback,
+  updateFeedbackStatus,
+  addFeedbackComment,
 } from "../controllers/feedbackController.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
 import {checkRole} from "../middlewares/checkRole.js";
-import {DEALER_ROLES, ROLE} from "../enum/roleEnum.js";
+import {ROLE} from "../enum/roleEnum.js";
 
 const router = express.Router();
 
@@ -19,7 +18,7 @@ router.use(authenticate);
  * /api/feedbacks:
  *   get:
  *     tags: [Feedbacks]
- *     summary: Get all feedbacks (Staff/Manager/Admin only, with pagination & search)
+ *     summary: Get all complaints (Dealer roles only, with pagination & search)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -46,40 +45,20 @@ router.use(authenticate);
  */
 router.get(
   "/",
-  checkRole([ROLE.DEALER_STAFF, ROLE.DEALER_MANAGER, ROLE.ADMIN]),
+  checkRole([ROLE.DEALER_STAFF, ROLE.DEALER_MANAGER]),
   getFeedbacks
 );
 
 /**
  * @openapi
- * /api/feedbacks/{id}:
- *   get:
- *     tags: [Feedbacks]
- *     summary: Get feedback by ID
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Feedback detail
- */
-router.get(
-  "/:id",
-  checkRole([ROLE.DEALER_STAFF, ROLE.DEALER_MANAGER, ROLE.ADMIN]),
-  getFeedbackById
-);
+// Removed GET by id – not required for simplified flow
 
 /**
  * @openapi
  * /api/feedbacks:
  *   post:
  *     tags: [Feedbacks]
- *     summary: Create feedback (Customer required, handled by Staff/Admin)
+ *     summary: Create complaint (Dealer roles)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -88,31 +67,35 @@ router.get(
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - customer_id
- *               - content
- *               - handler_id
+ *             required: [customer_id, content]
  *             properties:
  *               customer_id:
  *                 type: string
- *               order_id:
- *                 type: string
- *               content:
- *                 type: string
- *               handler_id:
- *                 type: string
+ *               content: { type: string }
  *     responses:
  *       201:
  *         description: Feedback created
  */
-router.post("/", createFeedback);
+router.post(
+  "/",
+  checkRole([ROLE.DEALER_STAFF, ROLE.DEALER_MANAGER]),
+  createFeedback
+);
 
 /**
  * @openapi
- * /api/feedbacks/{id}:
- *   put:
+// Removed general update – only status and comments allowed
+
+/**
+ * @openapi
+// Removed delete – not required for simplified flow
+
+/**
+ * @openapi
+ * /api/feedbacks/{id}/status:
+ *   patch:
  *     tags: [Feedbacks]
- *     summary: Update feedback (Dealer Staff/Manager only)
+ *     summary: Update complaint status (Dealer roles)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -127,27 +110,27 @@ router.post("/", createFeedback);
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [status]
  *             properties:
- *               content:
+ *               status:
  *                 type: string
- *               handler_id:
- *                 type: string
+ *                 enum: [new, in_progress, resolved, rejected]
  *     responses:
  *       200:
- *         description: Feedback updated
+ *         description: Status updated
  */
-router.put(
-  "/:id",
+router.patch(
+  "/:id/status",
   checkRole([ROLE.DEALER_STAFF, ROLE.DEALER_MANAGER]),
-  updateFeedback
+  updateFeedbackStatus
 );
 
 /**
  * @openapi
- * /api/feedbacks/{id}:
- *   delete:
+ * /api/feedbacks/{id}/comments:
+ *   post:
  *     tags: [Feedbacks]
- *     summary: Delete feedback (Admin only)
+ *     summary: Add a processing comment (Dealer roles)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -156,10 +139,24 @@ router.put(
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [comment, user_id]
+ *             properties:
+ *               comment: { type: string }
+ *               user_id: { type: string }
  *     responses:
  *       200:
- *         description: Feedback deleted
+ *         description: Comment added
  */
-router.delete("/:id", checkRole([ROLE.ADMIN, DEALER_ROLES]), deleteFeedback);
+router.post(
+  "/:id/comments",
+  checkRole([ROLE.DEALER_STAFF, ROLE.DEALER_MANAGER]),
+  addFeedbackComment
+);
 
 export default router;

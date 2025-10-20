@@ -53,9 +53,6 @@ router.use(authenticate);
  *                     quantity:
  *                       type: number
  *                       example: 2
- *                     notes:
- *                       type: string
- *                       example: "Cần hàng gấp trong tuần tới"
  *               notes:
  *                 type: string
  *                 example: "Yêu cầu tổng hợp nhiều dòng xe"
