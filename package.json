@@ -19,8 +19,6 @@
   "description": "",
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "chrome-aws-lambda": "^10.1.0",
-    "chromium": "^3.0.3",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",

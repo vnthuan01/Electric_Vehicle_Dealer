@@ -1,19 +1,14 @@
 import Handlebars from "handlebars";
-import chromium from "chrome-aws-lambda";
 import fs from "fs";
 import path from "path";
 import {fileURLToPath} from "url";
+import pdf from "html-pdf";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Helper tiền tệ
-Handlebars.registerHelper("formatCurrencyVND", function (amount) {
-  if (!amount) return "0";
-  return new Intl.NumberFormat("vi-VN").format(amount);
-});
-
-export const DEFAULT_CONTRACT_TEMPLATE = `
+// --- Template PDF Hợp Đồng ---
+const DEFAULT_CONTRACT_TEMPLATE = `
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -28,13 +23,36 @@ export const DEFAULT_CONTRACT_TEMPLATE = `
     color: #333;
     background-color: #f5f6fa;
   }
+
   h1,h2,h3 { margin: 0; }
-  .header { text-align: center; margin-bottom: 20px; }
-  .header h1 { font-size: 22px; color: #1a73e8; margin-bottom: 5px; }
-  .header h2 { font-size: 14px; color: #555; }
-  .contract-info { text-align: center; margin-bottom: 20px; }
-  .contract-info strong { color: #1a73e8; }
-  .section { margin-bottom: 20px; }
+
+  .header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .header h1 {
+    font-size: 22px;
+    color: #1a73e8;
+    margin-bottom: 5px;
+  }
+  .header h2 {
+    font-size: 14px;
+    color: #555;
+  }
+
+  .contract-info {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .contract-info strong {
+    color: #1a73e8;
+  }
+
+  .section {
+    margin-bottom: 20px;
+  }
+
   .section-title {
     font-size: 16px;
     font-weight: 600;
@@ -43,11 +61,13 @@ export const DEFAULT_CONTRACT_TEMPLATE = `
     border-bottom: 1px solid #1a73e8;
     padding-bottom: 4px;
   }
+
   table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 15px;
   }
+
   th, td {
     border: 1px solid #ccc;
     padding: 8px 10px;
@@ -56,11 +76,13 @@ export const DEFAULT_CONTRACT_TEMPLATE = `
     word-break: break-word;
     white-space: normal;
   }
+
   th {
     background-color: #e8f0fe;
     font-weight: 600;
     color: #1a73e8;
   }
+
   .vehicle-card {
     border: 1px solid #ddd;
     border-radius: 6px;
@@ -68,11 +90,31 @@ export const DEFAULT_CONTRACT_TEMPLATE = `
     margin-bottom: 12px;
     background-color: #fff;
   }
-  .vehicle-card p { font-weight: 600; margin-bottom: 6px; }
-  .vehicle-card ul { padding-left: 20px; margin: 0; }
-  .vehicle-card li { margin-bottom: 4px; }
-  .highlight { font-weight: 600; color: #1a73e8; }
-  .amount { font-weight: bold; color: #d93025; }
+
+  .vehicle-card p {
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .vehicle-card ul {
+    padding-left: 20px;
+    margin: 0;
+  }
+
+  .vehicle-card li {
+    margin-bottom: 4px;
+  }
+
+  .highlight {
+    font-weight: 600;
+    color: #1a73e8;
+  }
+
+  .amount {
+    font-weight: bold;
+    color: #d93025;
+  }
+
   .note {
     background-color: #eef7ff;
     border-left: 4px solid #1a73e8;
@@ -82,13 +124,23 @@ export const DEFAULT_CONTRACT_TEMPLATE = `
     border-radius: 4px;
     color: #333;
   }
+
   .signature-table {
     width: 100%;
     margin-top: 30px;
     text-align: center;
   }
-  .signature-table td { height: 80px; vertical-align: bottom; }
-  .signature-table th { font-weight: normal; padding-bottom: 5px; }
+
+  .signature-table td {
+    height: 80px;
+    vertical-align: bottom;
+  }
+
+  .signature-table th {
+    font-weight: normal;
+    padding-bottom: 5px;
+  }
+
   .payment-summary {
     margin-top: 10px;
     border: 1px solid #ccc;
@@ -96,83 +148,90 @@ export const DEFAULT_CONTRACT_TEMPLATE = `
     border-radius: 6px;
     background-color: #fff;
   }
-  .vehicle-card li span { display: block; }
+
+  /* Options / Accessories xuống dòng */
+  .vehicle-card li span {
+    display: block;
+  }
 </style>
 </head>
 <body>
-<div class="header">
-  <h2>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
-  <h2>Độc Lập – Tự Do – Hạnh Phúc</h2>
-  <h1>HỢP ĐỒNG MUA BÁN XE ĐIỆN</h1>
-</div>
-
-<p class="contract-info">
-  Số hợp đồng: <strong>{{contractNumber}}</strong><br/>
-  Địa điểm: {{location}}, Ngày {{day}} tháng {{month}} năm {{year}}
-</p>
-
-<div class="section">
-  <div class="section-title">ĐIỀU 1: THÔNG TIN CÁC BÊN</div>
-  <table>
-    <tr>
-      <th style="width:50%">Bên A (Bên bán)</th>
-      <th>Bên B (Bên mua)</th>
-    </tr>
-    <tr>
-      <td>
-        <div><span class="highlight">Tên đại lý:</span> {{dealership.name}}</div>
-        <div><span class="highlight">Địa chỉ:</span> {{dealership.address}}</div>
-        <div><span class="highlight">Điện thoại:</span> {{dealership.phone}}</div>
-        <div><span class="highlight">MST:</span> {{dealership.tax_code}}</div>
-        <div><span class="highlight">Người đại diện:</span> {{dealership.representative}}</div>
-      </td>
-      <td>
-        <div><span class="highlight">Họ và tên:</span> {{customer.full_name}}</div>
-        <div><span class="highlight">Địa chỉ:</span> {{customer.address}}</div>
-        <div><span class="highlight">Điện thoại:</span> {{customer.phone}}</div>
-        <div><span class="highlight">Email:</span> {{customer.email}}</div>
-      </td>
-    </tr>
-  </table>
-</div>
-
-<div class="section">
-  <div class="section-title">ĐIỀU 2: THÔNG TIN XE VÀ GIÁ BÁN</div>
-  {{#each vehicles}}
-  <div class="vehicle-card">
-    <p>Xe {{index}}: {{name}} (Màu {{color}})</p>
-    <ul>
-      <li>Giá: <span class="amount">{{formatCurrencyVND unit_price}} VNĐ</span></li>
-      <li>Số lượng: {{quantity}}</li>
-      <li>Khuyến mãi: {{#if promotion}}{{promotion.name}} ({{promotion.type}}){{else}}Không có{{/if}}</li>
-      <li>Phụ kiện:
-        {{#if accessories.length}}
-          {{#each accessories}}<span>{{name}} x {{quantity}} ({{formatCurrencyVND price}})</span>{{/each}}
-        {{else}}Không có{{/if}}
-      </li>
-      <li>Tùy chọn thêm:
-        {{#if options.length}}
-          {{#each options}}<span>{{name}} ({{formatCurrencyVND price}})</span>{{/each}}
-        {{else}}Không có{{/if}}
-      </li>
-      <li><strong>Tổng giá trị:</strong> <span class="amount">{{formatCurrencyVND final_amount}}</span></li>
-    </ul>
+  <div class="header">
+    <h2>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h2>
+    <h2>Độc Lập – Tự Do – Hạnh Phúc</h2>
+    <h1>HỢP ĐỒNG MUA BÁN XE ĐIỆN</h1>
   </div>
-  {{/each}}
 
-  <div class="payment-summary">
-    <div><strong>Phương thức thanh toán:</strong> {{paymentMethodText}}</div>
-    <div><strong>Đã thanh toán:</strong> <span class="amount">{{formatCurrencyVND paidAmount}} VNĐ</span></div>
-    <div><strong>Còn lại:</strong> <span class="amount">{{formatCurrencyVND remainingAmount}} VNĐ</span></div>
+  <p class="contract-info">
+    Số hợp đồng: <strong>{{contractNumber}}</strong><br/>
+    Địa điểm: {{location}}, Ngày {{day}} tháng {{month}} năm {{year}}
+  </p>
+
+  <div class="section">
+    <div class="section-title">ĐIỀU 1: THÔNG TIN CÁC BÊN</div>
+    <table>
+      <tr>
+        <th style="width:50%">Bên A (Bên bán)</th>
+        <th>Bên B (Bên mua)</th>
+      </tr>
+      <tr>
+        <td>
+          <div><span class="highlight">Tên đại lý:</span> {{dealership.name}}</div>
+          <div><span class="highlight">Địa chỉ:</span> {{dealership.address}}</div>
+          <div><span class="highlight">Điện thoại:</span> {{dealership.phone}}</div>
+          <div><span class="highlight">MST:</span> {{dealership.tax_code}}</div>
+          <div><span class="highlight">Người đại diện:</span> {{dealership.representative}}</div>
+        </td>
+        <td>
+          <div><span class="highlight">Họ và tên:</span> {{customer.full_name}}</div>
+          <div><span class="highlight">Địa chỉ:</span> {{customer.address}}</div>
+          <div><span class="highlight">Điện thoại:</span> {{customer.phone}}</div>
+          <div><span class="highlight">Email:</span> {{customer.email}}</div>
+        </td>
+      </tr>
+    </table>
   </div>
-</div>
 
-<div class="section">
+  <div class="section">
+    <div class="section-title">ĐIỀU 2: THÔNG TIN XE VÀ GIÁ BÁN</div>
+    {{#each vehicles}}
+      <div class="vehicle-card">
+        <p>Xe {{index}}: {{name}} (Màu {{color}})</p>
+        <ul>
+          <li>Giá: <span class="amount">{{formatCurrencyVND unit_price}} VNĐ</span></li>
+          <li>Số lượng: {{quantity}}</li>
+          <li>Khuyến mãi: {{#if promotion}}{{promotion.name}} ({{promotion.type}}){{else}}Không có{{/if}}</li>
+          <li>Phụ kiện:
+            {{#if accessories.length}}
+              {{#each accessories}}
+                <span>{{name}} x {{quantity}} ({{formatCurrencyVND price}})</span>
+              {{/each}}
+            {{else}}Không có{{/if}}
+          </li>
+          <li>Tùy chọn thêm:
+            {{#if options.length}}
+              {{#each options}}
+                <span>{{name}} ({{formatCurrencyVND price}})</span>
+              {{/each}}
+            {{else}}Không có{{/if}}
+          </li>
+          <li><strong>Tổng giá trị:</strong> <span class="amount">{{formatCurrencyVND final_amount}}</span></li>
+        </ul>
+      </div>
+    {{/each}}
+
+    <div class="payment-summary">
+      <div><strong>Phương thức thanh toán:</strong> {{paymentMethodText}}</div>
+      <div><strong>Đã thanh toán:</strong> <span class="amount">{{formatCurrencyVND paidAmount}} VNĐ</span></div>
+      <div><strong>Còn lại:</strong> <span class="amount">{{formatCurrencyVND remainingAmount}} VNĐ</span></div>
+    </div>
+  </div>
+  <div class="section">
   <div class="section-title">ĐIỀU 3: NHẬN XE</div>
   <p>
-    Xe sẽ được giao tại địa chỉ đại lý: {{dealership.address}}<br/>
-    Hoặc giao xe đến địa chỉ: {{deliveryAddress}}<br/>
-    Ngày giao xe dự kiến: {{deliveryDate}}<br/>
+    Xe sẽ được giao tại địa chỉ đại lý: {{dealership.address}}<br />
+    Hoặc giao xe đến địa chỉ: {{deliveryAddress}}<br />
+    Ngày giao xe dự kiến: {{deliveryDate}}<br />
     Khách hàng chịu trách nhiệm nhận xe và các giấy tờ liên quan.
   </p>
 </div>
@@ -209,29 +268,40 @@ export const DEFAULT_CONTRACT_TEMPLATE = `
     <li>Hợp đồng được lập thành 2 bản có giá trị pháp lý như nhau.</li>
   </ol>
 </div>
+  {{#if notes}}
+    <p class="note"><strong>Ghi chú:</strong> {{notes}}</p>
+  {{/if}}
 
-{{#if notes}}
-<p class="note"><strong>Ghi chú:</strong> {{notes}}</p>
-{{/if}}
-
-<table class="signature-table">
-<tr>
-  <th>ĐẠI DIỆN BÊN A</th>
-  <th>ĐẠI DIỆN BÊN B</th>
-</tr>
-<tr>
-  <td>(Ký, ghi rõ họ tên)</td>
-  <td>(Ký, ghi rõ họ tên)</td>
-</tr>
-</table>
-
-<p style="text-align: center; margin-top: 15px; font-style: italic; color: #555;">
-  <strong>Hợp đồng mẫu</strong> {{template_name}}
-</p>
+  <table class="signature-table">
+    <tr>
+      <th>ĐẠI DIỆN BÊN A</th>
+      <th>ĐẠI DIỆN BÊN B</th>
+    </tr>
+    <tr>
+      <td>(Ký, ghi rõ họ tên)</td>
+      <td>(Ký, ghi rõ họ tên)</td>
+    </tr>
+  </table>
+  <p style="text-align: center; margin-top: 15px; font-style: italic; color: #555;">
+    <strong>Hợp đồng mẫu</strong> {{template_name}}
+  </p>
 </body>
 </html>
 `;
+// Helper để format tiền tệ
+Handlebars.registerHelper("formatCurrencyVND", function (amount) {
+  if (!amount) return "0";
+  return new Intl.NumberFormat("vi-VN").format(amount);
+});
 
+/**
+ * Tạo hợp đồng PDF từ template
+ * @param {Object} orderData - Dữ liệu đơn hàng
+ * @param {Object} templateData - Dữ liệu template (tùy chọn)
+ * @returns {Buffer} - PDF buffer
+ */
+
+// Hàm generate PDF
 export async function generateContractPDF(
   orderData,
   templateData = {},
@@ -262,7 +332,7 @@ export async function generateContractPDF(
 
     vehicles:
       orderData.items?.map((item, index) => ({
-        index: index + 1,
+        index: index + 1, // số thứ tự xe
         name: item.vehicle_name || "Xe điện",
         color: item.color || "Không rõ",
         unit_price: item.vehicle_price || 0,
@@ -310,17 +380,20 @@ export async function generateContractPDF(
     notes: orderData.notes || "",
   };
 
-  // --- Lấy template HTML ---
   let templateHtml;
+
   if (typeof template_name === "string") {
     const templatePath = path.join(
       __dirname,
       "../templates/contracts",
       `${template_name}.html`
     );
-    templateHtml = fs.existsSync(templatePath)
-      ? fs.readFileSync(templatePath, "utf8")
-      : DEFAULT_CONTRACT_TEMPLATE;
+    if (fs.existsSync(templatePath)) {
+      templateHtml = fs.readFileSync(templatePath, "utf8");
+    } else {
+      console.warn(`Template ${template_name} không tồn tại, dùng mặc định`);
+      templateHtml = DEFAULT_CONTRACT_TEMPLATE;
+    }
   } else if (template_name?.html) {
     templateHtml = template_name.html;
   } else {
@@ -330,24 +403,19 @@ export async function generateContractPDF(
   const template = Handlebars.compile(templateHtml);
   const html = template(contractData);
 
-  // --- Thay đổi chỗ generate PDF ---
-  const browser = await chromium.puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: chromium.defaultViewport,
-    executablePath: await chromium.executablePath,
-    headless: chromium.headless,
+  return new Promise((resolve, reject) => {
+    pdf
+      .create(html, {
+        format: "A4",
+        border: {top: "20mm", right: "15mm", bottom: "20mm", left: "15mm"},
+        type: "pdf",
+        timeout: 30000,
+      })
+      .toBuffer((err, buffer) => {
+        if (err) return reject(err);
+        resolve(buffer);
+      });
   });
-
-  const page = await browser.newPage();
-  await page.setContent(html, {waitUntil: "networkidle0"});
-  const pdfBuffer = await page.pdf({
-    format: "A4",
-    printBackground: true,
-    margin: {top: "20mm", right: "15mm", bottom: "20mm", left: "15mm"},
-  });
-
-  await browser.close();
-  return pdfBuffer;
 }
 
 /**
