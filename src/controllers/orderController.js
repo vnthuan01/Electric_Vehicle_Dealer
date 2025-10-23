@@ -699,7 +699,7 @@ export async function deleteOrder(req, res, next) {
     if (order.status === "pending" && order.items?.length > 0) {
       for (const item of order.items) {
         // chỉ hoàn lại stock nếu trước đó có trừ (ở controller đang không trừ cho car)
-        // if (item.category === "car") continue;
+        if (item.category === "car") continue;
         if (item.color) {
           const updateResult = await Vehicle.updateOne(
             {_id: item.vehicle_id},
