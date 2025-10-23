@@ -60,7 +60,7 @@ const quoteSchema = new mongoose.Schema(
     endDate: {type: Date},
     status: {
       type: String,
-      enum: ["valid", "expired", "cancelled", "invalid"],
+      enum: ["valid", "expired", "canceled", "invalid"],
       default: "valid",
       index: true,
     },
