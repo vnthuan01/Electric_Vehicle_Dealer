@@ -193,7 +193,7 @@ export async function updateBankProfileStatus(req, res, next) {
       "approved",
       "rejected",
       "funded",
-      "cancelled",
+      "canceled",
     ];
 
     if (!allowedStatuses.includes(status)) {

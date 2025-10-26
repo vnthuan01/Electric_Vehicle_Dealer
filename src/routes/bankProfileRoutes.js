@@ -1,7 +1,7 @@
-import {Router} from "express";
-import {authenticate} from "../middlewares/authMiddleware.js";
-import {checkRole} from "../middlewares/checkRole.js";
-import {DEALER_ROLES} from "../enum/roleEnum.js";
+import { Router } from "express";
+import { authenticate } from "../middlewares/authMiddleware.js";
+import { checkRole } from "../middlewares/checkRole.js";
+import { DEALER_ROLES } from "../enum/roleEnum.js";
 import {
   createBankProfile,
   getBankProfiles,
@@ -94,7 +94,7 @@ router.post("/", checkRole(DEALER_ROLES), createBankProfile);
  *         name: status
  *         schema:
  *           type: string
- *           enum: [pending, submitted, under_review, approved, rejected, funded, cancelled]
+ *           enum: [pending, submitted, under_review, approved, rejected, funded, canceled]
  *     responses:
  *       200:
  *         description: OK
@@ -188,7 +188,7 @@ router.put("/:id", checkRole(DEALER_ROLES), updateBankProfile);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [pending, submitted, under_review, approved, rejected, funded, cancelled]
+ *                 enum: [pending, submitted, under_review, approved, rejected, funded, canceled]
  *               notes:
  *                 type: string
  *               rejection_reason:

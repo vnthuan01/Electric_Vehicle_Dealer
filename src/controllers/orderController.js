@@ -2,23 +2,23 @@ import Order from "../models/Order.js";
 import Promotion from "../models/Promotion.js";
 import Option from "../models/Option.js";
 import Accessory from "../models/Accessory.js";
-import {OrderMessage, VehicleMessage} from "../utils/MessageRes.js";
-import {success, created, error as errorRes} from "../utils/response.js";
-import {paginate} from "../utils/pagination.js";
-import {createCustomerDebt} from "./debtController.js";
+import { OrderMessage, VehicleMessage } from "../utils/MessageRes.js";
+import { success, created, error as errorRes } from "../utils/response.js";
+import { paginate } from "../utils/pagination.js";
+import { createCustomerDebt } from "./debtController.js";
 import Debt from "../models/Debt.js";
 import Vehicle from "../models/Vehicle.js";
 import Payment from "../models/Payment.js";
-import {createStatusLog} from "./orderStatusLogController.js";
+import { createStatusLog } from "./orderStatusLogController.js";
 import PromotionUsage from "../models/PromotionUsage.js";
 import OrderRequest from "../models/OrderRequest.js";
-import {ROLE} from "../enum/roleEnum.js";
+import { ROLE } from "../enum/roleEnum.js";
 import Customer from "../models/Customer.js";
 import Quote from "../models/Quote.js";
 import Dealership from "../models/Dealership.js";
-import {capitalizeVietnamese} from "../utils/validateWord.js";
+import { capitalizeVietnamese } from "../utils/validateWord.js";
 import RequestVehicle from "../models/RequestVehicle.js";
-import {emitRequestStatusUpdate} from "../config/socket.js";
+import { emitRequestStatusUpdate } from "../config/socket.js";
 
 //Helper generate order Code - timestamp
 const generateOrderCode = () => {
@@ -160,24 +160,26 @@ async function deductStock(items, dealership_id) {
 // ==================== Create Order ====================
 export async function createOrder(req, res, next) {
   try {
-    const {payment_method = "cash", quote_id} = req.body;
+    const { payment_method = "cash", quote_id } = req.body;
     let items = [],
       customer_id,
       notes = "";
 
     const dealership_id = req.user?.dealership_id;
     if (!dealership_id) {
-      return res.status(400).json({message: "Dealership ID required."});
+      return res.status(400).json({ message: "Dealership ID required." });
     }
 
     if (quote_id) {
       // --- Lấy dữ liệu từ quote ---
       const quote = await Quote.findById(quote_id).lean();
       if (!quote) {
-        return res.status(404).json({message: "Quote not found."});
+        return res.status(404).json({ message: "Quote not found." });
       }
       if (["expired", "canceled"].includes(quote.status)) {
-        return res.status(400).json({message: "Quote is expired or canceled."});
+        return res
+          .status(400)
+          .json({ message: "Quote is expired or canceled." });
       }
       customer_id = quote.customer_id;
       items = quote.items;
@@ -192,12 +194,12 @@ export async function createOrder(req, res, next) {
     if (!items.length) {
       return res
         .status(400)
-        .json({message: OrderMessage.MISSING_REQUIRED_FIELDS});
+        .json({ message: OrderMessage.MISSING_REQUIRED_FIELDS });
     }
 
     const customer = await Customer.findById(customer_id);
     if (!customer) {
-      return res.status(404).json({message: "Customer not found."});
+      return res.status(404).json({ message: "Customer not found." });
     }
 
     // VALIDATION DUPLICATE VEHICLE
@@ -262,7 +264,9 @@ export async function createOrder(req, res, next) {
           const optionIds = item.options.map((o) =>
             typeof o === "string" ? o : o.option_id
           );
-          const optionDocs = await Option.find({_id: {$in: optionIds}}).lean();
+          const optionDocs = await Option.find({
+            _id: { $in: optionIds },
+          }).lean();
           optionSnapshots = optionDocs.map((o) => ({
             option_id: o._id,
             name: o.name,
@@ -273,7 +277,9 @@ export async function createOrder(req, res, next) {
         accessorySnapshots = [];
         if (item.accessories?.length) {
           const ids = item.accessories.map((a) => a.accessory_id);
-          const accessoryDocs = await Accessory.find({_id: {$in: ids}}).lean();
+          const accessoryDocs = await Accessory.find({
+            _id: { $in: ids },
+          }).lean();
           accessorySnapshots = accessoryDocs.map((a) => {
             const input = item.accessories.find(
               (x) => x.accessory_id == a._id.toString()
@@ -399,10 +405,10 @@ export async function createOrder(req, res, next) {
               vehicle_id: item.vehicle_id,
               promotion_id: item.promotion_id,
               quote_id,
-              status: {$in: ["pending", "available"]},
+              status: { $in: ["pending", "available"] },
               order_id: null,
             },
-            {$set: {status: "used", order_id: order._id}}
+            { $set: { status: "used", order_id: order._id } }
           );
 
           // 2. Cancel all PromotionUsage còn 'pending' | 'available' cùng promotion này nhưng quote_id != current của customer này
@@ -411,10 +417,10 @@ export async function createOrder(req, res, next) {
               customer_id,
               vehicle_id: item.vehicle_id,
               promotion_id: item.promotion_id,
-              status: {$in: ["pending", "available"]},
-              quote_id: {$ne: quote_id},
+              status: { $in: ["pending", "available"] },
+              quote_id: { $ne: quote_id },
             },
-            {$set: {status: "canceled"}}
+            { $set: { status: "canceled" } }
           );
           // 3. Nếu có usage bị cancel -> cập nhật trạng thái của các quote tương ứng
           if (canceledUsages.modifiedCount > 0) {
@@ -424,14 +430,14 @@ export async function createOrder(req, res, next) {
               vehicle_id: item.vehicle_id,
               promotion_id: item.promotion_id,
               status: "canceled",
-              quote_id: {$ne: quote_id},
+              quote_id: { $ne: quote_id },
             });
             console.log(affectedQuotes);
 
             if (affectedQuotes.length > 0) {
               await Quote.updateMany(
-                {_id: {$in: affectedQuotes}, status: "valid"},
-                {$set: {status: "cancelled"}}
+                { _id: { $in: affectedQuotes }, status: "valid" },
+                { $set: { status: "canceled" } }
               );
             }
           }
@@ -446,16 +452,16 @@ export async function createOrder(req, res, next) {
               customer_id,
               vehicle_id: item.vehicle_id,
               promotion_id: item.promotion_id,
-              status: {$in: ["pending", "available"]},
+              status: { $in: ["pending", "available"] },
             },
-            {$set: {status: "used", order_id: order._id}}
+            { $set: { status: "used", order_id: order._id } }
           );
         }
       }
     }
     // ------------ END PromotionUsage update ------------
 
-    return created(res, OrderMessage.CREATE_SUCCESS, {order});
+    return created(res, OrderMessage.CREATE_SUCCESS, { order });
   } catch (err) {
     next(err);
   }
@@ -466,7 +472,7 @@ export async function createOrder(req, res, next) {
 export async function requestOrderAccordingToDemand(req, res, next) {
   try {
     const user = req.user;
-    const {items = [], notes} = req.body;
+    const { items = [], notes } = req.body;
 
     // --- Validate cơ bản ---
     if (!items.length)
@@ -514,7 +520,7 @@ export async function requestOrderAccordingToDemand(req, res, next) {
 // ==================== Get Orders (with pagination & timestamp filter) ====================
 export async function getOrders(req, res, next) {
   try {
-    const {status, startDate, endDate} = req.query;
+    const { status, startDate, endDate } = req.query;
 
     // ----- EXTRA QUERY -----
     const extraQuery = {};
@@ -529,7 +535,7 @@ export async function getOrders(req, res, next) {
     const result = await paginate(Order, req, ["code"], extraQuery);
     // Populate customer only; vehicles are inside item snapshots
     const populatedData = await Order.populate(result.data, [
-      {path: "customer_id"},
+      { path: "customer_id" },
     ]);
 
     return success(res, OrderMessage.LIST_SUCCESS, {
@@ -543,11 +549,11 @@ export async function getOrders(req, res, next) {
 
 export async function getOrdersForYours(req, res, next) {
   try {
-    const {status, startDate, endDate} = req.query;
+    const { status, startDate, endDate } = req.query;
     const user_id = req.user.id;
 
     // ----- BASE QUERY -----
-    const baseQuery = {salesperson_id: user_id}; // chỉ lấy order của chính user này
+    const baseQuery = { salesperson_id: user_id }; // chỉ lấy order của chính user này
 
     // Nếu chưa có order nào của user này thì trả rỗng luôn
     const countOrders = await Order.countDocuments(baseQuery);
@@ -574,7 +580,7 @@ export async function getOrdersForYours(req, res, next) {
 
     // ----- POPULATE CUSTOMER -----
     const populatedData = await Order.populate(result.data, [
-      {path: "customer_id", select: "full_name email phone"},
+      { path: "customer_id", select: "full_name email phone" },
     ]);
 
     return success(res, OrderMessage.LIST_SUCCESS, {
@@ -601,7 +607,7 @@ export async function getOrderById(req, res, next) {
 // ==================== Update Order ====================
 export async function updateOrder(req, res, next) {
   try {
-    const {items, payment_method, notes} = req.body;
+    const { items, payment_method, notes } = req.body;
     const order = await Order.findById(req.params.id);
     if (!order) return errorRes(res, OrderMessage.NOT_FOUND, 404);
 
@@ -621,7 +627,9 @@ export async function updateOrder(req, res, next) {
           const optionIds = item.options.map((o) =>
             typeof o === "string" ? o : o.option_id
           );
-          const optionDocs = await Option.find({_id: {$in: optionIds}}).lean();
+          const optionDocs = await Option.find({
+            _id: { $in: optionIds },
+          }).lean();
           optionSnapshots = optionDocs.map((o) => ({
             option_id: o._id,
             name: o.name,
@@ -633,7 +641,9 @@ export async function updateOrder(req, res, next) {
         let accessorySnapshots = [];
         if (item.accessories?.length) {
           const ids = item.accessories.map((a) => a.accessory_id);
-          const accessoryDocs = await Accessory.find({_id: {$in: ids}}).lean();
+          const accessoryDocs = await Accessory.find({
+            _id: { $in: ids },
+          }).lean();
           accessorySnapshots = accessoryDocs.map((a) => {
             const input = item.accessories.find(
               (x) => x.accessory_id == a._id.toString()
@@ -702,9 +712,9 @@ export async function deleteOrder(req, res, next) {
         if (item.category === "car") continue;
         if (item.color) {
           const updateResult = await Vehicle.updateOne(
-            {_id: item.vehicle_id},
+            { _id: item.vehicle_id },
             {
-              $inc: {"stocks.$[elem].quantity": item.quantity},
+              $inc: { "stocks.$[elem].quantity": item.quantity },
             },
             {
               arrayFilters: [
@@ -719,7 +729,7 @@ export async function deleteOrder(req, res, next) {
 
           if (updateResult.modifiedCount === 0) {
             await Vehicle.updateOne(
-              {_id: item.vehicle_id},
+              { _id: item.vehicle_id },
               {
                 $push: {
                   stocks: {
@@ -768,7 +778,7 @@ export async function deleteOrder(req, res, next) {
           const usageList = await PromotionUsage.find({
             order_id: order._id,
             promotion_id: item.promotion_id,
-            status: {$in: ["used", "canceled"]},
+            status: { $in: ["used", "canceled"] },
           });
 
           for (const usage of usageList) {
@@ -776,18 +786,18 @@ export async function deleteOrder(req, res, next) {
             const pendingQuotes = await PromotionUsage.find({
               customer_id: order.customer_id,
               promotion_id: item.promotion_id,
-              status: {$in: ["pending", "available"]},
+              status: { $in: ["pending", "available"] },
             });
 
             if (pendingQuotes.length > 0) {
               // Có promotion này đang pending cho quote khác -> các usage này nên chuyển canceled
               await PromotionUsage.updateMany(
                 {
-                  _id: {$in: pendingQuotes.map((q) => q._id)},
+                  _id: { $in: pendingQuotes.map((q) => q._id) },
                 },
-                {$set: {status: "canceled"}}
+                { $set: { status: "canceled" } }
               );
-              // Usage của order này cũng chuyển về cancelled
+              // Usage của order này cũng chuyển về canceled
               usage.status = "canceled";
               await usage.save();
             } else {
@@ -807,7 +817,7 @@ export async function deleteOrder(req, res, next) {
     await order.save();
 
     // --- Soft delete debt liên quan ---
-    const debt = await Debt.findOne({order_id: order._id});
+    const debt = await Debt.findOne({ order_id: order._id });
     if (debt) {
       debt.is_deleted = true;
       debt.deleted_at = new Date();
@@ -815,7 +825,7 @@ export async function deleteOrder(req, res, next) {
       await debt.save();
     }
 
-    return success(res, OrderMessage.DELETE_SUCCESS, {id: order._id});
+    return success(res, OrderMessage.DELETE_SUCCESS, { id: order._id });
   } catch (err) {
     next(err);
   }
@@ -824,7 +834,7 @@ export async function deleteOrder(req, res, next) {
 // ==================== Update Order Status ====================
 export async function updateOrderStatus(req, res, next) {
   try {
-    const {status} = req.body; //
+    const { status } = req.body; //
     const allowed = [
       "pending",
       "confirmed",
@@ -844,7 +854,7 @@ export async function updateOrderStatus(req, res, next) {
 
     await order.save();
 
-    return success(res, OrderMessage.STATUS_UPDATE_SUCCESS, {order});
+    return success(res, OrderMessage.STATUS_UPDATE_SUCCESS, { order });
   } catch (err) {
     next(err);
   }
@@ -853,7 +863,7 @@ export async function updateOrderStatus(req, res, next) {
 // ==================== List Order Requests ====================
 export async function listOrderRequests(req, res, next) {
   try {
-    const {status, startDate, endDate, q} = req.query;
+    const { status, startDate, endDate, q } = req.query;
     const user = req.user;
 
     // --- Base query ---
@@ -881,14 +891,14 @@ export async function listOrderRequests(req, res, next) {
     }
 
     // --- Search by code ---
-    if (q) query.code = {$regex: q, $options: "i"};
+    if (q) query.code = { $regex: q, $options: "i" };
 
     // --- Pagination ---
     const result = await paginate(OrderRequest, req, ["code"], query);
 
     const populated = await OrderRequest.populate(result.data, [
-      {path: "requested_by", select: "full_name email"},
-      {path: "dealership_id", select: "name"},
+      { path: "requested_by", select: "full_name email" },
+      { path: "dealership_id", select: "name" },
     ]);
 
     return success(res, "List order requests successfully", {
@@ -904,7 +914,7 @@ export async function listOrderRequests(req, res, next) {
 export async function rejectOrderRequest(req, res, next) {
   try {
     const user = req.user;
-    const {reason} = req.body;
+    const { reason } = req.body;
 
     // --- Validate input ---
     if (!reason || !reason.trim()) {
