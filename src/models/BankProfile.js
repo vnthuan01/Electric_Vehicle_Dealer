@@ -66,7 +66,7 @@ const bankProfileSchema = new mongoose.Schema(
         "approved", // Đã duyệt
         "rejected", // Từ chối
         "funded", // Đã giải ngân
-        "cancelled", // Hủy bỏ
+        "canceled", // Hủy bỏ
       ],
       default: "pending",
       index: true,
@@ -112,12 +112,12 @@ const bankProfileSchema = new mongoose.Schema(
       relationship: String,
     },
   },
-  {timestamps: true}
+  { timestamps: true }
 );
 
 // Indexes
-bankProfileSchema.index({order_id: 1, status: 1});
-bankProfileSchema.index({customer_id: 1, status: 1});
-bankProfileSchema.index({dealership_id: 1, status: 1});
+bankProfileSchema.index({ order_id: 1, status: 1 });
+bankProfileSchema.index({ customer_id: 1, status: 1 });
+bankProfileSchema.index({ dealership_id: 1, status: 1 });
 
 export default mongoose.model("BankProfile", bankProfileSchema);

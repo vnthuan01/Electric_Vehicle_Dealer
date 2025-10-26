@@ -29,7 +29,7 @@ const orderStatusLogSchema = new mongoose.Schema(
         "fullyPayment",
         "contract_signed",
         "delivered",
-        "cancelled",
+        "canceled",
       ],
     },
     new_status: {
@@ -41,7 +41,7 @@ const orderStatusLogSchema = new mongoose.Schema(
         "fullyPayment",
         "contract_signed",
         "delivered",
-        "cancelled",
+        "canceled",
       ],
       required: true,
     },
@@ -103,13 +103,13 @@ const orderStatusLogSchema = new mongoose.Schema(
       delivery_address: String,
     },
   },
-  {timestamps: true}
+  { timestamps: true }
 );
 
 // Indexes
-orderStatusLogSchema.index({order_id: 1, created_at: -1});
-orderStatusLogSchema.index({dealership_id: 1, created_at: -1});
-orderStatusLogSchema.index({customer_id: 1, created_at: -1});
-orderStatusLogSchema.index({new_status: 1, created_at: -1});
+orderStatusLogSchema.index({ order_id: 1, created_at: -1 });
+orderStatusLogSchema.index({ dealership_id: 1, created_at: -1 });
+orderStatusLogSchema.index({ customer_id: 1, created_at: -1 });
+orderStatusLogSchema.index({ new_status: 1, created_at: -1 });
 
 export default mongoose.model("OrderStatusLog", orderStatusLogSchema);

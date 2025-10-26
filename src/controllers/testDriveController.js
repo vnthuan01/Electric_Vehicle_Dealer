@@ -1,13 +1,13 @@
 import TestDrive from "../models/TestDrive.js";
 import Customer from "../models/Customer.js";
 import Vehicle from "../models/Vehicle.js";
-import {created, success, error as errorRes} from "../utils/response.js";
-import {TestDriveMessage} from "../utils/MessageRes.js";
-import {paginate} from "../utils/pagination.js";
+import { created, success, error as errorRes } from "../utils/response.js";
+import { TestDriveMessage } from "../utils/MessageRes.js";
+import { paginate } from "../utils/pagination.js";
 
 export async function createTestDrive(req, res, next) {
   try {
-    const {customer_id, vehicle_id, dealership_id, schedule_at, notes} =
+    const { customer_id, vehicle_id, dealership_id, schedule_at, notes } =
       req.body;
 
     if (!customer_id || !vehicle_id || !schedule_at) {
@@ -98,14 +98,14 @@ export async function deleteTestDrive(req, res, next) {
 // Assign a staff to handle the test drive
 export async function assignTestDriveStaff(req, res, next) {
   try {
-    const {assigned_staff_id} = req.body;
+    const { assigned_staff_id } = req.body;
     if (!assigned_staff_id) {
       return errorRes(res, TestDriveMessage.MISSING_REQUIRED_FIELDS, 400);
     }
     const updated = await TestDrive.findByIdAndUpdate(
       req.params.id,
-      {assigned_staff_id},
-      {new: true}
+      { assigned_staff_id },
+      { new: true }
     ).populate("customer_id vehicle_id dealership_id assigned_staff_id");
     if (!updated) return errorRes(res, TestDriveMessage.INVALID_REQUEST, 404);
     return success(res, TestDriveMessage.ASSIGN_SUCCESS, updated);
@@ -117,15 +117,15 @@ export async function assignTestDriveStaff(req, res, next) {
 // Update only status field for a test drive
 export async function updateTestDriveStatus(req, res, next) {
   try {
-    const {status} = req.body;
-    const allowed = ["pending", "confirmed", "completed", "cancelled"];
+    const { status } = req.body;
+    const allowed = ["pending", "confirmed", "completed", "canceled"];
     if (!status || !allowed.includes(status)) {
       return errorRes(res, TestDriveMessage.INVALID_REQUEST, 400);
     }
     const updated = await TestDrive.findByIdAndUpdate(
       req.params.id,
-      {status},
-      {new: true}
+      { status },
+      { new: true }
     ).populate("customer_id vehicle_id dealership_id assigned_staff_id");
     if (!updated) return errorRes(res, TestDriveMessage.INVALID_REQUEST, 404);
     return success(res, TestDriveMessage.STATUS_UPDATE_SUCCESS, updated);
