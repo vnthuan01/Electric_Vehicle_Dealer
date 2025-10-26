@@ -18,7 +18,44 @@ Handlebars.registerHelper("formatCurrency", function (amount) {
   return new Intl.NumberFormat("vi-VN").format(amount);
 });
 
-// --- Template PDF Báo giá ---
+// Helper to check if array has items
+Handlebars.registerHelper("hasItems", function (array) {
+  return Array.isArray(array) && array.length > 0;
+});
+
+// Helper for default values
+Handlebars.registerHelper("default", function (value, defaultValue) {
+  return value || defaultValue;
+});
+
+/**
+ * Template PDF Báo giá
+ * 
+ * The template expects data in this format:
+ * {
+ *   code: "BG001",
+ *   createdAt: Date,
+ *   endDate: Date,
+ *   final_amount: 500000000,
+ *   notes: "Ghi chú",
+ *   items: [
+ *     {
+ *       vehicle_name: "VinFast VF8",
+ *       color: "Xanh dương", // or null/undefined will show "-"
+ *       vehicle_price: 450000000,
+ *       quantity: 1,
+ *       options: [
+ *         { option_id: "opt1", name: "Ghế da cao cấp", price: 15000000 }
+ *       ],
+ *       accessories: [
+ *         { accessory_id: "acc1", name: "Thảm lót sàn", price: 2000000, quantity: 1 }
+ *       ],
+ *       discount: 10000000,
+ *       final_amount: 457000000
+ *     }
+ *   ]
+ * }
+ */
 const DEFAULT_QUOTE_TEMPLATE = `
 <!DOCTYPE html>
 <html lang="vi">
@@ -97,6 +134,12 @@ const DEFAULT_QUOTE_TEMPLATE = `
   word-break: break-word;
   }
 
+  /* Style cho từng dòng option/accessory */
+  td.options div, td.accessories div {
+    padding: 2px 0;
+    line-height: 1.4;
+  }
+
   table.info-table tr:nth-child(even) {
     background: #f9f9f9;
   }
@@ -154,22 +197,22 @@ const DEFAULT_QUOTE_TEMPLATE = `
       <tr>
         <td>{{inc @index}}</td>
         <td>{{vehicle_name}}</td>
-        <td>{{color}}</td>
+        <td>{{#if color}}{{color}}{{else}}-{{/if}}</td>
         <td>{{formatCurrency vehicle_price}}</td>
         <td>{{quantity}}</td>
        <td class="options">
-        {{#if options}}
+        {{#if options.length}}
           {{#each options}}
             <div>{{name}} ({{formatCurrency price}})</div>
-            {{/each}}
+          {{/each}}
         {{else}}-
         {{/if}}
       </td>
 
       <td class="accessories">
-        {{#if accessories}}
+        {{#if accessories.length}}
           {{#each accessories}}
-            <div>{{name}} x {{quantity}} ({{formatCurrency price}})</div>
+            <div>{{name}} x{{quantity}} ({{formatCurrency price}})</div>
           {{/each}}
         {{else}}-
         {{/if}}
@@ -201,14 +244,24 @@ const DEFAULT_QUOTE_TEMPLATE = `
  * @param {Object} quote - Object quote đầy đủ (code, createdAt, endDate, status, final_amount, items, notes)
  * @param {Object} templateData - { html: "..." } nếu muốn override template
  * @returns {Buffer} PDF buffer
+ * 
+ * Item structure expected:
+ * - vehicle_id, vehicle_name, vehicle_price
+ * - color: màu xe
+ * - quantity: số lượng
+ * - options: [{ option_id, name, price }]
+ * - accessories: [{ accessory_id, name, price, quantity }]
+ * - discount: giảm giá
+ * - final_amount: tổng tiền sau giảm giá
  */
 export async function generateQuotePDF(quote, templateData = {}) {
   const data = {
     ...quote,
     items: (quote.items || []).map((i) => ({
       ...i,
-      options: i.options || [],
-      accessories: i.accessories || [],
+      color: i.color || null, // Ensure color is properly set
+      options: Array.isArray(i.options) ? i.options : [],
+      accessories: Array.isArray(i.accessories) ? i.accessories : [],
     })),
   };
 

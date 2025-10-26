@@ -1,7 +1,7 @@
-import {Router} from "express";
-import {authenticate} from "../middlewares/authMiddleware.js";
-import {checkRole} from "../middlewares/checkRole.js";
-import {DEALER_ROLES} from "../enum/roleEnum.js";
+import { Router } from "express";
+import { authenticate } from "../middlewares/authMiddleware.js";
+import { checkRole } from "../middlewares/checkRole.js";
+import { DEALER_ROLES } from "../enum/roleEnum.js";
 import {
   getOrderStatusLogs,
   getDealershipStatusLogs,
@@ -75,7 +75,7 @@ router.get(
  *         name: status
  *         schema:
  *           type: string
- *           enum: [pending, confirmed, halfPayment, fullyPayment, contract_signed, delivered, cancelled]
+ *           enum: [pending, confirmed, halfPayment, fullyPayment, contract_signed, delivered, canceled]
  *       - in: query
  *         name: customer_id
  *         schema:

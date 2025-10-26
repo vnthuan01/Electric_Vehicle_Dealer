@@ -8,9 +8,9 @@ import {
   assignTestDriveStaff,
   updateTestDriveStatus,
 } from "../controllers/testDriveController.js";
-import {checkRole} from "../middlewares/checkRole.js";
-import {DEALER_ROLES} from "../enum/roleEnum.js";
-import {authenticate} from "../middlewares/authMiddleware.js";
+import { checkRole } from "../middlewares/checkRole.js";
+import { DEALER_ROLES } from "../enum/roleEnum.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -167,7 +167,7 @@ router.patch("/:id/assign", checkRole(DEALER_ROLES), assignTestDriveStaff);
  *         schema:
  *           type: string
  *         description: "ID của lịch lái thử cần cập nhật"
- *     description: "Trạng thái mới của lịch lái thử (pending, confirmed, completed, cancelled)"
+ *     description: "Trạng thái mới của lịch lái thử (pending, confirmed, completed, canceled)"
  *     requestBody:
  *       required: true
  *       content:
@@ -183,7 +183,7 @@ router.patch("/:id/assign", checkRole(DEALER_ROLES), assignTestDriveStaff);
  *                   - pending
  *                   - confirmed
  *                   - completed
- *                   - cancelled
+ *                   - canceled
  *                 example: confirmed
  *     responses:
  *       200:

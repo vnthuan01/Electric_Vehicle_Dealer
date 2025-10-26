@@ -196,7 +196,7 @@ const DEFAULT_CONTRACT_TEMPLATE = `
     <div class="section-title">ĐIỀU 2: THÔNG TIN XE VÀ GIÁ BÁN</div>
     {{#each vehicles}}
       <div class="vehicle-card">
-        <p>Xe {{index}}: {{name}} (Màu {{color}})</p>
+        <p>Xe {{index}}: {{name}} (Màu: {{#if color}}{{color}}{{else}}Không rõ{{/if}})</p>
         <ul>
           <li>Giá: <span class="amount">{{formatCurrencyVND unit_price}} VNĐ</span></li>
           <li>Số lượng: {{quantity}}</li>
@@ -204,18 +204,18 @@ const DEFAULT_CONTRACT_TEMPLATE = `
           <li>Phụ kiện:
             {{#if accessories.length}}
               {{#each accessories}}
-                <span>{{name}} x {{quantity}} ({{formatCurrencyVND price}})</span>
+                <span>• {{name}} x{{quantity}} ({{formatCurrencyVND price}} VNĐ/cái = {{formatCurrencyVND total}} VNĐ)</span>
               {{/each}}
             {{else}}Không có{{/if}}
           </li>
           <li>Tùy chọn thêm:
             {{#if options.length}}
               {{#each options}}
-                <span>{{name}} ({{formatCurrencyVND price}})</span>
+                <span>• {{name}} ({{formatCurrencyVND price}} VNĐ)</span>
               {{/each}}
             {{else}}Không có{{/if}}
           </li>
-          <li><strong>Tổng giá trị:</strong> <span class="amount">{{formatCurrencyVND final_amount}}</span></li>
+          <li><strong>Tổng giá trị:</strong> <span class="amount">{{formatCurrencyVND final_amount}} VNĐ</span></li>
         </ul>
       </div>
     {{/each}}

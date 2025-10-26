@@ -57,7 +57,7 @@ router.use(authenticate);
  *       500:
  *         description: Lỗi hệ thống
  */
-router.get("/", checkRole(ROLE.DEALER_MANAGER), getCustomers);
+router.get("/", checkRole(DEALER_ROLES), getCustomers);
 
 /**
  * @openapi
