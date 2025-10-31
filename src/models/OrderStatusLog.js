@@ -23,25 +23,27 @@ const orderStatusLogSchema = new mongoose.Schema(
     old_status: {
       type: String,
       enum: [
-        "pending",
-        "confirmed",
-        "halfPayment",
-        "fullyPayment",
-        "contract_signed",
-        "delivered",
-        "canceled",
+        "pending", // Mới tạo, chưa check stock
+        "deposit_paid", // Đã cọc, stock đã trừ nếu có xe
+        "waiting_vehicle_request", // (Case hết xe) Đã request, chờ Hãng approve
+        "vehicle_ready", // Xe sẵn sàng, chờ khách trả nốt
+        "fully_paid", // Đã thanh toán đủ, sẵn sàng giao xe
+        "delivered", // Đã giao xe
+        "completed", // Hoàn tất
+        "cancelled", // Hủy đơn (do Hãng reject hoặc khách hủy)
       ],
     },
     new_status: {
       type: String,
       enum: [
-        "pending",
-        "confirmed",
-        "halfPayment",
-        "fullyPayment",
-        "contract_signed",
-        "delivered",
-        "canceled",
+        "pending", // Mới tạo, chưa check stock
+        "deposit_paid", // Đã cọc, stock đã trừ nếu có xe
+        "waiting_vehicle_request", // (Case hết xe) Đã request, chờ Hãng approve
+        "vehicle_ready", // Xe sẵn sàng, chờ khách trả nốt
+        "fully_paid", // Đã thanh toán đủ, sẵn sàng giao xe
+        "delivered", // Đã giao xe
+        "completed", // Hoàn tất
+        "cancelled", // Hủy đơn (do Hãng reject hoặc khách hủy)
       ],
       required: true,
     },

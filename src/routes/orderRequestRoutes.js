@@ -7,6 +7,7 @@ import {
   listOrderRequests,
   approveOrderRequest,
   rejectOrderRequest,
+  getOrderRequestById,
 } from "../controllers/orderRequestController.js";
 
 const router = Router();
@@ -103,6 +104,34 @@ router.get(
   "/",
   checkRole([...DEALER_ROLES, ROLE.EVM_STAFF]),
   listOrderRequests
+);
+
+/**
+ * @openapi
+ * /api/order-request/{id}:
+ *   get:
+ *     tags:
+ *       - Order Requests
+ *     summary: Lấy chi tiết yêu cầu đặt hàng theo ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của Order Request
+ *     responses:
+ *       200:
+ *         description: Chi tiết yêu cầu đặt hàng được trả về
+ *       404:
+ *         description: Không tìm thấy yêu cầu
+ */
+router.get(
+  "/:id",
+  checkRole([...DEALER_ROLES, ROLE.EVM_STAFF]),
+  getOrderRequestById
 );
 
 /**

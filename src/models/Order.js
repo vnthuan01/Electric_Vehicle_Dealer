@@ -104,6 +104,9 @@ const orderSchema = new mongoose.Schema(
     final_amount: { type: Number, required: true },
     paid_amount: { type: Number, default: 0 },
 
+    // ✅ Track tổng tiền đã settle cho Dealer-Manufacturer (để tránh settle lặp lại)
+    order: { type: Number, default: 0 },
+
     // Hình thức thanh toán: cash (tiền mặt/trả thẳng) hoặc installment (trả góp)
     payment_method: {
       type: String,

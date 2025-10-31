@@ -104,17 +104,21 @@ export async function settleDealerManufacturerByOrderPayment(
   payment,
   session = null
 ) {
+  // ✅ FIX: Luôn tính số tiền cần settle dựa trên phần chưa settle
   // Nếu order đã thanh toán đủ, settle toàn bộ phần còn lại (bao gồm cả deposit)
   const isFullPaid =
     Number(order.paid_amount || 0) >= Number(order.final_amount || 0);
-  // Số tiền thực sự cần settle cho debt (nếu là lần cuối):
-  // Nếu là lần cuối, settle toàn bộ phần còn lại của debt, không chỉ payment.amount
-  // Nếu chưa đủ, giữ nguyên logic cũ
+  console.log(isFullPaid);
+  // Số tiền thực sự cần settle cho debt:
+  // - Phần chưa settle = final_amount - settled_to_manufacturer
+  // - Nếu là lần cuối (fully paid), settle toàn bộ phần còn lại
+  // - Nếu chưa đủ, chỉ settle phần payment này
+  const alreadySettled = Number(order.settled_to_manufacturer || 0);
+  const remainingToSettle = Number(order.final_amount || 0) - alreadySettled;
   const paid = isFullPaid
-    ? Number(order.final_amount || 0) -
-      Number(order.settled_to_manufacturer || 0)
-    : Number(payment.amount || 0);
-  // Lưu ý: order.settled_to_manufacturer là tổng số tiền đã settle cho debt trước đó (nếu có), cần cập nhật khi settle xong
+    ? Number(order.final_amount || 0) // Always settle full amount if fully paid
+    : Number(payment.amount || 0); // Or just the payment amount
+
   const settledDebts = [];
 
   if (paid <= 0) {
@@ -139,11 +143,44 @@ export async function settleDealerManufacturerByOrderPayment(
     const itemAmount =
       Number(item.vehicle_price || 0) * Number(item.quantity || 1);
     const itemRatio = itemAmount / totalOrderAmount;
-    // Nếu là lần cuối, chia lại phần còn lại cần settle cho debt
-    const itemPayment = isFullPaid
-      ? Math.round(Number(order.final_amount || 0) * itemRatio) -
-        Number(item.settled_to_manufacturer || 0 || 0)
-      : Math.round(paid * itemRatio);
+    // Nếu là lần cuối, settle toàn bộ phần còn lại của item (không chỉ payment cuối)
+    let itemPayment;
+    if (isFullPaid) {
+      // Tính tổng số tiền đã settle cho item này qua các lần trước (nếu có)
+      let settledBefore = 0;
+      if (item.used_stocks && item.used_stocks.length > 0) {
+        for (const usedStock of item.used_stocks) {
+          if (!usedStock.source_request_id) continue;
+          const requestVehicle = await RequestVehicle.findById(
+            usedStock.source_request_id
+          );
+          if (!requestVehicle || !requestVehicle.debt_id) continue;
+          const debt = await DealerManufacturerDebt.findById(
+            requestVehicle.debt_id
+          );
+          if (!debt) continue;
+          const debtItem = debt.items.find(
+            (i) =>
+              i.request_id &&
+              i.request_id.toString() === usedStock.source_request_id.toString()
+          );
+          if (!debtItem || !debtItem.settled_by_orders) continue;
+          for (const s of debtItem.settled_by_orders) {
+            if (s.order_id && s.order_id.toString() === order._id.toString()) {
+              settledBefore += Number(s.amount || 0);
+            }
+          }
+        }
+      }
+      // Fallback: nếu không có used_stocks, lấy settled_to_manufacturer nếu có
+      if (!item.used_stocks || item.used_stocks.length === 0) {
+        settledBefore = Number(item.settled_to_manufacturer || 0);
+      }
+      itemPayment =
+        Math.round(Number(order.final_amount || 0) * itemRatio) - settledBefore;
+    } else {
+      itemPayment = Math.round(paid * itemRatio);
+    }
 
     if (itemPayment <= 0) continue;
 
@@ -385,6 +422,34 @@ export async function settleDealerManufacturerByOrderPayment(
         order_id: order._id,
         note: `Auto settle from Order ${order.code} (fallback - no batch tracking)`,
       });
+
+      // ==== BỔ SUNG: Ghi nhận settled_by_orders cho từng debt item theo tỷ lệ số lượng ====
+      if (Array.isArray(debt.items) && debt.items.length > 0) {
+        // Tổng quantity của debt
+        const totalQty = debt.items.reduce((sum, it) => sum + (it.quantity || 0), 0) || 1;
+        for (const debtItem of debt.items) {
+          if (!debtItem.settled_by_orders) debtItem.settled_by_orders = [];
+          // Phân bổ payment cho debt item này theo tỷ lệ quantity
+          const itemQty = debtItem.quantity || 0;
+          if (itemQty === 0) continue;
+          // Tính phần payment phân bổ cho debt item này
+          const allocatedAmount = Math.round(itemPayment * (itemQty / totalQty));
+          // Nếu đã fully paid thì không ghi nhận nữa
+          if (debtItem.settled_amount >= debtItem.amount) continue;
+          // Ghi nhận settled_by_orders nếu chưa có cho order này
+          if (!debtItem.settled_by_orders.some(s => s.order_id?.toString() === order._id.toString() && s.payment_id?.toString() === payment._id.toString())) {
+            debtItem.settled_by_orders.push({
+              order_id: order._id,
+              order_code: order.code,
+              quantity_sold: itemQty, // fallback: toàn bộ số lượng debt item này
+              amount: allocatedAmount,
+              settled_at: new Date(),
+              payment_id: payment._id,
+              notes: `Settled from Order ${order.code} - fallback (no batch tracking)`
+            });
+          }
+        }
+      }
 
       await debt.save(session ? { session } : {});
 

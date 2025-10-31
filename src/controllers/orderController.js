@@ -1255,6 +1255,31 @@ export async function markVehicleReady(req, res, next) {
     if (order.status === "waiting_vehicle_request") {
       try {
         await deductStockForOrder(order.items, order.dealership_id, session);
+        // Sau khi trừ stock, đối trừ công nợ phần cọc (nếu có)
+        const depositPayment = await Payment.findOne({
+          order_id: order._id,
+          reference: { $regex: /^DEPOSIT_/ },
+        }).session(session);
+        if (depositPayment) {
+          try {
+            const { settleDealerManufacturerByOrderPayment } = await import(
+              "./debtController.js"
+            );
+            await settleDealerManufacturerByOrderPayment(
+              order,
+              depositPayment,
+              session
+            );
+            console.log(
+              `✅ Settled dealer-manufacturer debt for deposit (OOS) on Order ${order.code}`
+            );
+          } catch (debtErr) {
+            console.error(
+              "⚠️ Failed to settle dealer-manufacturer debt for deposit (OOS):",
+              debtErr
+            );
+          }
+        }
       } catch (stockErr) {
         await session.abortTransaction();
         return errorRes(
@@ -2096,6 +2121,10 @@ export async function cancelOrder(req, res, next) {
     let requestCancelled = false;
 
     // ========== 1. HOÀN TIỀN NẾU ĐÃ THANH TOÁN ==========
+    if (order.paid_amount > 0) {
+      console.log(`💰 Creating refund payment: ${order.paid_amount} VND`);
+
+      const refundPayment = new Payment({
         order_id: order._id,
         customer_id: order.customer_id,
         dealership_id: order.dealership_id,

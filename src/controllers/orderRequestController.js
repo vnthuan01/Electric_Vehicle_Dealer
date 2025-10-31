@@ -537,3 +537,16 @@ export async function rejectOrderRequest(req, res, next) {
     session.endSession();
   }
 }
+
+export async function getOrderRequestById(req, res, next) {
+  try {
+    const request = await OrderRequest.findById(req.params.id)
+      .populate("requested_by", "full_name email")
+      .populate("dealership_id", "name")
+      .lean();
+    if (!request) return errorRes(res, "Order request not found", 404);
+    return success(res, "Order request detail", request);
+  } catch (err) {
+    next(err);
+  }
+}
