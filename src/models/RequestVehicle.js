@@ -13,8 +13,8 @@ const requestVehicleSchema = new mongoose.Schema(
       ref: "Dealership",
       required: true,
     },
-    color: {type: String},
-    quantity: {type: Number, required: true},
+    color: { type: String },
+    quantity: { type: Number, required: true },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "in_progress", "delivered"],
@@ -30,8 +30,20 @@ const requestVehicleSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "DealerManufacturerDebt",
     },
+    // ✅ THÊM MỚI - Link về OrderRequest
+    order_request_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "OrderRequest",
+      required: false,
+    },
+    // ✅ THÊM MỚI - Link về Order
+    order_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      required: false,
+    },
   },
-  {timestamps: true}
+  { timestamps: true }
 );
 
 export default mongoose.model("RequestVehicle", requestVehicleSchema);

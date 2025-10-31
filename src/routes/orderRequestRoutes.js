@@ -1,13 +1,13 @@
-import {Router} from "express";
-import {authenticate} from "../middlewares/authMiddleware.js";
-import {checkRole} from "../middlewares/checkRole.js";
-import {DEALER_ROLES, ROLE} from "../enum/roleEnum.js";
+import { Router } from "express";
+import { authenticate } from "../middlewares/authMiddleware.js";
+import { checkRole } from "../middlewares/checkRole.js";
+import { DEALER_ROLES, ROLE } from "../enum/roleEnum.js";
 import {
-  requestOrderAccordingToDemand,
+  createOrderRequest,
   listOrderRequests,
-  approveOrderRequestMethodCash,
+  approveOrderRequest,
   rejectOrderRequest,
-} from "../controllers/orderController.js";
+} from "../controllers/orderRequestController.js";
 
 const router = Router();
 router.use(authenticate);
@@ -62,7 +62,7 @@ router.use(authenticate);
  *       400:
  *         description: Thiếu dữ liệu hoặc không hợp lệ
  */
-router.post("/", checkRole([ROLE.DEALER_STAFF]), requestOrderAccordingToDemand);
+router.post("/", checkRole([ROLE.DEALER_STAFF]), createOrderRequest);
 
 /**
  * @openapi
@@ -130,7 +130,7 @@ router.get(
 router.patch(
   "/:id/approve",
   checkRole([ROLE.DEALER_MANAGER]),
-  approveOrderRequestMethodCash
+  approveOrderRequest
 );
 
 /**

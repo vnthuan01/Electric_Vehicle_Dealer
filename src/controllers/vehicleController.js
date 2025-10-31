@@ -1,18 +1,18 @@
 import Vehicle from "../models/Vehicle.js";
 import DealerManufacturerDebt from "../models/DealerManufacturerDebt.js";
-import {success, created, error as errorRes} from "../utils/response.js";
-import {paginate} from "../utils/pagination.js";
+import { success, created, error as errorRes } from "../utils/response.js";
+import { paginate } from "../utils/pagination.js";
 import {
   DealerMessage,
   ManufacturerMessage,
   VehicleMessage,
 } from "../utils/MessageRes.js";
 import fetch from "node-fetch";
-import {cleanEmpty} from "../utils/cleanEmpty.js";
-import {emitVehicleDistribution} from "../config/socket.js";
+import { cleanEmpty } from "../utils/cleanEmpty.js";
+import { emitVehicleDistribution } from "../config/socket.js";
 import User from "../models/User.js";
 import Dealership from "../models/Dealership.js";
-import {capitalizeVietnamese} from "../utils/validateWord.js";
+import { capitalizeVietnamese } from "../utils/validateWord.js";
 
 // Create one or multiple vehicles (EVM Staff, Admin only)
 export async function createVehicle(req, res, next) {
@@ -78,9 +78,9 @@ export async function createVehicle(req, res, next) {
         continue;
       }
 
-      const exists = await Vehicle.findOne({sku});
+      const exists = await Vehicle.findOne({ sku });
       if (exists) {
-        errors.push({sku, message: VehicleMessage.SKU_ALREADY_EXISTS});
+        errors.push({ sku, message: VehicleMessage.SKU_ALREADY_EXISTS });
         continue;
       }
 
@@ -95,7 +95,7 @@ export async function createVehicle(req, res, next) {
       if (Array.isArray(interior_features)) {
         formattedInteriorFeatures = interior_features
           .filter((f) => f && f.name)
-          .map((f) => ({name: f.name, description: f.description || ""}));
+          .map((f) => ({ name: f.name, description: f.description || "" }));
       }
 
       // Parse stocks_by_color from multipart/form-data JSON string
@@ -208,7 +208,7 @@ export async function getVehicles(req, res, next) {
     if (req.query.battery_type) cond.battery_type = req.query.battery_type;
 
     if (req.query.color_options)
-      cond.color_options = {$in: req.query.color_options.split(",")};
+      cond.color_options = { $in: req.query.color_options.split(",") };
 
     const result = await paginate(
       Vehicle,
@@ -218,7 +218,7 @@ export async function getVehicles(req, res, next) {
     );
 
     const dataWithPopulate = await Vehicle.populate(result.data, [
-      {path: "manufacturer_id", select: "name address"},
+      { path: "manufacturer_id", select: "name address" },
     ]);
 
     return res.json({
@@ -253,10 +253,10 @@ export async function updateVehicle(req, res, next) {
   try {
     req.body = cleanEmpty(req.body);
     const vehicle = await Vehicle.findById(req.params.id);
-    if (!vehicle) return res.status(404).json({message: "Vehicle not found"});
+    if (!vehicle) return res.status(404).json({ message: "Vehicle not found" });
 
     // --- Remove images if requested ---
-    const {imagesToRemove} = req.body;
+    const { imagesToRemove } = req.body;
     if (imagesToRemove && imagesToRemove.length > 0) {
       vehicle.images = vehicle.images.filter(
         (img) => !imagesToRemove.includes(img)
@@ -316,7 +316,7 @@ export async function updateVehicle(req, res, next) {
     }
 
     await vehicle.save();
-    return res.json({success: true, vehicle});
+    return res.json({ success: true, vehicle });
   } catch (err) {
     next(err);
   }
@@ -334,7 +334,7 @@ export async function deleteVehicle(req, res, next) {
     (vehicle.is_deleted = true), (vehicle.status = "inactive");
     await vehicle.save();
 
-    return success(res, VehicleMessage.DELETE_SUCCESS, {id: vehicle._id});
+    return success(res, VehicleMessage.DELETE_SUCCESS, { id: vehicle._id });
   } catch (err) {
     next(err);
   }
@@ -380,7 +380,7 @@ function summarizeCar(car) {
 
 export async function compareCars(req, res) {
   try {
-    const {id1, id2} = req.params;
+    const { id1, id2 } = req.params;
 
     const [car1, car2] = await Promise.all([
       Vehicle.findById(id1),
@@ -388,7 +388,7 @@ export async function compareCars(req, res) {
     ]);
 
     if (!car1 || !car2) {
-      return res.status(404).json({message: "Không tìm thấy 1 hoặc cả 2 xe"});
+      return res.status(404).json({ message: "Không tìm thấy 1 hoặc cả 2 xe" });
     }
 
     const prompt = `
@@ -413,7 +413,7 @@ export async function compareCars(req, res) {
         },
         body: JSON.stringify({
           model: "llama-3.1-8b-instant",
-          messages: [{role: "user", content: prompt}],
+          messages: [{ role: "user", content: prompt }],
           temperature: 0.7,
         }),
       }
@@ -428,14 +428,14 @@ export async function compareCars(req, res) {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 }
 
 // Distribute vehicles to dealer (Manufacturer/EVM Staff/Admin only)
 export async function distributeVehicleToDealer(req, res, next) {
   try {
-    const {vehicle_id, dealership_id, quantity, notes, color} = req.body;
+    const { vehicle_id, dealership_id, quantity, notes, color } = req.body;
     console.log(req.body);
     // Validate required fields
     if (!vehicle_id || !dealership_id || !quantity || !color) {
@@ -450,7 +450,7 @@ export async function distributeVehicleToDealer(req, res, next) {
       return errorRes(res, VehicleMessage.QUANTITY_MUST_BE_GREATER_THAN_0, 400);
     }
 
-    const dealership = await Dealership.findById({_id: dealership_id});
+    const dealership = await Dealership.findById({ _id: dealership_id });
 
     if (!dealership) {
       return errorRes(res, DealerMessage.NOT_FOUND);

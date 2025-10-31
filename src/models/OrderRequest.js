@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const orderRequestSchema = new mongoose.Schema(
   {
-    code: {type: String, required: true, unique: true},
+    code: { type: String, required: true, unique: true },
     requested_by: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -23,6 +23,13 @@ const orderRequestSchema = new mongoose.Schema(
       ref: "Dealership",
       required: true,
     },
+    // ✅ THÊM MỚI - Link về Order (nếu OrderRequest được tạo từ Order)
+    order_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      required: false,
+      default: null,
+    },
 
     items: [
       {
@@ -37,7 +44,7 @@ const orderRequestSchema = new mongoose.Schema(
         },
         vehicle_name: String,
         color: String,
-        quantity: {type: Number, default: 1},
+        quantity: { type: Number, default: 1 },
       },
     ],
 
@@ -52,9 +59,9 @@ const orderRequestSchema = new mongoose.Schema(
     rejected_at: Date,
     rejection_reason: String,
 
-    is_deleted: {type: Boolean, default: false},
+    is_deleted: { type: Boolean, default: false },
   },
-  {timestamps: true}
+  { timestamps: true }
 );
 
 export default mongoose.model("OrderRequest", orderRequestSchema);

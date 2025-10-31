@@ -1,7 +1,7 @@
-import {Router} from "express";
-import {authenticate} from "../middlewares/authMiddleware.js";
-import {checkRole} from "../middlewares/checkRole.js";
-import {EVM_ADMIN_ROLES} from "../enum/roleEnum.js";
+import { Router } from "express";
+import { authenticate } from "../middlewares/authMiddleware.js";
+import { checkRole } from "../middlewares/checkRole.js";
+import { EVM_ADMIN_ROLES } from "../enum/roleEnum.js";
 import {
   createVehicle,
   getVehicles,
@@ -11,7 +11,7 @@ import {
   compareCars,
   distributeVehicleToDealer,
 } from "../controllers/vehicleController.js";
-import {uploadVehicleImage} from "../utils/fileUpload.js";
+import { uploadVehicleImage } from "../utils/fileUpload.js";
 
 const router = Router();
 
