@@ -3,12 +3,12 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
-import {fileURLToPath} from "url";
+import { fileURLToPath } from "url";
 
-import {httpLogger} from "./utils/logger.js";
-import {notFoundHandler, errorHandler} from "./middlewares/errorHandler.js";
+import { httpLogger } from "./utils/logger.js";
+import { notFoundHandler, errorHandler } from "./middlewares/errorHandler.js";
 import swaggerUi from "swagger-ui-express";
-import {swaggerSpec} from "./config/swagger.js";
+import { swaggerSpec } from "./config/swagger.js";
 
 // Routes imports
 // import smsRoutes from "./routes/smsRoutes.js";
@@ -34,8 +34,6 @@ import bankProfileRoutes from "./routes/bankProfileRoutes.js";
 import contractRoutes from "./routes/contractRoutes.js";
 import orderStatusLogRoutes from "./routes/orderStatusLogRoutes.js";
 import orderRequestRoutes from "./routes/orderRequestRoutes.js";
-import bankRoutes from "./routes/bankRoutes.js";
-import bankLoanRoutes from "./routes/bankLoanRoutes.js";
 
 dotenv.config();
 
@@ -49,7 +47,7 @@ const app = express();
 // );
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({extended: true}));
+app.use(express.urlencoded({ extended: true }));
 app.use(httpLogger);
 
 // --- Static files ---
@@ -58,7 +56,7 @@ const __dirname = path.dirname(__filename);
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 // --- Health check ---
-app.get("/health", (req, res) => res.json({status: "ok"}));
+app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 // --- Swagger docs ---
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -87,8 +85,6 @@ app.use(`${apiPrefix}/quotes`, quoteRoutes);
 app.use(`${apiPrefix}/bank-profiles`, bankProfileRoutes);
 app.use(`${apiPrefix}/contracts`, contractRoutes);
 app.use(`${apiPrefix}/order-status-logs`, orderStatusLogRoutes);
-app.use(`${apiPrefix}/banks`, bankRoutes);
-app.use(`${apiPrefix}/bank-loans`, bankLoanRoutes);
 
 console.log(`All routes mounted under prefix ${apiPrefix}`);
 
