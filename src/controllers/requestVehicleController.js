@@ -1,23 +1,23 @@
 import Vehicle from "../models/Vehicle.js";
 import DealerManufacturerDebt from "../models/DealerManufacturerDebt.js";
 import RequestVehicle from "../models/RequestVehicle.js";
-import { created, success, error as errorRes } from "../utils/response.js";
-import { DealerMessage } from "../utils/MessageRes.js";
-import { paginate } from "../utils/pagination.js";
-import { emitRequestStatusUpdate } from "../config/socket.js";
+import {created, success, error as errorRes} from "../utils/response.js";
+import {DealerMessage} from "../utils/MessageRes.js";
+import {paginate} from "../utils/pagination.js";
+import {emitRequestStatusUpdate} from "../config/socket.js";
 import Dealership from "../models/Dealership.js";
-import { capitalizeVietnamese } from "../utils/validateWord.js";
+import {capitalizeVietnamese} from "../utils/validateWord.js";
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import OrderRequest from "../models/OrderRequest.js";
 import Payment from "../models/Payment.js";
 import Debt from "../models/Debt.js";
-import { createStatusLog } from "./orderStatusLogController.js";
+import {createStatusLog} from "./orderStatusLogController.js";
 
 //Dealer gửi request nhập xe (PENDING)
 export async function requestVehicleFromManufacturer(req, res, next) {
   try {
-    const { vehicle_id, quantity, notes, color } = req.body;
+    const {vehicle_id, quantity, notes, color} = req.body;
 
     if (!vehicle_id || !quantity || !color) {
       return errorRes(res, DealerMessage.MISSING_FIELDS, 400);
@@ -46,7 +46,7 @@ export async function requestVehicleFromManufacturer(req, res, next) {
       vehicle_id,
       dealership_id: req.user.dealership_id,
       color: normalizedColor,
-      status: { $in: ["pending"] },
+      status: {$in: ["pending"]},
     });
 
     if (existingRequest) {
@@ -87,7 +87,7 @@ export async function requestVehicleFromManufacturer(req, res, next) {
 //EVM Staff / Admin duyệt request
 export async function approveRequest(req, res, next) {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
     const request = await RequestVehicle.findById(id).populate("vehicle_id");
     if (!request) return errorRes(res, DealerMessage.REQUEST_NOT_FOUND, 404);
 
@@ -153,7 +153,7 @@ export async function approveRequest(req, res, next) {
 //In-progress request
 export async function inProgressRequest(req, res, next) {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
     const request = await RequestVehicle.findById(id).populate("vehicle_id");
     if (!request) return errorRes(res, DealerMessage.REQUEST_NOT_FOUND, 404);
 
@@ -187,7 +187,7 @@ export async function inProgressRequest(req, res, next) {
 //Reject request
 export async function rejectRequest(req, res, next) {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
     const request = await RequestVehicle.findById(id).populate("vehicle_id");
     if (!request) return errorRes(res, DealerMessage.REQUEST_NOT_FOUND, 404);
 
@@ -235,7 +235,7 @@ export async function rejectRequest(req, res, next) {
 //Get all requests
 export async function getAllRequests(req, res, next) {
   try {
-    const { status, dealership_id, vehicle_id } = req.query;
+    const {status, dealership_id, vehicle_id} = req.query;
 
     const extraQuery = {};
     if (status) extraQuery.status = status;
@@ -281,8 +281,8 @@ export async function updateRequestVehicleStatus(req, res, next) {
   session.startTransaction();
 
   try {
-    const { id } = req.params;
-    const { notes } = req.body;
+    const {id} = req.params;
+    const {notes} = req.body;
     const status = "delivered";
     if (!status) {
       return errorRes(res, "Invalid status", 400);
@@ -367,7 +367,7 @@ export async function updateRequestVehicleStatus(req, res, next) {
         });
       }
 
-      await vehicle.save({ session }); // ✅ Với transaction
+      await vehicle.save({session}); // ✅ Với transaction
 
       // Tạo/cập nhật debt
       const total_amount = vehicle.price * request.quantity;
@@ -391,7 +391,7 @@ export async function updateRequestVehicleStatus(req, res, next) {
           amount: total_amount,
           delivered_at: new Date(),
         });
-        await debt.save({ session }); // ✅ Với transaction
+        await debt.save({session}); // ✅ Với transaction
       } else {
         debt = await DealerManufacturerDebt.create(
           [
@@ -416,7 +416,7 @@ export async function updateRequestVehicleStatus(req, res, next) {
               ],
             },
           ],
-          { session } // ✅ Với transaction
+          {session} // ✅ Với transaction
         );
         debt = debt[0];
       }
@@ -430,7 +430,7 @@ export async function updateRequestVehicleStatus(req, res, next) {
       request.notes = notes;
     }
 
-    await request.save({ session }); // ✅ Với transaction
+    await request.save({session}); // ✅ Với transaction
 
     await session.commitTransaction(); // ✅ COMMIT TRANSACTION
 
@@ -455,8 +455,8 @@ export async function handleManufacturerApprove(req, res, next) {
   session.startTransaction();
 
   try {
-    const { id } = req.params; // RequestVehicle ID (THAY ĐỔI!)
-    const { delivery_notes, actual_delivery_date } = req.body;
+    const {id} = req.params; // RequestVehicle ID (THAY ĐỔI!)
+    const {delivery_notes, actual_delivery_date} = req.body;
 
     // 1. Validate RequestVehicle
     const requestVehicle = await RequestVehicle.findById(id)
@@ -537,7 +537,7 @@ export async function handleManufacturerApprove(req, res, next) {
         `Stock from Request ${requestVehicle.code || requestVehicle._id}`,
     });
 
-    await vehicle.save({ session });
+    await vehicle.save({session});
     console.log(
       `✅ [FIFO] Created NEW stock batch: ${requestVehicle.quantity}x ${vehicle.name} ` +
         `(color: ${requestVehicle.color}, source: ${requestVehicle._id})`
@@ -575,7 +575,7 @@ export async function handleManufacturerApprove(req, res, next) {
       dealerDebt.remaining_amount += totalAmount;
       dealerDebt.status = "open";
       dealerDebt.items.push(debtItem);
-      await dealerDebt.save({ session });
+      await dealerDebt.save({session});
       console.log(`💰 Updated DealerManufacturerDebt: +${totalAmount}`);
     } else {
       dealerDebt = await DealerManufacturerDebt.create(
@@ -590,7 +590,7 @@ export async function handleManufacturerApprove(req, res, next) {
             items: [debtItem],
           },
         ],
-        { session }
+        {session}
       );
       dealerDebt = dealerDebt[0];
       console.log(`💰 Created DealerManufacturerDebt: ${totalAmount}`);
@@ -603,7 +603,7 @@ export async function handleManufacturerApprove(req, res, next) {
     requestVehicle.notes = requestVehicle.notes
       ? `${requestVehicle.notes}\n[Delivered] ${delivery_notes || ""}`
       : `[Delivered] ${delivery_notes || ""}`;
-    await requestVehicle.save({ session });
+    await requestVehicle.save({session});
 
     // 6. ✅ NẾU CÓ ORDER → CẬP NHẬT ORDER
     let orderUpdated = false;
@@ -636,7 +636,7 @@ export async function handleManufacturerApprove(req, res, next) {
           delivery_notes || ""
         }`;
 
-        await order.save({ session });
+        await order.save({session});
 
         orderUpdated = true;
         orderData = order;
@@ -645,7 +645,7 @@ export async function handleManufacturerApprove(req, res, next) {
     }
 
     await session.commitTransaction();
-    console.log(`✅ Manufacturer approval processed successfully`);
+    console.log("✅ Manufacturer approval processed successfully");
 
     return success(res, "Manufacturer approved and vehicles delivered", {
       request_vehicle: requestVehicle,
@@ -683,8 +683,8 @@ export async function handleManufacturerReject(req, res, next) {
   session.startTransaction();
 
   try {
-    const { id } = req.params; // RequestVehicle ID (THAY ĐỔI!)
-    const { rejection_reason, refund_method = "bank" } = req.body;
+    const {id} = req.params; // RequestVehicle ID (THAY ĐỔI!)
+    const {rejection_reason, refund_method = "bank"} = req.body;
 
     if (!rejection_reason || rejection_reason.trim() === "") {
       return errorRes(res, "Rejection reason is required", 400);
@@ -718,10 +718,10 @@ export async function handleManufacturerReject(req, res, next) {
     requestVehicle.notes = requestVehicle.notes
       ? `${requestVehicle.notes}\n[Rejected by Manufacturer] ${rejection_reason}`
       : `[Rejected by Manufacturer] ${rejection_reason}`;
-    await requestVehicle.save({ session });
+    await requestVehicle.save({session});
 
     // ✅ NẾU CÓ ORDER → XỬ LÝ ORDER
-    let orderCancelled = false;
+    let orderCanceled = false;
     let refundPayment = null;
     let orderData = null;
 
@@ -732,10 +732,10 @@ export async function handleManufacturerReject(req, res, next) {
 
       if (order && order.status === "waiting_vehicle_request") {
         const oldStatus = order.status;
-        order.status = "cancelled";
-        order.cancelled_at = new Date();
+        order.status = "canceled";
+        order.canceled_at = new Date();
         order.cancellation_reason = `Manufacturer rejected vehicle request: ${rejection_reason}`;
-        await order.save({ session });
+        await order.save({session});
 
         // Hoàn tiền nếu đã cọc
         if (order.paid_amount > 0) {
@@ -752,7 +752,7 @@ export async function handleManufacturerReject(req, res, next) {
                 notes: `Refund due to manufacturer rejection: ${rejection_reason}`,
               },
             ],
-            { session }
+            {session}
           );
           refundPayment = refundPayment[0];
           console.log(`💰 Refund payment created: ${order.paid_amount} VND`);
@@ -761,14 +761,14 @@ export async function handleManufacturerReject(req, res, next) {
         // Hủy customer debt
         const customerDebt = await Debt.findOne({
           order_id: order._id,
-          status: { $in: ["pending", "partial"] },
+          status: {$in: ["pending", "partial"]},
         }).session(session);
 
         if (customerDebt) {
-          customerDebt.status = "cancelled";
-          customerDebt.notes = `Cancelled: Manufacturer rejected request`;
-          await customerDebt.save({ session });
-          console.log(`📝 Customer debt cancelled`);
+          customerDebt.status = "canceled";
+          customerDebt.notes = "Canceled: Manufacturer rejected request";
+          await customerDebt.save({session});
+          console.log("📝 Customer debt canceled");
         }
 
         // Tạo status log
@@ -778,25 +778,25 @@ export async function handleManufacturerReject(req, res, next) {
             customer_id: order.customer_id,
             dealership_id: order.dealership_id,
             old_status: oldStatus,
-            new_status: "cancelled",
-            notes: `Order cancelled due to manufacturer rejection: ${rejection_reason}`,
+            new_status: "canceled",
+            notes: `Order canceled due to manufacturer rejection: ${rejection_reason}`,
             changed_by: req.user?.user_id,
           },
           session
         );
 
-        orderCancelled = true;
+        orderCanceled = true;
         orderData = order;
-        console.log(`✅ Order ${order.code} cancelled`);
+        console.log(`✅ Order ${order.code} canceled`);
       }
     }
 
     await session.commitTransaction();
-    console.log(`✅ Manufacturer rejection processed successfully`);
+    console.log("✅ Manufacturer rejection processed successfully");
 
     return success(res, "Manufacturer rejected request", {
       request_vehicle: requestVehicle,
-      order_cancelled: orderCancelled,
+      order_canceled: orderCanceled,
       order: orderData
         ? {
             id: orderData._id,
@@ -805,7 +805,7 @@ export async function handleManufacturerReject(req, res, next) {
           }
         : null,
       refund_payment: refundPayment,
-      message: orderCancelled
+      message: orderCanceled
         ? `Hãng từ chối. Đơn hàng đã bị huỷ${
             order.paid_amount > 0 ? " và hoàn tiền" : ""
           }.`
@@ -826,7 +826,7 @@ export async function handleManufacturerReject(req, res, next) {
  */
 export async function getRequestVehicleById(req, res, next) {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
 
     const request = await RequestVehicle.findById(id)
       .populate(

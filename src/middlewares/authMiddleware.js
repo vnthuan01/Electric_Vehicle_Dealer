@@ -15,12 +15,12 @@ export function authenticate(req, res, next) {
   }
 }
 
-export function authorize(...roles) {
-  return (req, res, next) => {
-    if (!req.user) return errorRes(res, "Unauthorized", 401);
-    if (roles.length && !roles.includes(req.user.role)) {
-      return errorRes(res, "Forbidden", 403);
-    }
-    return next();
-  };
-}
+// export function authorize(...roles) {
+//   return (req, res, next) => {
+//     if (!req.user) return errorRes(res, "Unauthorized", 401);
+//     if (roles.length && !roles.includes(req.user.role)) {
+//       return errorRes(res, "Forbidden", 403);
+//     }
+//     return next();
+//   };
+// }

@@ -11,9 +11,9 @@ import {
   handleManufacturerReject,
   getRequestVehicleById,
 } from "../controllers/requestVehicleController.js";
-import { ROLE } from "../enum/roleEnum.js";
-import { checkRole } from "../middlewares/checkRole.js";
-import { authenticate } from "../middlewares/authMiddleware.js";
+import {ROLE} from "../enum/roleEnum.js";
+import {checkRole} from "../middlewares/checkRole.js";
+import {authenticate} from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -21,7 +21,7 @@ router.use(authenticate);
 
 router.get(
   "/:id",
-//   checkRole(ROLE.EVM_STAFF, ROLE.DEALER_MANAGER, ROLE.DEALER_STAFF),
+  //   checkRole(ROLE.EVM_STAFF, ROLE.DEALER_MANAGER, ROLE.DEALER_STAFF),
   getRequestVehicleById
 );
 
@@ -270,7 +270,7 @@ router.post(
  *                 description: Reason for rejection
  *     responses:
  *       200:
- *         description: Request rejected (Order cancelled and refunded if applicable)
+ *         description: Request rejected (Order canceled and refunded if applicable)
  *       400:
  *         description: Invalid request
  */

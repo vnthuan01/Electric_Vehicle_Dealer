@@ -3,23 +3,23 @@ import Order from "../models/Order.js";
 import Promotion from "../models/Promotion.js";
 import Option from "../models/Option.js";
 import Accessory from "../models/Accessory.js";
-import { OrderMessage, VehicleMessage } from "../utils/MessageRes.js";
-import { success, created, error as errorRes } from "../utils/response.js";
-import { paginate } from "../utils/pagination.js";
-import { createCustomerDebt } from "./debtController.js";
+import {OrderMessage, VehicleMessage} from "../utils/MessageRes.js";
+import {success, created, error as errorRes} from "../utils/response.js";
+import {paginate} from "../utils/pagination.js";
+import {createCustomerDebt} from "./debtController.js";
 import Debt from "../models/Debt.js";
 import Vehicle from "../models/Vehicle.js";
 import Payment from "../models/Payment.js";
-import { createStatusLog } from "./orderStatusLogController.js";
+import {createStatusLog} from "./orderStatusLogController.js";
 import PromotionUsage from "../models/PromotionUsage.js";
 import OrderRequest from "../models/OrderRequest.js";
-import { ROLE } from "../enum/roleEnum.js";
+import {ROLE} from "../enum/roleEnum.js";
 import Customer from "../models/Customer.js";
 import Quote from "../models/Quote.js";
 import Dealership from "../models/Dealership.js";
-import { capitalizeVietnamese } from "../utils/validateWord.js";
+import {capitalizeVietnamese} from "../utils/validateWord.js";
 import RequestVehicle from "../models/RequestVehicle.js";
-import { emitRequestStatusUpdate } from "../config/socket.js";
+import {emitRequestStatusUpdate} from "../config/socket.js";
 
 //Helper generate order Code - timestamp
 const generateOrderCode = () => {
@@ -93,7 +93,7 @@ export async function createOrder(req, res, next) {
   session.startTransaction();
 
   try {
-    const { quote_id, notes } = req.body;
+    const {quote_id, notes} = req.body;
 
     // ========== STEP 1: VALIDATE ==========
 
@@ -179,7 +179,7 @@ export async function createOrder(req, res, next) {
           `Xe "${
             item.vehicle_name || item.vehicle_id
           }" trong báo giá chưa có màu! ` +
-            `Vui lòng cập nhật báo giá và chọn màu xe trước khi tạo đơn hàng.`,
+            "Vui lòng cập nhật báo giá và chọn màu xe trước khi tạo đơn hàng.",
           400
         );
       }
@@ -255,7 +255,7 @@ export async function createOrder(req, res, next) {
     };
 
     // 2.5. Tạo Order
-    const [order] = await Order.create([orderData], { session });
+    const [order] = await Order.create([orderData], {session});
 
     // ========== STEP 3: GHI LOG ORDER STATUS ==========
     await createStatusLog(
@@ -284,7 +284,7 @@ export async function createOrder(req, res, next) {
             vehicle_id: item.vehicle_id,
             promotion_id: item.promotion_id,
             quote_id,
-            status: { $in: ["pending", "available"] },
+            status: {$in: ["pending", "available"]},
             order_id: null,
           },
           {
@@ -294,7 +294,7 @@ export async function createOrder(req, res, next) {
               used_at: new Date(),
             },
           },
-          { session }
+          {session}
         );
 
         // 5.2. Cancel tất cả PromotionUsage khác của customer này (cùng promotion, khác quote)
@@ -303,28 +303,32 @@ export async function createOrder(req, res, next) {
             customer_id,
             vehicle_id: item.vehicle_id,
             promotion_id: item.promotion_id,
-            status: { $in: ["pending", "available"] },
-            quote_id: { $ne: quote_id },
+            status: {$in: ["pending", "available"]},
+            quote_id: {$ne: quote_id},
           },
-          { $set: { status: "canceled" } },
-          { session }
+          {$set: {status: "canceled"}},
+          {session}
         );
 
         // 5.3. Nếu có usage bị cancel → cập nhật các quote tương ứng
         if (canceledUsages.modifiedCount > 0) {
-          const affectedQuotes = await PromotionUsage.distinct("quote_id", {
-            customer_id,
-            vehicle_id: item.vehicle_id,
-            promotion_id: item.promotion_id,
-            status: "canceled",
-            quote_id: { $ne: quote_id },
-          });
+          const affectedQuotes = await PromotionUsage.distinct(
+            "quote_id",
+            {
+              customer_id,
+              vehicle_id: item.vehicle_id,
+              promotion_id: item.promotion_id,
+              status: "canceled",
+              quote_id: {$ne: quote_id},
+            },
+            {session}
+          );
 
           if (affectedQuotes.length > 0) {
             await Quote.updateMany(
-              { _id: { $in: affectedQuotes }, status: "valid" },
-              { $set: { status: "canceled" } },
-              { session }
+              {_id: {$in: affectedQuotes}, status: "valid"},
+              {$set: {status: "canceled"}},
+              {session}
             );
           }
         }
@@ -356,7 +360,7 @@ export async function createOrder(req, res, next) {
 export async function requestOrderAccordingToDemand(req, res, next) {
   try {
     const user = req.user;
-    const { items = [], notes } = req.body;
+    const {items = [], notes} = req.body;
 
     // --- Validate cơ bản ---
     if (!items.length)
@@ -404,7 +408,7 @@ export async function requestOrderAccordingToDemand(req, res, next) {
 // ==================== Get Orders (with pagination & timestamp filter) ====================
 export async function getOrders(req, res, next) {
   try {
-    const { status, startDate, endDate } = req.query;
+    const {status, startDate, endDate} = req.query;
 
     // ----- EXTRA QUERY -----
     const extraQuery = {};
@@ -419,7 +423,7 @@ export async function getOrders(req, res, next) {
     const result = await paginate(Order, req, ["code"], extraQuery);
     // Populate customer only; vehicles are inside item snapshots
     const populatedData = await Order.populate(result.data, [
-      { path: "customer_id" },
+      {path: "customer_id"},
     ]);
 
     return success(res, OrderMessage.LIST_SUCCESS, {
@@ -433,11 +437,11 @@ export async function getOrders(req, res, next) {
 
 export async function getOrdersForYours(req, res, next) {
   try {
-    const { status, startDate, endDate } = req.query;
+    const {status, startDate, endDate} = req.query;
     const user_id = req.user.id;
 
     // ----- BASE QUERY -----
-    const baseQuery = { salesperson_id: user_id }; // chỉ lấy order của chính user này
+    const baseQuery = {salesperson_id: user_id}; // chỉ lấy order của chính user này
 
     // Nếu chưa có order nào của user này thì trả rỗng luôn
     const countOrders = await Order.countDocuments(baseQuery);
@@ -464,7 +468,7 @@ export async function getOrdersForYours(req, res, next) {
 
     // ----- POPULATE CUSTOMER -----
     const populatedData = await Order.populate(result.data, [
-      { path: "customer_id", select: "full_name email phone" },
+      {path: "customer_id", select: "full_name email phone"},
     ]);
 
     return success(res, OrderMessage.LIST_SUCCESS, {
@@ -491,7 +495,7 @@ export async function getOrderById(req, res, next) {
 // ==================== Update Order ====================
 export async function updateOrder(req, res, next) {
   try {
-    const { items, payment_method, notes } = req.body;
+    const {items, payment_method, notes} = req.body;
     const order = await Order.findById(req.params.id);
     if (!order) return errorRes(res, OrderMessage.NOT_FOUND, 404);
 
@@ -512,7 +516,7 @@ export async function updateOrder(req, res, next) {
             typeof o === "string" ? o : o.option_id
           );
           const optionDocs = await Option.find({
-            _id: { $in: optionIds },
+            _id: {$in: optionIds},
           }).lean();
           optionSnapshots = optionDocs.map((o) => ({
             option_id: o._id,
@@ -526,7 +530,7 @@ export async function updateOrder(req, res, next) {
         if (item.accessories?.length) {
           const ids = item.accessories.map((a) => a.accessory_id);
           const accessoryDocs = await Accessory.find({
-            _id: { $in: ids },
+            _id: {$in: ids},
           }).lean();
           accessorySnapshots = accessoryDocs.map((a) => {
             const input = item.accessories.find(
@@ -596,9 +600,9 @@ export async function deleteOrder(req, res, next) {
         if (item.category === "car") continue;
         if (item.color) {
           const updateResult = await Vehicle.updateOne(
-            { _id: item.vehicle_id },
+            {_id: item.vehicle_id},
             {
-              $inc: { "stocks.$[elem].quantity": item.quantity },
+              $inc: {"stocks.$[elem].quantity": item.quantity},
             },
             {
               arrayFilters: [
@@ -613,7 +617,7 @@ export async function deleteOrder(req, res, next) {
 
           if (updateResult.modifiedCount === 0) {
             await Vehicle.updateOne(
-              { _id: item.vehicle_id },
+              {_id: item.vehicle_id},
               {
                 $push: {
                   stocks: {
@@ -662,7 +666,7 @@ export async function deleteOrder(req, res, next) {
           const usageList = await PromotionUsage.find({
             order_id: order._id,
             promotion_id: item.promotion_id,
-            status: { $in: ["used", "canceled"] },
+            status: {$in: ["used", "canceled"]},
           });
 
           for (const usage of usageList) {
@@ -670,16 +674,16 @@ export async function deleteOrder(req, res, next) {
             const pendingQuotes = await PromotionUsage.find({
               customer_id: order.customer_id,
               promotion_id: item.promotion_id,
-              status: { $in: ["pending", "available"] },
+              status: {$in: ["pending", "available"]},
             });
 
             if (pendingQuotes.length > 0) {
               // Có promotion này đang pending cho quote khác -> các usage này nên chuyển canceled
               await PromotionUsage.updateMany(
                 {
-                  _id: { $in: pendingQuotes.map((q) => q._id) },
+                  _id: {$in: pendingQuotes.map((q) => q._id)},
                 },
-                { $set: { status: "canceled" } }
+                {$set: {status: "canceled"}}
               );
               // Usage của order này cũng chuyển về canceled
               usage.status = "canceled";
@@ -701,7 +705,7 @@ export async function deleteOrder(req, res, next) {
     await order.save();
 
     // --- Soft delete debt liên quan ---
-    const debt = await Debt.findOne({ order_id: order._id });
+    const debt = await Debt.findOne({order_id: order._id});
     if (debt) {
       debt.is_deleted = true;
       debt.deleted_at = new Date();
@@ -709,7 +713,7 @@ export async function deleteOrder(req, res, next) {
       await debt.save();
     }
 
-    return success(res, OrderMessage.DELETE_SUCCESS, { id: order._id });
+    return success(res, OrderMessage.DELETE_SUCCESS, {id: order._id});
   } catch (err) {
     next(err);
   }
@@ -718,15 +722,17 @@ export async function deleteOrder(req, res, next) {
 // ==================== Update Order Status ====================
 export async function updateOrderStatus(req, res, next) {
   try {
-    const { status } = req.body; //
+    const {status} = req.body; //
     const allowed = [
       "pending",
-      "confirmed",
-      "halfPayment",
-      "fullyPayment",
-      "closed",
-      "contract_signed",
+      "deposit_paid",
+      "waiting_vehicle_request",
+      "waiting_bank_approval",
+      "vehicle_ready",
+      "fully_paid",
       "delivered",
+      "completed",
+      "canceled",
     ];
     if (!allowed.includes(status))
       return errorRes(res, OrderMessage.INVALID_STATUS, 400);
@@ -738,7 +744,7 @@ export async function updateOrderStatus(req, res, next) {
 
     await order.save();
 
-    return success(res, OrderMessage.STATUS_UPDATE_SUCCESS, { order });
+    return success(res, OrderMessage.STATUS_UPDATE_SUCCESS, {order});
   } catch (err) {
     next(err);
   }
@@ -747,7 +753,7 @@ export async function updateOrderStatus(req, res, next) {
 // ==================== List Order Requests ====================
 export async function listOrderRequests(req, res, next) {
   try {
-    const { status, startDate, endDate, q } = req.query;
+    const {status, startDate, endDate, q} = req.query;
     const user = req.user;
 
     // --- Base query ---
@@ -775,14 +781,14 @@ export async function listOrderRequests(req, res, next) {
     }
 
     // --- Search by code ---
-    if (q) query.code = { $regex: q, $options: "i" };
+    if (q) query.code = {$regex: q, $options: "i"};
 
     // --- Pagination ---
     const result = await paginate(OrderRequest, req, ["code"], query);
 
     const populated = await OrderRequest.populate(result.data, [
-      { path: "requested_by", select: "full_name email" },
-      { path: "dealership_id", select: "name" },
+      {path: "requested_by", select: "full_name email"},
+      {path: "dealership_id", select: "name"},
     ]);
 
     return success(res, "List order requests successfully", {
@@ -798,7 +804,7 @@ export async function listOrderRequests(req, res, next) {
 export async function rejectOrderRequest(req, res, next) {
   try {
     const user = req.user;
-    const { reason } = req.body;
+    const {reason} = req.body;
 
     // --- Validate input ---
     if (!reason || !reason.trim()) {
@@ -952,7 +958,7 @@ export async function payDeposit(req, res, next) {
   session.startTransaction();
 
   try {
-    const { id } = req.params; // ID từ route params
+    const {id} = req.params; // ID từ route params
     const {
       deposit_amount, // Số tiền cọc (VD: 10% của final_amount)
       payment_method, // "cash", "bank", "qr", "card" - cách thanh toán tiền cọc
@@ -981,7 +987,9 @@ export async function payDeposit(req, res, next) {
 
     // 1.2b. ✅ NEW: Log order payment_method để debug
     console.log(
-      `[payDeposit] Order ${order.code}: payment_method=${order.payment_method || "cash"}`
+      `[payDeposit] Order ${order.code}: payment_method=${
+        order.payment_method || "cash"
+      }`
     );
 
     // 1.3. Validate deposit_amount
@@ -1030,7 +1038,7 @@ export async function payDeposit(req, res, next) {
           paid_at: new Date(),
         },
       ],
-      { session }
+      {session}
     );
 
     // ========== STEP 3: UPLOAD HỢP ĐỒNG (NẾU CÓ) ==========
@@ -1112,7 +1120,7 @@ export async function payDeposit(req, res, next) {
             notes: `Auto-created từ Order ${order.code} - Khách đã cọc`,
           },
         ],
-        { session }
+        {session}
       );
 
       // Link OrderRequest vào Order
@@ -1134,7 +1142,7 @@ export async function payDeposit(req, res, next) {
     // ✅ FIX: Nếu xe có sẵn và đã trừ stock → Đại lý phải trả công nợ ngay cho hãng
     if (stockCheckResult.hasStock) {
       try {
-        const { settleDealerManufacturerByOrderPayment } = await import(
+        const {settleDealerManufacturerByOrderPayment} = await import(
           "./debtController.js"
         );
         await settleDealerManufacturerByOrderPayment(
@@ -1159,7 +1167,7 @@ export async function payDeposit(req, res, next) {
     // ========== STEP 7: UPDATE ORDER ==========
     const oldStatus = order.status;
     order.status = newStatus;
-    await order.save({ session });
+    await order.save({session});
 
     // ========== STEP 8: GHI LOG ORDER STATUS ==========
     await createStatusLog(
@@ -1213,9 +1221,10 @@ export async function payDeposit(req, res, next) {
       order_request: orderRequest || null,
       payment_method: order.payment_method || "cash",
       message: responseMessage,
-      next_step: order.payment_method === "installment"
-        ? "POST /api/bank-loans/submit (submit loan application)"
-        : "POST /api/orders/:id/pay-final (pay remaining amount)",
+      next_step:
+        order.payment_method === "installment"
+          ? "POST /api/bank-loans/submit (submit loan application)"
+          : "POST /api/orders/:id/pay-final (pay remaining amount)",
     });
   } catch (err) {
     await session.abortTransaction();
@@ -1247,7 +1256,7 @@ export async function markVehicleReady(req, res, next) {
   session.startTransaction();
 
   try {
-    const { id } = req.params;
+    const {id} = req.params;
     const {
       vehicle_images, // Array URL ảnh xe đã chuẩn bị (optional)
       preparation_notes, // Ghi chú về việc chuẩn bị xe
@@ -1269,21 +1278,27 @@ export async function markVehicleReady(req, res, next) {
       await session.abortTransaction();
       return errorRes(
         res,
-        `Không thể đánh dấu xe sẵn sàng. ` +
+        "Không thể đánh dấu xe sẵn sàng. " +
           `Đơn hàng phải ở trạng thái "deposit_paid" hoặc "waiting_vehicle_request" (hiện tại: ${order.status})`,
         400
       );
     }
 
     // 1.2b. ✅ NEW: Nếu installment, phải là status="fully_paid" (sau khi bank giải ngân)
-    if (order.payment_method === "installment" && order.status !== "fully_paid") {
+    if (
+      order.payment_method === "installment" &&
+      order.status !== "fully_paid"
+    ) {
       // ℹ️ Nếu installment chưa fully_paid, reject
-      if (order.status === "waiting_bank_approval" || order.status === "deposit_paid") {
+      if (
+        order.status === "waiting_bank_approval" ||
+        order.status === "deposit_paid"
+      ) {
         await session.abortTransaction();
         return errorRes(
           res,
           `❌ Đơn hàng trả góp không thể mark ready ở trạng thái "${order.status}". ` +
-            `Phải chờ ngân hàng giải ngân (status="fully_paid") trước.`,
+            "Phải chờ ngân hàng giải ngân (status=\"fully_paid\") trước.",
           400
         );
       }
@@ -1298,11 +1313,11 @@ export async function markVehicleReady(req, res, next) {
         // Sau khi trừ stock, đối trừ công nợ phần cọc (nếu có)
         const depositPayment = await Payment.findOne({
           order_id: order._id,
-          reference: { $regex: /^DEPOSIT_/ },
+          reference: {$regex: /^DEPOSIT_/},
         }).session(session);
         if (depositPayment) {
           try {
-            const { settleDealerManufacturerByOrderPayment } = await import(
+            const {settleDealerManufacturerByOrderPayment} = await import(
               "./debtController.js"
             );
             await settleDealerManufacturerByOrderPayment(
@@ -1357,7 +1372,7 @@ export async function markVehicleReady(req, res, next) {
     const newStatus = "vehicle_ready";
     order.status = newStatus;
 
-    await order.save({ session });
+    await order.save({session});
 
     // ========== STEP 4: GHI LOG ORDER STATUS ==========
     let logDescription = "";
@@ -1432,7 +1447,7 @@ export async function payFinalAmount(req, res, next) {
   session.startTransaction();
 
   try {
-    const { id } = req.params;
+    const {id} = req.params;
     const {
       payment_method, // "cash", "bank", "qr", "card"
       notes,
@@ -1452,9 +1467,9 @@ export async function payFinalAmount(req, res, next) {
       await session.abortTransaction();
       return errorRes(
         res,
-        `❌ Không thể sử dụng payFinalAmount cho đơn hàng trả góp (installment)! ` +
-          `Vui lòng sử dụng Bank Loan API thay thế: POST /api/bank-loans/disburse. ` +
-          `Đối với trả góp, tiền còn lại sẽ được ngân hàng giải ngân.`,
+        "❌ Không thể sử dụng payFinalAmount cho đơn hàng trả góp (installment)! " +
+          "Vui lòng sử dụng Bank Loan API thay thế: POST /api/bank-loans/disburse. " +
+          "Đối với trả góp, tiền còn lại sẽ được ngân hàng giải ngân.",
         400
       );
     }
@@ -1501,24 +1516,24 @@ export async function payFinalAmount(req, res, next) {
           paid_at: new Date(),
         },
       ],
-      { session }
+      {session}
     );
     console.log("[payFinalAmount] Payment created:", payment[0]?._id);
 
     // ========== STEP 3: CẬP NHẬT DEBT KHÁCH HÀNG THÀNH "SETTLED" ==========
-    const debt = await Debt.findOne({ order_id: order._id }).session(session);
+    const debt = await Debt.findOne({order_id: order._id}).session(session);
     if (debt) {
       debt.status = "settled"; // Đã thanh toán xong
       debt.paid_amount = order.final_amount; // Cập nhật số tiền đã trả
       debt.remaining_amount = 0;
       debt.paid_at = new Date();
-      await debt.save({ session });
+      await debt.save({session});
     }
 
     // ========== STEP 3b: ĐỐI TRỪ CÔNG NỢ ĐẠI LÝ → HÃNG ==========
     // ✅ FIX: Khi khách thanh toán → Đại lý phải trả công nợ cho hãng
     try {
-      const { settleDealerManufacturerByOrderPayment } = await import(
+      const {settleDealerManufacturerByOrderPayment} = await import(
         "./debtController.js"
       );
       await settleDealerManufacturerByOrderPayment(order, payment[0], session);
@@ -1535,7 +1550,7 @@ export async function payFinalAmount(req, res, next) {
     const oldStatus = order.status;
     order.paid_amount = order.final_amount; // Đã thanh toán đủ
     order.status = "fully_paid";
-    await order.save({ session });
+    await order.save({session});
 
     // ========== STEP 5: GHI LOG ORDER STATUS ==========
     await createStatusLog(
@@ -1546,7 +1561,7 @@ export async function payFinalAmount(req, res, next) {
       "Khách đã thanh toán đủ",
       `Đã nhận thanh toán số tiền còn lại ${remainingAmount.toLocaleString()}đ. ` +
         `Tổng đã thanh toán: ${order.final_amount.toLocaleString()}đ. ` +
-        `Xe sẵn sàng để giao cho khách.`,
+        "Xe sẵn sàng để giao cho khách.",
       {
         changed_by_name: req.user?.full_name || "System",
         ip_address: req.ip,
@@ -1607,7 +1622,7 @@ export async function deliverOrder(req, res, next) {
   session.startTransaction();
 
   try {
-    const { id } = req.params;
+    const {id} = req.params;
     let {
       delivery_person, // { name, phone, id_card }
       recipient_info, // { name, phone, relationship }
@@ -1655,7 +1670,7 @@ export async function deliverOrder(req, res, next) {
       await session.abortTransaction();
       return errorRes(
         res,
-        `Đơn hàng đã được giao xe rồi! ` +
+        "Đơn hàng đã được giao xe rồi! " +
           `Thời gian giao: ${order.delivery.actual_date?.toLocaleString(
             "vi-VN"
           )}. ` +
@@ -1751,7 +1766,7 @@ export async function deliverOrder(req, res, next) {
     // ========== STEP 3: UPDATE ORDER STATUS ==========
     const oldStatus = order.status;
     order.status = "delivered";
-    await order.save({ session });
+    await order.save({session});
 
     // ========== STEP 4: GHI LOG ORDER STATUS ==========
     await createStatusLog(
@@ -1760,7 +1775,7 @@ export async function deliverOrder(req, res, next) {
       "delivered",
       req.user?.id,
       "Đã giao xe cho khách",
-      `Xe đã được giao cho khách hàng. ` +
+      "Xe đã được giao cho khách hàng. " +
         `Người nhận: ${recipient_info.name} (${recipient_info.phone}). ` +
         `Thời gian giao: ${order.delivery.actual_date.toLocaleString("vi-VN")}`,
       {
@@ -1816,8 +1831,8 @@ export async function completeOrder(req, res, next) {
   session.startTransaction();
 
   try {
-    const { id } = req.params;
-    const { completion_notes } = req.body;
+    const {id} = req.params;
+    const {completion_notes} = req.body;
 
     // ========== STEP 1: VALIDATE ORDER ==========
 
@@ -1865,7 +1880,7 @@ export async function completeOrder(req, res, next) {
       order.notes += `\n[COMPLETED] ${completion_notes}`;
     }
 
-    await order.save({ session });
+    await order.save({session});
 
     // ========== STEP 3: GHI LOG ORDER STATUS ==========
     await createStatusLog(
@@ -1874,8 +1889,8 @@ export async function completeOrder(req, res, next) {
       "completed",
       req.user?.id,
       "Hoàn tất đơn hàng",
-      `Đơn hàng đã được hoàn tất. Tất cả giấy tờ và thủ tục đã hoàn thành. ` +
-        `Khách hàng đã nhận xe và hài lòng với dịch vụ.`,
+      "Đơn hàng đã được hoàn tất. Tất cả giấy tờ và thủ tục đã hoàn thành. " +
+        "Khách hàng đã nhận xe và hài lòng với dịch vụ.",
       {
         changed_by_name: req.user?.full_name || "System",
         ip_address: req.ip,
@@ -1928,7 +1943,7 @@ async function checkStockForOrder(items, dealership_id) {
     if (!item.color || item.color.trim() === "") {
       throw new Error(
         `Xe ${item.vehicle_name || item.vehicle_id} chưa chọn màu! ` +
-          `Khách hàng bắt buộc phải chọn màu xe trước khi đặt cọc.`
+          "Khách hàng bắt buộc phải chọn màu xe trước khi đặt cọc."
       );
     }
 
@@ -1962,7 +1977,7 @@ async function checkStockForOrder(items, dealership_id) {
     }
   }
 
-  return { hasStock, details };
+  return {hasStock, details};
 }
 
 // ========== HELPER: Trừ stock khi có xe (giữ chỗ) ==========
@@ -2106,7 +2121,7 @@ async function deductStockForOrder(items, dealership_id, session) {
     item.used_stocks = usedStocks;
 
     // ✅ 8. SAVE vehicle với stocks đã update
-    await vehicle.save({ session });
+    await vehicle.save({session});
 
     console.log(
       `✅ [FIFO] Successfully deducted ${requestedQuantity} of ${vehicle.name} (${item.color}) ` +
@@ -2127,7 +2142,7 @@ async function deductStockForOrder(items, dealership_id, session) {
  * - Nếu có OrderRequest → Cancel request
  *
  * **Yêu cầu:**
- * - Order không được ở trạng thái "completed" hoặc "cancelled"
+ * - Order không được ở trạng thái "completed" hoặc "canceled"
  * - Cần lý do huỷ (cancellation_reason)
  */
 export async function cancelOrder(req, res, next) {
@@ -2135,8 +2150,8 @@ export async function cancelOrder(req, res, next) {
   session.startTransaction();
 
   try {
-    const { id } = req.params;
-    const { cancellation_reason, refund_method = "cash" } = req.body;
+    const {id} = req.params;
+    const {cancellation_reason, refund_method = "cash"} = req.body;
 
     // Validate reason
     if (!cancellation_reason || cancellation_reason.trim() === "") {
@@ -2150,7 +2165,7 @@ export async function cancelOrder(req, res, next) {
       return errorRes(res, "Không tìm thấy đơn hàng", 404);
     }
 
-    // Check status - không cho huỷ nếu đã completed hoặc đã cancelled
+    // Check status - không cho huỷ nếu đã completed hoặc đã canceled
     if (order.status === "completed") {
       await session.abortTransaction();
       return errorRes(
@@ -2160,7 +2175,7 @@ export async function cancelOrder(req, res, next) {
       );
     }
 
-    if (order.status === "cancelled") {
+    if (order.status === "canceled") {
       await session.abortTransaction();
       return errorRes(res, "Đơn hàng đã bị huỷ trước đó", 400);
     }
@@ -2169,8 +2184,8 @@ export async function cancelOrder(req, res, next) {
 
     const refundPayments = [];
     let stockRestored = false;
-    let debtCancelled = false;
-    let requestCancelled = false;
+    let debtCanceled = false;
+    let requestCanceled = false;
 
     // ========== 1. HOÀN TIỀN NẾU ĐÃ THANH TOÁN ==========
     if (order.paid_amount > 0) {
@@ -2187,7 +2202,7 @@ export async function cancelOrder(req, res, next) {
         notes: `Hoàn tiền do huỷ đơn hàng ${order.code}. Lý do: ${cancellation_reason}`,
       });
 
-      await refundPayment.save({ session });
+      await refundPayment.save({session});
       refundPayments.push(refundPayment);
 
       console.log(`✅ Refund payment created: ${refundPayment._id}`);
@@ -2218,7 +2233,7 @@ export async function cancelOrder(req, res, next) {
         // ✅ CHECK: Có used_stocks tracking không?
         if (item.used_stocks && item.used_stocks.length > 0) {
           // ========== SOLUTION 2: Restore theo tracking ==========
-          console.log(`✅ Item has used_stocks tracking, restoring by batch`);
+          console.log("✅ Item has used_stocks tracking, restoring by batch");
 
           const vehicle = await Vehicle.findById(item.vehicle_id).session(
             session
@@ -2275,16 +2290,16 @@ export async function cancelOrder(req, res, next) {
             );
           }
 
-          await vehicle.save({ session });
+          await vehicle.save({session});
           stockRestored = true;
         } else {
           // ========== FALLBACK: Old logic (no tracking) ==========
-          console.log(`⚠️ No used_stocks tracking, using fallback restore`);
+          console.log("⚠️ No used_stocks tracking, using fallback restore");
 
           const updateResult = await Vehicle.updateOne(
-            { _id: item.vehicle_id },
+            {_id: item.vehicle_id},
             {
-              $inc: { "stocks.$[elem].quantity": quantity }, // Cộng lại
+              $inc: {"stocks.$[elem].quantity": quantity}, // Cộng lại
             },
             {
               arrayFilters: [
@@ -2311,18 +2326,18 @@ export async function cancelOrder(req, res, next) {
     // ========== 3. HUỶ DEBT NẾU CÓ ==========
     const debt = await Debt.findOne({
       order_id: order._id,
-      status: { $in: ["pending", "partial"] },
+      status: {$in: ["pending", "partial"]},
     }).session(session);
 
     if (debt) {
       console.log(`📝 Cancelling debt: ${debt._id}`);
-      debt.status = "cancelled";
+      debt.status = "canceled";
       debt.notes = debt.notes
-        ? `${debt.notes}\n[Cancelled] ${cancellation_reason}`
-        : `[Cancelled] ${cancellation_reason}`;
-      await debt.save({ session });
-      debtCancelled = true;
-      console.log(`✅ Debt cancelled`);
+        ? `${debt.notes}\n[Canceled] ${cancellation_reason}`
+        : `[Canceled] ${cancellation_reason}`;
+      await debt.save({session});
+      debtCanceled = true;
+      console.log("✅ Debt canceled");
     }
 
     // ========== 4. HUỶ ORDER REQUEST NẾU CÓ ==========
@@ -2334,27 +2349,27 @@ export async function cancelOrder(req, res, next) {
 
       if (orderRequest) {
         console.log(`📮 Cancelling OrderRequest: ${orderRequest._id}`);
-        orderRequest.status = "cancelled";
+        orderRequest.status = "canceled";
         orderRequest.notes = orderRequest.notes
-          ? `${orderRequest.notes}\n[Cancelled] ${cancellation_reason}`
-          : `[Cancelled] ${cancellation_reason}`;
-        await orderRequest.save({ session });
-        requestCancelled = true;
-        console.log(`✅ OrderRequest cancelled`);
+          ? `${orderRequest.notes}\n[Canceled] ${cancellation_reason}`
+          : `[Canceled] ${cancellation_reason}`;
+        await orderRequest.save({session});
+        requestCanceled = true;
+        console.log("✅ OrderRequest canceled");
       }
     }
 
     // ========== 5. CẬP NHẬT ORDER STATUS ==========
     const oldStatus = order.status;
-    order.status = "cancelled";
-    order.cancelled_at = new Date();
+    order.status = "canceled";
+    order.canceled_at = new Date();
     order.cancellation_reason = cancellation_reason;
 
     // Add note to order
     const cancelNote = `[${new Date().toISOString()}] Đơn hàng bị huỷ. Lý do: ${cancellation_reason}`;
     order.notes = order.notes ? `${order.notes}\n${cancelNote}` : cancelNote;
 
-    await order.save({ session });
+    await order.save({session});
 
     // ========== 6. TẠO STATUS LOG ==========
     await createStatusLog(
@@ -2363,15 +2378,15 @@ export async function cancelOrder(req, res, next) {
         customer_id: order.customer_id,
         dealership_id: order.dealership_id,
         old_status: oldStatus,
-        new_status: "cancelled",
-        notes: `Order cancelled. Reason: ${cancellation_reason}`,
+        new_status: "canceled",
+        notes: `Order canceled. Reason: ${cancellation_reason}`,
         changed_by: req.user?.user_id,
       },
       session
     );
 
     await session.commitTransaction();
-    console.log(`✅ Order ${order.code} cancelled successfully`);
+    console.log(`✅ Order ${order.code} canceled successfully`);
 
     // ========== RESPONSE ==========
     const populatedOrder = await Order.findById(order._id)
@@ -2387,8 +2402,8 @@ export async function cancelOrder(req, res, next) {
         refund_payments: refundPayments,
       },
       stock_restored: stockRestored,
-      debt_cancelled: debtCancelled,
-      request_cancelled: requestCancelled,
+      debt_canceled: debtCanceled,
+      request_canceled: requestCanceled,
       message:
         order.paid_amount > 0
           ? `Đơn hàng đã huỷ. Số tiền ${order.paid_amount.toLocaleString()} VND sẽ được hoàn lại cho khách hàng.`
@@ -2415,7 +2430,7 @@ export async function cancelOrder(req, res, next) {
  */
 export async function getOrderStatusHistory(req, res, next) {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
 
     // Validate order exists
     const order = await Order.findById(id).lean();
@@ -2427,9 +2442,9 @@ export async function getOrderStatusHistory(req, res, next) {
     const OrderStatusLog = mongoose.model("OrderStatusLog");
 
     // Fetch status history
-    const statusHistory = await OrderStatusLog.find({ order_id: id })
+    const statusHistory = await OrderStatusLog.find({order_id: id})
       .populate("changed_by", "username email role_id")
-      .sort({ createdAt: -1 }) // Mới nhất trước
+      .sort({createdAt: -1}) // Mới nhất trước
       .lean();
 
     // Format timeline
@@ -2474,7 +2489,7 @@ function getStatusLabel(status) {
     fully_paid: "Đã thanh toán đủ",
     delivered: "Đã giao xe",
     completed: "Hoàn tất",
-    cancelled: "Đã huỷ",
+    canceled: "Đã huỷ",
   };
   return labels[status] || status;
 }

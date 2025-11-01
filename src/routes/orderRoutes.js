@@ -1,7 +1,7 @@
-import { Router } from "express";
-import { authenticate } from "../middlewares/authMiddleware.js";
-import { checkRole } from "../middlewares/checkRole.js";
-import { DEALER_ROLES, MANAGEMENT_ROLES, ROLE } from "../enum/roleEnum.js";
+import {Router} from "express";
+import {authenticate} from "../middlewares/authMiddleware.js";
+import {checkRole} from "../middlewares/checkRole.js";
+import {DEALER_ROLES, MANAGEMENT_ROLES, ROLE} from "../enum/roleEnum.js";
 import {
   createOrder,
   getOrders,
@@ -17,8 +17,9 @@ import {
   completeOrder,
   cancelOrder,
   getOrderStatusHistory,
-//   getOrderPayments,
+  //   getOrderPayments,
 } from "../controllers/orderController.js";
+import {getPaymentsByOrder} from "../controllers/paymentController.js";
 
 const router = Router();
 
@@ -83,7 +84,7 @@ router.post("/", checkRole(DEALER_ROLES), createOrder);
  *         name: status
  *         schema:
  *           type: string
- *           enum: [pending, confirmed, halfPayment, fullyPayment, closed, contract_signed, delivered]
+ *           enum: [pending, deposit_paid, waiting_vehicle_request, waiting_bank_approval, vehicle_ready, fully_paid, delivered, completed, canceled]
  *         description: |
  *           Lọc theo trạng thái đơn hàng. - DEALER_MANAGER only
  *       - in: query
@@ -116,7 +117,7 @@ router.get("/", checkRole(ROLE.DEALER_MANAGER), getOrders);
  *         name: status
  *         schema:
  *           type: string
- *           enum: [pending, confirmed, halfPayment, fullyPayment, closed, contract_signed, delivered]
+ *           enum: [pending, deposit_paid, waiting_vehicle_request, waiting_bank_approval, vehicle_ready, fully_paid, delivered, completed, canceled]
  *         description: |
  *           Lọc theo trạng thái đơn hàng.
  *       - in: query
@@ -512,7 +513,7 @@ router.post("/:id/complete", checkRole(DEALER_ROLES), completeOrder);
  *       - Huỷ OrderRequest nếu đang chờ xe từ hãng
  *
  *       **Yêu cầu:**
- *       - Order không được ở trạng thái "completed" hoặc "cancelled"
+ *       - Order không được ở trạng thái "completed" hoặc "canceled"
  *       - Bắt buộc cung cấp lý do huỷ
  *     security:
  *       - bearerAuth: []
@@ -563,9 +564,9 @@ router.post("/:id/complete", checkRole(DEALER_ROLES), completeOrder);
  *                       type: array
  *                 stock_restored:
  *                   type: boolean
- *                 debt_cancelled:
+ *                 debt_canceled:
  *                   type: boolean
- *                 request_cancelled:
+ *                 request_canceled:
  *                   type: boolean
  *       400:
  *         description: Order không thể huỷ hoặc thiếu lý do
@@ -649,7 +650,7 @@ router.get(
  *     summary: Lấy tổng hợp thanh toán của đơn hàng
  *     description: |
  *       Xem tất cả các giao dịch thanh toán liên quan đến đơn hàng.
- *       
+ *
  *       **Thông tin bao gồm:**
  *       - Danh sách payments (deposit, final, refund)
  *       - Tổng hợp: Tổng đã trả, tổng hoàn, còn lại
@@ -729,7 +730,9 @@ router.get(
  *                     final:
  *                       type: number
  *                     refund:
-router.get("/:id/payments", checkRole(DEALER_ROLES), getOrderPayments);
+ *                       type: number
+ */
+router.get("/:id/payments", checkRole(DEALER_ROLES), getPaymentsByOrder);
 
 /**
  * @openapi
@@ -841,12 +844,12 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *     summary: Update order status and optionally paid amount
  *     description: |
  *       Transition allowed:
- *       - pending -> confirmed
- *       - confirmed -> halfPayment
- *       - halfPayment -> fullyPayment
- *       - fullyPayment -> closed
- *       - closed -> contract_signed
- *       - contract_signed -> delivered
+ *       - pending -> deposit_paid
+ *       - deposit_paid -> vehicle_ready | waiting_vehicle_request
+ *       - waiting_vehicle_request -> vehicle_ready
+ *       - vehicle_ready -> fully_paid
+ *       - fully_paid -> delivered
+ *       - delivered -> completed
  *       Also allows updating paid amount for the order to reflect customer payment.
  *     security:
  *       - bearerAuth: []
@@ -868,9 +871,9 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [pending, confirmed, halfPayment, fullyPayment, closed, contract_signed, delivered]
+ *                 enum: [pending, deposit_paid, waiting_vehicle_request, waiting_bank_approval, vehicle_ready, fully_paid, delivered, completed, canceled]
  *           example:
- *             status: "confirmed"
+ *             status: "fully_paid"
  *     responses:
  *       200:
  *         description: OK, order status updated and paid amount recorded

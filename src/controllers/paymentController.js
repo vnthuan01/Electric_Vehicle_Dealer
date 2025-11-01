@@ -1,20 +1,20 @@
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
 import Customer from "../models/Customer.js";
-import { success, created, error as errorRes } from "../utils/response.js";
+import {success, created, error as errorRes} from "../utils/response.js";
 import {
   PaymentMessage,
   OrderMessage,
   CustomerMessage,
 } from "../utils/MessageRes.js";
-import { paginate } from "../utils/pagination.js";
+import {paginate} from "../utils/pagination.js";
 import Debt from "../models/Debt.js";
 import {
   updateCustomerDebtPayment,
   settleDealerManufacturerByOrderPayment,
   revertDealerManufacturerByOrderPayment,
 } from "./debtController.js";
-import { createStatusLog } from "./orderStatusLogController.js";
+import {createStatusLog} from "./orderStatusLogController.js";
 
 //Helpers
 const generatePaymentReference = (method) => {
@@ -28,18 +28,18 @@ const generatePaymentReference = (method) => {
   const methodCode = method?.toUpperCase()?.slice(0, 4) || "GEN"; // VD: CASH, BANK, QR, CARD
 
   const reference = `PAY-${methodCode}-${yy}${mm}${dd}${hh}-${random}`;
-  return { reference };
+  return {reference};
 };
 
 // ==================== Create Payment ====================
 export async function createPayment(req, res, next) {
   try {
-    const { order_id, amount, method, notes } = req.body;
+    const {order_id, amount, method, notes} = req.body;
     if (!order_id || !amount || !method) {
       return errorRes(res, PaymentMessage.MISSING_REQUIRED_FIELDS, 400);
     }
 
-    const { reference } = generatePaymentReference(method);
+    const {reference} = generatePaymentReference(method);
 
     const dealership_id = req.user.dealership_id || null;
 
@@ -87,16 +87,16 @@ export async function createPayment(req, res, next) {
 
     // --- Cập nhật trạng thái dựa theo % thanh toán ---
     if (order.paid_amount >= order.final_amount) {
-      order.status = "fullyPayment";
+      order.status = "fully_paid";
     } else if (order.paid_amount > 0) {
-      order.status = "halfPayment";
+      order.status = "deposit_paid";
     } else {
-      order.status = "confirmed";
+      order.status = "pending";
     }
 
     // --- Cập nhật công nợ ---
     // (nếu chuyển khoản hoặc ghi nợ thì chưa trừ ngay)
-    let debt = await Debt.findOne({ order_id: order._id });
+    let debt = await Debt.findOne({order_id: order._id});
     if (debt) {
       await updateCustomerDebtPayment(debt._id, amount);
       debt = await Debt.findById(debt._id).lean();
@@ -152,7 +152,7 @@ export async function createPayment(req, res, next) {
 // ==================== Get Payment by ID ====================
 export async function getPaymentById(req, res, next) {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
     const dealership_id = req.user.dealership_id || null;
 
     const payment = await Payment.findById(id).lean();
@@ -192,7 +192,7 @@ export async function getPaymentById(req, res, next) {
 // ==================== Get Payments by Order ====================
 export async function getPaymentsByOrder(req, res, next) {
   try {
-    const { orderId } = req.params;
+    const {orderId} = req.params;
     const dealership_id = req.user.dealership_id || null;
 
     const order = await Order.findById(orderId);
@@ -202,7 +202,7 @@ export async function getPaymentsByOrder(req, res, next) {
       return errorRes(res, PaymentMessage.ACCESS_DENIED, 403);
     }
 
-    const cond = { order_id: orderId };
+    const cond = {order_id: orderId};
     const pagination = await paginate(
       Payment,
       req,
@@ -219,8 +219,8 @@ export async function getPaymentsByOrder(req, res, next) {
 // ==================== Update Payment (chỉ cho sửa note) ====================
 export async function updatePayment(req, res, next) {
   try {
-    const { id } = req.params;
-    const { notes } = req.body;
+    const {id} = req.params;
+    const {notes} = req.body;
 
     if (!notes)
       return errorRes(res, PaymentMessage.MISSING_REQUIRED_FIELDS_UPDATE, 400);
@@ -250,7 +250,7 @@ export async function updatePayment(req, res, next) {
 // ==================== Delete Payment ====================
 export async function deletePayment(req, res, next) {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
     const dealership_id = req.user.dealership_id || null;
 
     const payment = await Payment.findById(id);
@@ -274,16 +274,16 @@ export async function deletePayment(req, res, next) {
 
     // --- Cập nhật trạng thái đơn hàng ---
     if (order.paid_amount >= order.final_amount) {
-      order.status = "fullyPayment";
+      order.status = "fully_paid";
     } else if (order.paid_amount > 0) {
-      order.status = "halfPayment";
+      order.status = "deposit_paid";
     } else {
-      order.status = "confirmed";
+      order.status = "pending";
     }
     await order.save();
 
     // --- Giảm công nợ nếu có ---
-    const debt = await Debt.findOne({ order_id: order._id });
+    const debt = await Debt.findOne({order_id: order._id});
     if (debt) {
       // Trừ lại số tiền đã thanh toán tương ứng
       debt.paid_amount = Math.max(0, debt.paid_amount - payment.amount);
@@ -299,7 +299,7 @@ export async function deletePayment(req, res, next) {
     // --- Hoàn lại công nợ Đại lý ↔ Hãng ---
     await revertDealerManufacturerByOrderPayment(order, payment);
 
-    return success(res, PaymentMessage.DELETE_SUCCESS, { id });
+    return success(res, PaymentMessage.DELETE_SUCCESS, {id});
   } catch (e) {
     next(e);
   }

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema(
   {
-    code: { type: String, required: true, unique: true, index: true },
+    code: {type: String, required: true, unique: true, index: true},
 
     customer_id: {
       type: mongoose.Schema.Types.ObjectId,
@@ -10,9 +10,9 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
-    dealership_id: { type: mongoose.Schema.Types.ObjectId, ref: "Dealership" },
-    salesperson_id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    quote_id: { type: mongoose.Schema.Types.ObjectId, ref: "Quote" }, // Link đến báo giá gốc
+    dealership_id: {type: mongoose.Schema.Types.ObjectId, ref: "Dealership"},
+    salesperson_id: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
+    quote_id: {type: mongoose.Schema.Types.ObjectId, ref: "Quote"}, // Link đến báo giá gốc
 
     items: [
       {
@@ -28,8 +28,8 @@ const orderSchema = new mongoose.Schema(
         color: String,
         category: String, // "car", "motorcycle", etc.
 
-        quantity: { type: Number, min: 1, max: 100, default: 1 },
-        discount: { type: Number, default: 0 },
+        quantity: {type: Number, min: 1, max: 100, default: 1},
+        discount: {type: Number, default: 0},
         promotion_id: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Promotion",
@@ -45,7 +45,7 @@ const orderSchema = new mongoose.Schema(
             },
             name: String,
             price: Number,
-            quantity: { type: Number, default: 1 },
+            quantity: {type: Number, default: 1},
           },
         ],
 
@@ -62,7 +62,7 @@ const orderSchema = new mongoose.Schema(
           },
         ],
 
-        final_amount: { type: Number, required: true },
+        final_amount: {type: Number, required: true},
 
         // ========== TRACKING FIELD (Solution 2) ==========
         used_stocks: [
@@ -101,8 +101,8 @@ const orderSchema = new mongoose.Schema(
       },
     ],
 
-    final_amount: { type: Number, required: true },
-    paid_amount: { type: Number, default: 0 },
+    final_amount: {type: Number, required: true},
+    paid_amount: {type: Number, default: 0},
 
     // Hình thức thanh toán: cash (tiền mặt/trả thẳng) hoặc installment (trả góp)
     payment_method: {
@@ -150,10 +150,10 @@ const orderSchema = new mongoose.Schema(
 
     // Thông tin kiểm tra tồn kho
     stock_check: {
-      checked: { type: Boolean, default: false },
+      checked: {type: Boolean, default: false},
       checked_at: Date,
-      checked_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-      has_stock: { type: Boolean, default: false }, // true = có xe, false = hết xe
+      checked_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
+      has_stock: {type: Boolean, default: false}, // true = có xe, false = hết xe
       stock_details: [
         {
           vehicle_id: mongoose.Schema.Types.ObjectId,
@@ -166,7 +166,7 @@ const orderSchema = new mongoose.Schema(
 
     // Thông tin hoàn tiền (khi hủy đơn)
     refund_info: {
-      refunded: { type: Boolean, default: false },
+      refunded: {type: Boolean, default: false},
       refunded_at: Date,
       refund_amount: Number,
       refund_reason: String,
@@ -237,7 +237,7 @@ const orderSchema = new mongoose.Schema(
         "fully_paid", // Đã thanh toán đủ, sẵn sàng giao xe
         "delivered", // Đã giao xe
         "completed", // Hoàn tất
-        "cancelled", // Hủy đơn (do Hãng reject hoặc khách hủy)
+        "canceled", // Hủy đơn (do Hãng reject hoặc khách hủy)
       ],
       default: "pending",
       index: true,
@@ -275,7 +275,7 @@ const orderSchema = new mongoose.Schema(
           name: String, // Tên tài liệu
           type: String, // Loại: receipt, inspection_report, etc.
           file_url: String,
-          uploaded_at: { type: Date, default: Date.now },
+          uploaded_at: {type: Date, default: Date.now},
         },
       ],
       signed_at: Date, // Thời điểm ký nhận
@@ -295,11 +295,11 @@ const orderSchema = new mongoose.Schema(
     },
 
     notes: String,
-    is_deleted: { type: Boolean, default: false },
-    deleted_at: { type: Date },
-    deleted_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    is_deleted: {type: Boolean, default: false},
+    deleted_at: {type: Date},
+    deleted_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
   },
-  { timestamps: true }
+  {timestamps: true}
 );
 
 export default mongoose.model("Order", orderSchema);

@@ -68,7 +68,7 @@ export function getStatusLabel(status) {
     fully_paid: "Đã thanh toán đủ",
     delivered: "Đã giao xe",
     completed: "Hoàn thành",
-    cancelled: "Đã hủy",
+    canceled: "Đã hủy",
   };
   return labels[status] || status;
 }

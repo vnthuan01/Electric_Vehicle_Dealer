@@ -2,11 +2,12 @@ import Debt from "../models/Debt.js";
 import DealerManufacturerDebt from "../models/DealerManufacturerDebt.js";
 import Order from "../models/Order.js";
 import Customer from "../models/Customer.js";
-import { success, error as errorRes } from "../utils/response.js";
-import { DealerMessage, ManufacturerMessage } from "../utils/MessageRes.js";
-import { paginate } from "../utils/pagination.js";
+import {success, error as errorRes} from "../utils/response.js";
+import {DealerMessage, ManufacturerMessage} from "../utils/MessageRes.js";
+import {paginate} from "../utils/pagination.js";
 import Vehicle from "../models/Vehicle.js";
 import RequestVehicle from "../models/RequestVehicle.js"; // ✅ Added for Solution 2
+import mongoose from "mongoose";
 
 /**
  * Tạo công nợ khách hàng khi tạo Order mới
@@ -114,7 +115,7 @@ export async function settleDealerManufacturerByOrderPayment(
   // - Nếu là lần cuối (fully paid), settle toàn bộ phần còn lại
   // - Nếu chưa đủ, chỉ settle phần payment này
   const alreadySettled = Number(order.settled_to_manufacturer || 0);
-  const remainingToSettle = Number(order.final_amount || 0) - alreadySettled;
+  // const remainingToSettle = Number(order.final_amount || 0) - alreadySettled;
   const paid = isFullPaid
     ? Number(order.final_amount || 0) // Always settle full amount if fully paid
     : Number(payment.amount || 0); // Or just the payment amount
@@ -123,7 +124,7 @@ export async function settleDealerManufacturerByOrderPayment(
 
   if (paid <= 0) {
     console.log("⚠️ Payment amount is 0, skip debt settlement");
-    return { settled_debts: [] };
+    return {settled_debts: []};
   }
 
   // ✅ 1. TÍNH TỶ LỆ THANH TOÁN CHO TỪNG ITEM
@@ -135,7 +136,7 @@ export async function settleDealerManufacturerByOrderPayment(
 
   if (totalOrderAmount <= 0) {
     console.warn("⚠️ Order total is 0, cannot settle debt");
-    return { settled_debts: [] };
+    return {settled_debts: []};
   }
 
   // ✅ 2. XỬ LÝ TỪNG ITEM
@@ -200,7 +201,7 @@ export async function settleDealerManufacturerByOrderPayment(
         if (!usedStock.source_request_id) {
           console.warn(
             `⚠️ No source_request_id for stock in Order ${order.code}. ` +
-              `This is likely an old stock entry. Skip batch tracking.`
+              "This is likely an old stock entry. Skip batch tracking."
           );
           continue;
         }
@@ -341,7 +342,7 @@ export async function settleDealerManufacturerByOrderPayment(
           }`,
         });
 
-        await debt.save(session ? { session } : {});
+        await debt.save(session ? {session} : {});
 
         remainingItemPayment -= actualStockPayment;
 
@@ -363,14 +364,14 @@ export async function settleDealerManufacturerByOrderPayment(
       if (remainingItemPayment > 0) {
         console.warn(
           `⚠️ Remaining ${remainingItemPayment.toLocaleString()}đ after settling used_stocks. ` +
-            `This might indicate data inconsistency.`
+            "This might indicate data inconsistency."
         );
       }
     } else {
       // ========== FALLBACK: Không có used_stocks → Dùng logic cũ ==========
       console.log(
         `⚠️ Order ${order.code} item ${item.vehicle_name} has NO used_stocks. ` +
-          `Using fallback logic (settle by dealer-manufacturer total).`
+          "Using fallback logic (settle by dealer-manufacturer total)."
       );
 
       const vehicleQuery = Vehicle.findById(item.vehicle_id).select(
@@ -389,14 +390,14 @@ export async function settleDealerManufacturerByOrderPayment(
       const debtQuery = DealerManufacturerDebt.findOne({
         dealership_id: order.dealership_id,
         manufacturer_id: vehicle.manufacturer_id,
-        status: { $in: ["open", "partial"] },
+        status: {$in: ["open", "partial"]},
       });
       const debt = session ? await debtQuery.session(session) : await debtQuery;
 
       if (!debt) {
         console.warn(
-          `⚠️ No debt found for dealer-manufacturer ` +
-            `(Dealer: ${order.dealership_id}, Manufacturer: ${vehicle.manufacturer_id})`
+          "⚠️ No debt found for dealer-manufacturer " +
+            "(Dealer: ${order.dealership_id}, Manufacturer: ${vehicle.manufacturer_id})"
         );
         continue;
       }
@@ -426,18 +427,27 @@ export async function settleDealerManufacturerByOrderPayment(
       // ==== BỔ SUNG: Ghi nhận settled_by_orders cho từng debt item theo tỷ lệ số lượng ====
       if (Array.isArray(debt.items) && debt.items.length > 0) {
         // Tổng quantity của debt
-        const totalQty = debt.items.reduce((sum, it) => sum + (it.quantity || 0), 0) || 1;
+        const totalQty =
+          debt.items.reduce((sum, it) => sum + (it.quantity || 0), 0) || 1;
         for (const debtItem of debt.items) {
           if (!debtItem.settled_by_orders) debtItem.settled_by_orders = [];
           // Phân bổ payment cho debt item này theo tỷ lệ quantity
           const itemQty = debtItem.quantity || 0;
           if (itemQty === 0) continue;
           // Tính phần payment phân bổ cho debt item này
-          const allocatedAmount = Math.round(itemPayment * (itemQty / totalQty));
+          const allocatedAmount = Math.round(
+            itemPayment * (itemQty / totalQty)
+          );
           // Nếu đã fully paid thì không ghi nhận nữa
           if (debtItem.settled_amount >= debtItem.amount) continue;
           // Ghi nhận settled_by_orders nếu chưa có cho order này
-          if (!debtItem.settled_by_orders.some(s => s.order_id?.toString() === order._id.toString() && s.payment_id?.toString() === payment._id.toString())) {
+          if (
+            !debtItem.settled_by_orders.some(
+              (s) =>
+                s.order_id?.toString() === order._id.toString() &&
+                s.payment_id?.toString() === payment._id.toString()
+            )
+          ) {
             debtItem.settled_by_orders.push({
               order_id: order._id,
               order_code: order.code,
@@ -445,13 +455,13 @@ export async function settleDealerManufacturerByOrderPayment(
               amount: allocatedAmount,
               settled_at: new Date(),
               payment_id: payment._id,
-              notes: `Settled from Order ${order.code} - fallback (no batch tracking)`
+              notes: `Settled from Order ${order.code} - fallback (no batch tracking)`,
             });
           }
         }
       }
 
-      await debt.save(session ? { session } : {});
+      await debt.save(session ? {session} : {});
 
       settledDebts.push({
         debt_id: debt._id,
@@ -471,7 +481,7 @@ export async function settleDealerManufacturerByOrderPayment(
     `✅ Debt settlement completed for Order ${order.code}. ${settledDebts.length} debt item(s) updated.`
   );
 
-  return { settled_debts: settledDebts };
+  return {settled_debts: settledDebts};
 }
 
 export async function revertDealerManufacturerByOrderPayment(order, payment) {
@@ -484,7 +494,7 @@ export async function revertDealerManufacturerByOrderPayment(order, payment) {
     const vehicleIds = Array.from(
       new Set((order.items || []).map((i) => String(i.vehicle_id)))
     );
-    const vehicles = await Vehicle.find({ _id: { $in: vehicleIds } })
+    const vehicles = await Vehicle.find({_id: {$in: vehicleIds}})
       .select("_id manufacturer_id")
       .lean();
 
@@ -557,42 +567,40 @@ export async function revertDealerManufacturerByOrderPayment(order, payment) {
  */
 export async function listCustomerDebts(req, res, next) {
   try {
-    const extraQuery = { remaining_amount: { $gt: 0 } };
+    const extraQuery = {remaining_amount: {$gt: 0}};
 
     const result = await paginate(Debt, req, [], extraQuery);
 
     const populatedData = await Debt.populate(result.data, [
-      { path: "customer_id", select: "full_name phone email" },
-      { path: "order_id", select: "code final_amount" },
+      {path: "customer_id", select: "full_name phone email"},
+      {path: "order_id", select: "code final_amount status paid_amount"},
     ]);
 
     // Tính tổng trên toàn bộ data
     const totals = await Debt.aggregate([
-      { $match: extraQuery },
+      {$match: extraQuery},
       {
         $group: {
           _id: null,
-          totalAmount: { $sum: { $ifNull: ["$total_amount", 0] } },
-          remainingAmount: { $sum: { $ifNull: ["$remaining_amount", 0] } },
+          totalAmount: {$sum: {$ifNull: ["$total_amount", 0]}},
+          remainingAmount: {$sum: {$ifNull: ["$remaining_amount", 0]}},
         },
       },
     ]);
 
-    // const totalAmount = totals[0]?.totalAmount || 0;
-    // const remainingAmount = totals[0]?.remainingAmount || 0;
+    const totalAmount = totals[0]?.totalAmount || 0;
+    const remainingAmount = totals[0]?.remainingAmount || 0;
 
-    // return success(res, DealerMessage.DEBTS_RETRIEVED, {
-    //   ...result,
-    //   data: populatedData,
-    //   totalAmount,
-    //   remainingAmount,
-    // });
+    return success(res, DealerMessage.DEBTS_RETRIEVED, {
+      ...result,
+      data: populatedData,
+      totalAmount,
+      remainingAmount,
+    });
 
-    const debt = await Debt.find({})
-      .populate("customer_id", "full_name phone email")
-      .populate("order_id", "code final_amount status paid_amount")
-      .lean();
-    return success(res, "All customer debts retrieved", debt);
+    // const debt = await Debt.find({});
+
+    // return success(res, "All customer debts retrieved", debt);
   } catch (e) {
     next(e);
   }
@@ -604,22 +612,22 @@ export async function listCustomerDebts(req, res, next) {
  */
 export async function listManufacturerDebts(req, res, next) {
   try {
-    const extraQuery = { remaining_amount: { $gt: 0 } };
+    const extraQuery = {remaining_amount: {$gt: 0}};
 
     const result = await paginate(DealerManufacturerDebt, req, [], extraQuery);
 
     const populatedData = await DealerManufacturerDebt.populate(result.data, [
-      { path: "dealership_id", select: "name" },
-      { path: "manufacturer_id", select: "name" },
+      {path: "dealership_id", select: "name"},
+      {path: "manufacturer_id", select: "name"},
     ]);
 
     const totals = await DealerManufacturerDebt.aggregate([
-      { $match: extraQuery },
+      {$match: extraQuery},
       {
         $group: {
           _id: null,
-          totalAmount: { $sum: { $ifNull: ["$total_amount", 0] } },
-          remainingAmount: { $sum: { $ifNull: ["$remaining_amount", 0] } },
+          totalAmount: {$sum: {$ifNull: ["$total_amount", 0]}},
+          remainingAmount: {$sum: {$ifNull: ["$remaining_amount", 0]}},
         },
       },
     ]);
@@ -642,42 +650,105 @@ export async function listManufacturerDebts(req, res, next) {
  * GET /api/debts/dealer
  * Get all debts for the logged-in dealer
  */
+
 export async function getDealerDebts(req, res, next) {
   try {
-    const dealer_id = req.user.dealership_id;
-    if (!dealer_id) return errorRes(res, DealerMessage.MISSING_FIELDS, 400);
+    const dealership_id_str =
+      req.user?.dealership_id || req.query.dealership_id;
 
-    const extraQuery = { dealership_id: dealer_id };
+    if (!dealership_id_str) {
+      return next(new Error("Missing dealership_id"));
+    }
 
-    const result = await paginate(DealerManufacturerDebt, req, [], extraQuery);
+    const dealership_id = new mongoose.Types.ObjectId(dealership_id_str);
 
-    const populatedData = await DealerManufacturerDebt.populate(result.data, {
-      path: "manufacturer_id",
-      select: "name",
-    });
+    // Hỗ trợ: ?status=partial,settled hoặc ?status=partial
+    let statusFilter = ["partial", "settled"]; // mặc định
+    if (req.query.status) {
+      statusFilter = req.query.status
+        .split(",")
+        .map((s) => s.trim().toLowerCase());
+    }
 
-    const totals = await DealerManufacturerDebt.aggregate([
-      { $match: extraQuery },
+    // Nếu muốn thêm điều kiện linh hoạt khác (ví dụ còn dư nợ)
+    // const onlyUnpaid = req.query.onlyUnpaid === "true";
+
+    const matchStage = {
+      status: {$in: statusFilter},
+      // ...(onlyUnpaid ? { remaining_amount: { $gt: 0 } } : {}), // tùy chọn mở rộng
+    };
+
+    // --- PIPELINE ---
+    const pipeline = [
       {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: { $ifNull: ["$total_amount", 0] } },
-          remainingAmount: { $sum: { $ifNull: ["$remaining_amount", 0] } },
+        $lookup: {
+          from: "orders",
+          localField: "order_id",
+          foreignField: "_id",
+          as: "order",
         },
       },
+      {$unwind: "$order"},
+      {
+        $match: {
+          ...matchStage,
+          "order.dealership_id": dealership_id,
+        },
+      },
+      {
+        $lookup: {
+          from: "customers",
+          localField: "customer_id",
+          foreignField: "_id",
+          as: "customer",
+        },
+      },
+      {$unwind: "$customer"},
+      {
+        $project: {
+          total_amount: 1,
+          remaining_amount: 1,
+          status: 1,
+          order_id: "$order._id",
+          customer_id: "$customer._id",
+          order: {
+            code: "$order.code",
+            final_amount: "$order.final_amount",
+            status: "$order.status",
+            paid_amount: "$order.paid_amount",
+          },
+          customer: {
+            full_name: "$customer.full_name",
+            phone: "$customer.phone",
+            email: "$customer.email",
+          },
+        },
+      },
+    ];
+
+    // ---- PHÂN TRANG ----
+    const page = parseInt(req.query.page || 1);
+    const limit = parseInt(req.query.limit || 10);
+    const skip = (page - 1) * limit;
+
+    const [data, totalCount] = await Promise.all([
+      Debt.aggregate([...pipeline, {$skip: skip}, {$limit: limit}]),
+      Debt.aggregate([...pipeline, {$count: "count"}]),
     ]);
 
-    const totalAmount = totals[0]?.totalAmount || 0;
-    const remainingAmount = totals[0]?.remainingAmount || 0;
+    const totalItems = totalCount[0]?.count || 0;
+    const totalPages = Math.ceil(totalItems / limit);
 
     return success(res, DealerMessage.DEBTS_RETRIEVED, {
-      ...result,
-      data: populatedData,
-      totalAmount,
-      remainingAmount,
+      page,
+      limit,
+      totalPages,
+      totalItems,
+      filters: {status: statusFilter},
+      data,
     });
-  } catch (err) {
-    next(err);
+  } catch (e) {
+    next(e);
   }
 }
 
@@ -687,7 +758,7 @@ export async function getDealerDebts(req, res, next) {
  */
 export async function getDealerManufacturerDebtById(req, res, next) {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
 
     const debt = await DealerManufacturerDebt.findById(id)
       .populate("dealership_id", "company_name address phone email")
@@ -743,8 +814,8 @@ export async function getDealerManufacturerDebtById(req, res, next) {
  */
 export async function getCustomerDebtByOrder(req, res, next) {
   try {
-    const { orderId } = req.params;
-    const debt = await Debt.findOne({ order_id: orderId })
+    const {orderId} = req.params;
+    const debt = await Debt.findOne({order_id: orderId})
       .populate("customer_id", "full_name phone email")
       .populate("order_id", "code final_amount status paid_amount")
       .lean();
@@ -763,7 +834,7 @@ export async function getCustomerDebtByOrder(req, res, next) {
  */
 export async function getDealerManufacturerDebtByRequest(req, res, next) {
   try {
-    const { requestId } = req.params;
+    const {requestId} = req.params;
     // Tìm RequestVehicle
     const requestVehicle = await RequestVehicle.findById(requestId).lean();
     if (!requestVehicle) {

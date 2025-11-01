@@ -57,7 +57,7 @@ async function loadExistingData() {
   console.log("\n📥 [1/6] Loading existing data...");
 
   // Load manufacturer
-  manufacturer = await Manufacturer.findOne({ name: "VinFast Vietnam" });
+  manufacturer = await Manufacturer.findOne({name: "VinFast Vietnam"});
   if (!manufacturer) {
     throw new Error(
       "❌ Manufacturer not found! Please run seed-complete-system.js first."
@@ -66,7 +66,7 @@ async function loadExistingData() {
   console.log(`✓ Found manufacturer: ${manufacturer.name}`);
 
   // Load EVM user
-  evmUser = await User.findOne({ email: "evm@vinfast.vn" });
+  evmUser = await User.findOne({email: "evm@vinfast.vn"});
   if (!evmUser) {
     throw new Error(
       "❌ EVM user not found! Please run seed-complete-system.js first."
@@ -89,7 +89,7 @@ async function loadExistingData() {
   for (const dealer of dealerDocs) {
     const staff = await User.findOne({
       dealership_id: dealer._id,
-      email: { $regex: /^staff\./ },
+      email: {$regex: /^staff\./},
     });
 
     dealers.push({
@@ -227,7 +227,7 @@ async function approveAndTransferStock() {
   console.log("\n🚚 [3/6] Approving requests & transferring stock...");
 
   for (const scenario of testScenarios) {
-    const { request, dealer, vehicle, color } = scenario;
+    const {request, dealer, vehicle, color} = scenario;
 
     // ✅ APPROVE REQUEST
     request.status = "approved";
@@ -322,7 +322,7 @@ async function createOrdersAndDeductStock() {
   console.log("\n🛒 [4/6] Creating orders & deducting stock (FIFO)...");
 
   for (const scenario of testScenarios) {
-    const { dealer, vehicle, color, orderQuantity } = scenario;
+    const {dealer, vehicle, color, orderQuantity} = scenario;
 
     // Create customer
     const customer = await Customer.create({
@@ -430,7 +430,7 @@ async function createOrdersAndDeductStock() {
         quantity: deductFromThisStock,
         unit_cost: stock.unit_cost,
         allocated_at: new Date(),
-        notes: `FIFO deduct - Test flow`,
+        notes: "FIFO deduct - Test flow",
       });
 
       remainingToDeduct -= deductFromThisStock;
@@ -469,7 +469,7 @@ async function createPaymentsAndSettleDebt() {
   console.log("\n💰 [5/6] Creating payments & settling debts...");
 
   for (const scenario of testScenarios) {
-    const { order, customer } = scenario;
+    const {order, customer} = scenario;
 
     const remainingAmount = order.final_amount - order.paid_amount;
 
@@ -645,7 +645,7 @@ async function verifyTracking() {
       (i) => i.request_id.toString() === scenario.request._id.toString()
     );
 
-    console.log(`  💰 Debt Item:`);
+    console.log("💰 Debt Item:");
     console.log(
       `    - settled_amount: ${debtItem.settled_amount.toLocaleString()}đ`
     );

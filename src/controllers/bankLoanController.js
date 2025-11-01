@@ -30,9 +30,7 @@ export const submitBankLoanApplication = async (req, res, next) => {
 
     // ========== VALIDATIONS ==========
     if (!order_id || !bank_id) {
-      return next(
-        new AppError("order_id and bank_id are required", 400)
-      );
+      return next(new AppError("order_id and bank_id are required", 400));
     }
 
     // Check Order exists and valid
@@ -46,10 +44,7 @@ export const submitBankLoanApplication = async (req, res, next) => {
     if (order.payment_method !== "installment") {
       await session.abortTransaction();
       return next(
-        new AppError(
-          'Order payment_method must be "installment"',
-          400
-        )
+        new AppError("Order payment_method must be installment", 400)
       );
     }
 
@@ -58,7 +53,7 @@ export const submitBankLoanApplication = async (req, res, next) => {
       await session.abortTransaction();
       return next(
         new AppError(
-          'Order status must be "deposit_paid" to submit loan application',
+          "Order status must be deposit_paid to submit loan application",
           400
         )
       );
@@ -79,7 +74,7 @@ export const submitBankLoanApplication = async (req, res, next) => {
     // Check no active BankLoan already exists
     const existingLoan = await BankLoan.findOne({
       order_id,
-      status: { $nin: ["rejected", "canceled"] },
+      status: {$nin: ["rejected", "canceled"]},
     }).session(session);
 
     if (existingLoan) {
@@ -97,7 +92,8 @@ export const submitBankLoanApplication = async (req, res, next) => {
     // P = L[r(1+r)^n]/[(1+r)^n-1]
     // L = loan amount, r = monthly rate, n = months
     const monthly_rate = interest_rate / 12 / 100;
-    const numerator = monthly_rate * Math.pow(1 + monthly_rate, loan_term_months);
+    const numerator =
+      monthly_rate * Math.pow(1 + monthly_rate, loan_term_months);
     const denominator = Math.pow(1 + monthly_rate, loan_term_months) - 1;
     const monthly_payment = Math.round(loan_amount * (numerator / denominator));
 
@@ -139,7 +135,7 @@ export const submitBankLoanApplication = async (req, res, next) => {
           created_by: req.user._id,
         },
       ],
-      { session }
+      {session}
     );
 
     // ========== UPDATE ORDER ==========
@@ -152,18 +148,15 @@ export const submitBankLoanApplication = async (req, res, next) => {
       first_payment_date: null,
       disbursement_payment_id: null,
     };
-    await order.save({ session });
+    await order.save({session});
 
     // ========== LOGGING ==========
-    logger.info(
-      `Bank loan submitted: Order ${order.code}, Bank ${bank.name}`,
-      {
-        order_id,
-        bank_loan_id: bankLoan[0]._id,
-        loan_amount,
-        user_id: req.user._id,
-      }
-    );
+    logger.info(`Bank loan submitted: Order ${order.code}, Bank ${bank.name}`, {
+      order_id,
+      bank_loan_id: bankLoan[0]._id,
+      loan_amount,
+      user_id: req.user._id,
+    });
 
     await session.commitTransaction();
 
@@ -197,12 +190,8 @@ export const approveBankLoan = async (req, res, next) => {
   session.startTransaction();
 
   try {
-    const { id: loan_id } = req.params;
-    const {
-      approved_amount,
-      approval_reference_code,
-      approval_notes,
-    } = req.body;
+    const {id: loan_id} = req.params;
+    const {approved_amount, approval_reference_code, approval_notes} = req.body;
 
     if (!approved_amount || !approval_reference_code) {
       return next(
@@ -224,10 +213,7 @@ export const approveBankLoan = async (req, res, next) => {
     if (bankLoan.status !== "submitted") {
       await session.abortTransaction();
       return next(
-        new AppError(
-          'Bank loan status must be "submitted" to approve',
-          400
-        )
+        new AppError("Bank loan status must be \"submitted\" to approve", 400)
       );
     }
 
@@ -239,12 +225,12 @@ export const approveBankLoan = async (req, res, next) => {
       approved_by: req.user._id,
       approved_amount,
       approval_reference_code,
-      approval_notes: approval_notes || "",
+      approval_notes: approval_notes || null,
       rejection_reason: null,
       rejected_by: null,
       rejected_at: null,
     };
-    await bankLoan.save({ session });
+    await bankLoan.save({session});
 
     // ========== LOGGING ==========
     logger.info(`Bank loan approved: ${loan_id}`, {
@@ -277,13 +263,11 @@ export const rejectBankLoan = async (req, res, next) => {
   session.startTransaction();
 
   try {
-    const { id: loan_id } = req.params;
-    const { rejection_reason } = req.body;
+    const {id: loan_id} = req.params;
+    const {rejection_reason} = req.body;
 
     if (!rejection_reason) {
-      return next(
-        new AppError("rejection_reason is required", 400)
-      );
+      return next(new AppError("rejection_reason is required", 400));
     }
 
     // Check BankLoan exists
@@ -297,10 +281,7 @@ export const rejectBankLoan = async (req, res, next) => {
     if (bankLoan.status !== "submitted") {
       await session.abortTransaction();
       return next(
-        new AppError(
-          'Bank loan status must be "submitted" to reject',
-          400
-        )
+        new AppError("Bank loan status must be \"submitted\" to reject", 400)
       );
     }
 
@@ -317,12 +298,12 @@ export const rejectBankLoan = async (req, res, next) => {
       rejected_by: req.user._id,
       rejected_at: new Date(),
     };
-    await bankLoan.save({ session });
+    await bankLoan.save({session});
 
     // ========== UPDATE ORDER ==========
     const order = await Order.findById(bankLoan.order_id).session(session);
     order.status = "deposit_paid"; // Revert to deposit_paid
-    await order.save({ session });
+    await order.save({session});
 
     // ========== LOGGING ==========
     logger.info(`Bank loan rejected: ${loan_id}`, {
@@ -337,7 +318,7 @@ export const rejectBankLoan = async (req, res, next) => {
       message: "Bank loan rejected successfully",
       data: {
         bank_loan: bankLoan,
-        order: { _id: order._id, status: order.status },
+        order: {_id: order._id, status: order.status},
       },
     });
   } catch (error) {
@@ -358,7 +339,7 @@ export const disburseBankLoan = async (req, res, next) => {
   session.startTransaction();
 
   try {
-    const { id: loan_id } = req.params;
+    const {id: loan_id} = req.params;
     const {
       disbursed_amount,
       disbursement_reference_code,
@@ -386,10 +367,7 @@ export const disburseBankLoan = async (req, res, next) => {
     if (bankLoan.status !== "approved") {
       await session.abortTransaction();
       return next(
-        new AppError(
-          'Bank loan status must be "approved" to disburse',
-          400
-        )
+        new AppError("Bank loan status must be \"approved\" to disburse", 400)
       );
     }
 
@@ -404,21 +382,22 @@ export const disburseBankLoan = async (req, res, next) => {
           paid_by: bankLoan.bank_id,
           status: "completed",
           reference_code: disbursement_reference_code,
-          notes: disbursement_notes,
+          notes: disbursement_notes || null,
           paid_at: new Date(),
           recorded_by: req.user._id,
         },
       ],
-      { session }
+      {session}
     );
 
     // ========== UPDATE ORDER ==========
     const order = await Order.findById(bankLoan.order_id).session(session);
     order.paid_amount += disbursed_amount;
     order.status = "fully_paid";
-    order.installment_info.first_payment_date = first_payment_date || new Date();
+    order.installment_info.first_payment_date =
+      first_payment_date || new Date();
     order.installment_info.disbursement_payment_id = payment[0]._id;
-    await order.save({ session });
+    await order.save({session});
 
     // ========== SETTLE CUSTOMER DEBT ==========
     const debt = await Debt.findOne({
@@ -432,7 +411,7 @@ export const disburseBankLoan = async (req, res, next) => {
       debt.settled_at = new Date();
       debt.settled_by = req.user._id;
       debt.remaining_amount = 0;
-      await debt.save({ session });
+      await debt.save({session});
     }
 
     // ========== UPDATE BANK LOAN ==========
@@ -442,14 +421,14 @@ export const disburseBankLoan = async (req, res, next) => {
       disbursed_by: req.user._id,
       disbursed_amount,
       disbursement_reference_code,
-      disbursement_notes: disbursement_notes || "",
+      disbursement_notes: disbursement_notes || null,
       payment_id: payment[0]._id,
     };
     bankLoan.order_payment_info = {
       first_payment_date: first_payment_date || new Date(),
       disbursement_payment_id: payment[0]._id,
     };
-    await bankLoan.save({ session });
+    await bankLoan.save({session});
 
     // ========== LOGGING ==========
     logger.info(
@@ -487,7 +466,7 @@ export const disburseBankLoan = async (req, res, next) => {
 // ========== 5. GET BANK LOAN BY ID ==========
 export const getBankLoanById = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
 
     const bankLoan = await BankLoan.findById(id)
       .populate("order_id", "code final_amount paid_amount status")
@@ -514,7 +493,7 @@ export const getBankLoanById = async (req, res, next) => {
 // ========== 6. LIST BANK LOANS ==========
 export const listBankLoans = async (req, res, next) => {
   try {
-    const { status, bank_id, customer_id, dealership_id } = req.query;
+    const {status, bank_id, customer_id, dealership_id} = req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
 
@@ -530,7 +509,7 @@ export const listBankLoans = async (req, res, next) => {
       .populate("bank_id", "name code")
       .populate("order_id", "code final_amount")
       .populate("customer_id", "name phone")
-      .sort({ created_at: -1 })
+      .sort({created_at: -1})
       .skip(skip)
       .limit(limit);
 

@@ -9,11 +9,11 @@ import Order from "../models/Order.js";
 import Vehicle from "../models/Vehicle.js";
 import Dealership from "../models/Dealership.js";
 import RequestVehicle from "../models/RequestVehicle.js";
-import { success, created, error as errorRes } from "../utils/response.js";
-import { paginate } from "../utils/pagination.js";
-import { capitalizeVietnamese } from "../utils/validateWord.js";
-import { emitRequestStatusUpdate } from "../config/socket.js";
-import { ROLE } from "../enum/roleEnum.js";
+import {success, created, error as errorRes} from "../utils/response.js";
+import {paginate} from "../utils/pagination.js";
+import {capitalizeVietnamese} from "../utils/validateWord.js";
+import {emitRequestStatusUpdate} from "../config/socket.js";
+import {ROLE} from "../enum/roleEnum.js";
 
 /**
  * Generate request code theo timestamp
@@ -40,7 +40,7 @@ function generateRequestCode() {
 export async function createOrderRequest(req, res, next) {
   try {
     const user = req.user;
-    const { items = [], notes, order_id } = req.body;
+    const {items = [], notes, order_id} = req.body;
 
     // ✅ 1. VALIDATE ROLE - Chỉ DEALER_STAFF hoặc DEALER_MANAGER
     if (![ROLE.DEALER_STAFF, ROLE.DEALER_MANAGER].includes(user.role)) {
@@ -161,9 +161,9 @@ export async function createOrderRequest(req, res, next) {
 
     // ✅ 7. POPULATE RESPONSE
     await request.populate([
-      { path: "requested_by", select: "full_name email role" },
-      { path: "dealership_id", select: "name" },
-      { path: "order_id", select: "code status" },
+      {path: "requested_by", select: "full_name email role"},
+      {path: "dealership_id", select: "name"},
+      {path: "order_id", select: "code status"},
     ]);
 
     return created(res, "Order request created successfully", {
@@ -183,11 +183,11 @@ export async function createOrderRequest(req, res, next) {
  */
 export async function listOrderRequests(req, res, next) {
   try {
-    const { status, q, startDate, endDate } = req.query;
+    const {status, q, startDate, endDate} = req.query;
 
     const extraQuery = {};
     if (status) extraQuery.status = status;
-    if (q) extraQuery.code = { $regex: q, $options: "i" };
+    if (q) extraQuery.code = {$regex: q, $options: "i"};
     if (startDate || endDate) {
       extraQuery.createdAt = {};
       if (startDate) extraQuery.createdAt.$gte = new Date(startDate);
@@ -197,11 +197,11 @@ export async function listOrderRequests(req, res, next) {
     const result = await paginate(OrderRequest, req, ["code"], extraQuery);
 
     const populatedData = await OrderRequest.populate(result.data, [
-      { path: "requested_by", select: "full_name email" },
-      { path: "approved_by", select: "full_name email" },
-      { path: "rejected_by", select: "full_name email" },
-      { path: "dealership_id", select: "name" },
-      { path: "order_id", select: "code status" },
+      {path: "requested_by", select: "full_name email"},
+      {path: "approved_by", select: "full_name email"},
+      {path: "rejected_by", select: "full_name email"},
+      {path: "dealership_id", select: "name"},
+      {path: "order_id", select: "code status"},
     ]);
 
     return success(res, "Order requests retrieved successfully", {
@@ -225,7 +225,7 @@ export async function approveOrderRequest(req, res, next) {
 
   try {
     const user = req.user;
-    const { id } = req.params;
+    const {id} = req.params;
 
     // ✅ 1. VALIDATE ROLE - Chỉ DEALER_MANAGER hoặc ADMIN
     if (user.role !== ROLE.DEALER_MANAGER && user.role !== ROLE.ADMIN) {
@@ -278,7 +278,7 @@ export async function approveOrderRequest(req, res, next) {
       await session.abortTransaction();
       return errorRes(
         res,
-        `RequestVehicles already created for this OrderRequest`,
+        "RequestVehicles already created for this OrderRequest",
         400
       );
     }
@@ -287,7 +287,7 @@ export async function approveOrderRequest(req, res, next) {
     request.status = "approved";
     request.approved_by = user.id;
     request.approved_at = new Date();
-    await request.save({ session });
+    await request.save({session});
 
     // ✅ 7. TẠO REQUEST VEHICLES CHO TỪNG ITEM
     const createdRequests = [];
@@ -325,7 +325,7 @@ export async function approveOrderRequest(req, res, next) {
         vehicle_id: item.vehicle_id,
         dealership_id: request.dealership_id,
         color: normalizedColor,
-        status: { $in: ["pending", "in_progress", "approved"] }, // Chưa hoàn tất
+        status: {$in: ["pending", "in_progress", "approved"]}, // Chưa hoàn tất
       }).session(session);
 
       if (existing) {
@@ -352,7 +352,7 @@ export async function approveOrderRequest(req, res, next) {
             order_id: request.order_id || null, // ✅ Link về Order (nếu có - CASE 1)
           },
         ],
-        { session }
+        {session}
       );
 
       createdRequests.push(newReq[0]);
@@ -390,7 +390,7 @@ export async function approveOrderRequest(req, res, next) {
         // ✅ Chỉ update nếu Order đang đợi
         if (order.status === "deposit_paid") {
           order.status = "waiting_vehicle_request";
-          await order.save({ session });
+          await order.save({session});
         }
       }
     }
@@ -400,10 +400,10 @@ export async function approveOrderRequest(req, res, next) {
 
     // ✅ 10. POPULATE & RETURN
     await request.populate([
-      { path: "requested_by", select: "full_name email role" },
-      { path: "approved_by", select: "full_name email role" },
-      { path: "dealership_id", select: "name" },
-      { path: "order_id", select: "code status" },
+      {path: "requested_by", select: "full_name email role"},
+      {path: "approved_by", select: "full_name email role"},
+      {path: "dealership_id", select: "name"},
+      {path: "order_id", select: "code status"},
     ]);
 
     return success(res, "Order request approved successfully", {
@@ -444,8 +444,8 @@ export async function rejectOrderRequest(req, res, next) {
 
   try {
     const user = req.user;
-    const { id } = req.params;
-    const { reason } = req.body;
+    const {id} = req.params;
+    const {reason} = req.body;
 
     // ✅ 1. VALIDATE ROLE
     if (user.role !== ROLE.DEALER_MANAGER && user.role !== ROLE.ADMIN) {
@@ -488,7 +488,7 @@ export async function rejectOrderRequest(req, res, next) {
     request.rejected_by = user.id;
     request.rejected_at = new Date();
     request.rejection_reason = reason;
-    await request.save({ session });
+    await request.save({session});
 
     // ✅ 6. NẾU CÓ ORDER (CASE 1), XỬ LÝ ORDER
     let orderUpdated = false;
@@ -505,7 +505,7 @@ export async function rejectOrderRequest(req, res, next) {
               request.code
             } rejected by manager. ` +
             `Reason: ${reason}. Order is still active - create new request or cancel manually.`;
-          await order.save({ session });
+          await order.save({session});
           orderUpdated = true;
         }
       }
@@ -516,10 +516,10 @@ export async function rejectOrderRequest(req, res, next) {
 
     // ✅ 8. POPULATE & RETURN
     await request.populate([
-      { path: "requested_by", select: "full_name email role" },
-      { path: "rejected_by", select: "full_name email role" },
-      { path: "dealership_id", select: "name" },
-      { path: "order_id", select: "code status" },
+      {path: "requested_by", select: "full_name email role"},
+      {path: "rejected_by", select: "full_name email role"},
+      {path: "dealership_id", select: "name"},
+      {path: "order_id", select: "code status"},
     ]);
 
     return success(res, "Order request rejected", {
