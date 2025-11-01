@@ -426,27 +426,18 @@ export async function settleDealerManufacturerByOrderPayment(
       // ==== BỔ SUNG: Ghi nhận settled_by_orders cho từng debt item theo tỷ lệ số lượng ====
       if (Array.isArray(debt.items) && debt.items.length > 0) {
         // Tổng quantity của debt
-        const totalQty =
-          debt.items.reduce((sum, it) => sum + (it.quantity || 0), 0) || 1;
+        const totalQty = debt.items.reduce((sum, it) => sum + (it.quantity || 0), 0) || 1;
         for (const debtItem of debt.items) {
           if (!debtItem.settled_by_orders) debtItem.settled_by_orders = [];
           // Phân bổ payment cho debt item này theo tỷ lệ quantity
           const itemQty = debtItem.quantity || 0;
           if (itemQty === 0) continue;
           // Tính phần payment phân bổ cho debt item này
-          const allocatedAmount = Math.round(
-            itemPayment * (itemQty / totalQty)
-          );
+          const allocatedAmount = Math.round(itemPayment * (itemQty / totalQty));
           // Nếu đã fully paid thì không ghi nhận nữa
           if (debtItem.settled_amount >= debtItem.amount) continue;
           // Ghi nhận settled_by_orders nếu chưa có cho order này
-          if (
-            !debtItem.settled_by_orders.some(
-              (s) =>
-                s.order_id?.toString() === order._id.toString() &&
-                s.payment_id?.toString() === payment._id.toString()
-            )
-          ) {
+          if (!debtItem.settled_by_orders.some(s => s.order_id?.toString() === order._id.toString() && s.payment_id?.toString() === payment._id.toString())) {
             debtItem.settled_by_orders.push({
               order_id: order._id,
               order_code: order.code,
@@ -454,7 +445,7 @@ export async function settleDealerManufacturerByOrderPayment(
               amount: allocatedAmount,
               settled_at: new Date(),
               payment_id: payment._id,
-              notes: `Settled from Order ${order.code} - fallback (no batch tracking)`,
+              notes: `Settled from Order ${order.code} - fallback (no batch tracking)`
             });
           }
         }

@@ -1069,7 +1069,6 @@ export async function payDeposit(req, res, next) {
 
     // ========== STEP 5a: CÓ STOCK → TRỪ STOCK NGAY (GIỮ CHỖ) ==========
     if (stockCheckResult.hasStock) {
-      console.log("✅ Stock available for Order", stockCheckResult);
       // Trừ stock để giữ chỗ cho khách
       await deductStockForOrder(order.items, order.dealership_id, session);
 
@@ -1938,28 +1937,15 @@ async function checkStockForOrder(items, dealership_id) {
       throw new Error(`Không tìm thấy xe: ${item.vehicle_id}`);
     }
 
-    // Tính tổng số lượng còn lại của tất cả các lô stock cùng màu, cùng đại lý, còn hàng
-    const available =
-      vehicle.stocks
-        ?.filter(
-          (s) =>
-            s.owner_type === "dealer" &&
-            s.owner_id.toString() === dealership_id.toString() &&
-            s.color === item.color &&
-            (!s.status || s.status === "active") &&
-            (s.remaining_quantity !== undefined
-              ? s.remaining_quantity > 0
-              : s.quantity > 0)
-        )
-        .reduce(
-          (sum, s) =>
-            sum +
-            (s.remaining_quantity !== undefined
-              ? s.remaining_quantity
-              : s.quantity),
-          0
-        ) || 0;
+    // Tìm stock của đại lý theo màu cụ thể
+    const dealerStock = vehicle.stocks?.find(
+      (s) =>
+        s.owner_type === "dealer" &&
+        s.owner_id.toString() === dealership_id.toString() &&
+        s.color === item.color
+    );
 
+    const available = dealerStock?.quantity || 0;
     const requested = item.quantity || 1;
 
     details.push({
@@ -2208,7 +2194,7 @@ export async function cancelOrder(req, res, next) {
     }
 
     // ========== 2. HOÀN LẠI STOCK NẾU ĐÃ TRỪ ==========
-    // Chỉ hoàn lại stock nếu order đã trừ stock (deposit_paid, vehicle_ready, fully_paid)
+    // Chỉ hoàn stock nếu order đã trừ stock (deposit_paid, vehicle_ready, fully_paid)
     const stockDeductedStatuses = [
       "deposit_paid",
       "vehicle_ready",
