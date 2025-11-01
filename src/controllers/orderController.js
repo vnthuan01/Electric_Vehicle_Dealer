@@ -955,7 +955,7 @@ export async function payDeposit(req, res, next) {
     const { id } = req.params; // ID từ route params
     const {
       deposit_amount, // Số tiền cọc (VD: 10% của final_amount)
-      payment_method, // "cash", "bank", "qr", "card"
+      payment_method, // "cash", "bank", "qr", "card" - cách thanh toán tiền cọc
       signed_contract_url, // URL file hợp đồng đã ký (upload trước khi gọi API)
       notes,
     } = req.body;
@@ -979,6 +979,11 @@ export async function payDeposit(req, res, next) {
       );
     }
 
+    // 1.2b. ✅ NEW: Log order payment_method để debug
+    console.log(
+      `[payDeposit] Order ${order.code}: payment_method=${order.payment_method || "cash"}`
+    );
+
     // 1.3. Validate deposit_amount
     if (!deposit_amount || deposit_amount <= 0) {
       await session.abortTransaction();
@@ -994,7 +999,7 @@ export async function payDeposit(req, res, next) {
       );
     }
 
-    // 1.4. Validate payment_method
+    // 1.4. Validate payment_method (cách thanh toán tiền cọc)
     const allowedMethods = ["cash", "bank", "qr", "card"];
     if (!allowedMethods.includes(payment_method)) {
       await session.abortTransaction();
@@ -1002,6 +1007,13 @@ export async function payDeposit(req, res, next) {
         res,
         `Payment method phải là: ${allowedMethods.join(", ")}`,
         400
+      );
+    }
+
+    // 1.5. ✅ NEW: Nếu order.payment_method="installment", thông báo flow tiếp theo
+    if (order.payment_method === "installment") {
+      console.log(
+        `[payDeposit] ℹ️ Order ${order.code} is INSTALLMENT. After deposit, must submit bank loan application.`
       );
     }
 
@@ -1183,14 +1195,28 @@ export async function payDeposit(req, res, next) {
       .populate("order_request_id")
       .lean();
 
+    // ✅ NEW: Build response message based on order.payment_method
+    let responseMessage = "";
+    if (order.payment_method === "installment") {
+      responseMessage = stockCheckResult.hasStock
+        ? "✅ Tiền cọc thành công (Trả góp). Bước tiếp: Gửi hồ sơ vay ngân hàng (submitBankLoanApplication)."
+        : "✅ Tiền cọc thành công (Trả góp). Xe hết hàng, đã request từ hãng. Sau khi hãng duyệt sẽ gửi hồ sơ vay.";
+    } else {
+      responseMessage = stockCheckResult.hasStock
+        ? "Xe có sẵn, đã giữ chỗ cho khách. Vài ngày sau sẽ gọi khách thanh toán số tiền còn lại."
+        : "Xe hết hàng, đã tạo request lên hãng. Chờ hãng approve sẽ thông báo khách.";
+    }
+
     return success(res, "Đã nhận tiền cọc thành công!", {
       order: populatedOrder,
       payment: payment[0],
       has_stock: stockCheckResult.hasStock,
       order_request: orderRequest || null,
-      message: stockCheckResult.hasStock
-        ? "Xe có sẵn, đã giữ chỗ cho khách. Vài ngày sau sẽ gọi khách thanh toán số tiền còn lại."
-        : "Xe hết hàng, đã tạo request lên hãng. Chờ hãng approve sẽ thông báo khách.",
+      payment_method: order.payment_method || "cash",
+      message: responseMessage,
+      next_step: order.payment_method === "installment"
+        ? "POST /api/bank-loans/submit (submit loan application)"
+        : "POST /api/orders/:id/pay-final (pay remaining amount)",
     });
   } catch (err) {
     await session.abortTransaction();
@@ -1248,6 +1274,20 @@ export async function markVehicleReady(req, res, next) {
           `Đơn hàng phải ở trạng thái "deposit_paid" hoặc "waiting_vehicle_request" (hiện tại: ${order.status})`,
         400
       );
+    }
+
+    // 1.2b. ✅ NEW: Nếu installment, phải là status="fully_paid" (sau khi bank giải ngân)
+    if (order.payment_method === "installment" && order.status !== "fully_paid") {
+      // ℹ️ Nếu installment chưa fully_paid, reject
+      if (order.status === "waiting_bank_approval" || order.status === "deposit_paid") {
+        await session.abortTransaction();
+        return errorRes(
+          res,
+          `❌ Đơn hàng trả góp không thể mark ready ở trạng thái "${order.status}". ` +
+            `Phải chờ ngân hàng giải ngân (status="fully_paid") trước.`,
+          400
+        );
+      }
     }
 
     // ========== STEP 2: CẬP NHẬT THÔNG TIN XE SẴN SÀNG ==========
@@ -1408,7 +1448,19 @@ export async function payFinalAmount(req, res, next) {
       return errorRes(res, "Không tìm thấy đơn hàng!", 404);
     }
 
-    // 1.2. Validate status phải là "vehicle_ready"
+    // 1.2a. ⚡ NEW: Reject installment orders - trả góp không được phép dùng API này
+    if (order.payment_method === "installment") {
+      await session.abortTransaction();
+      return errorRes(
+        res,
+        `❌ Không thể sử dụng payFinalAmount cho đơn hàng trả góp (installment)! ` +
+          `Vui lòng sử dụng Bank Loan API thay thế: POST /api/bank-loans/disburse. ` +
+          `Đối với trả góp, tiền còn lại sẽ được ngân hàng giải ngân.`,
+        400
+      );
+    }
+
+    // 1.2b. Validate status phải là "vehicle_ready"
     if (order.status !== "vehicle_ready") {
       await session.abortTransaction();
       return errorRes(

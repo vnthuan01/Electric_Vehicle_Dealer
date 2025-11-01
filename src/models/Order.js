@@ -104,14 +104,48 @@ const orderSchema = new mongoose.Schema(
     final_amount: { type: Number, required: true },
     paid_amount: { type: Number, default: 0 },
 
-    // ✅ Track tổng tiền đã settle cho Dealer-Manufacturer (để tránh settle lặp lại)
-    order: { type: Number, default: 0 },
-
     // Hình thức thanh toán: cash (tiền mặt/trả thẳng) hoặc installment (trả góp)
     payment_method: {
       type: String,
       enum: ["cash", "installment"],
       default: "cash",
+    },
+
+    // ========== BANK LOAN (cho payment_method = "installment") ==========
+    bank_loan_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BankLoan",
+      default: null,
+      // Link tới BankLoan nếu payment_method = "installment"
+    },
+
+    installment_info: {
+      loan_amount: {
+        type: Number,
+        default: 0,
+        // Số tiền vay = final_amount - down_payment
+      },
+      tenure_months: {
+        type: Number,
+        default: 0,
+        // Thời hạn vay (tháng)
+      },
+      monthly_payment: {
+        type: Number,
+        default: 0,
+        // Số tiền trả hàng tháng
+      },
+      first_payment_date: {
+        type: Date,
+        default: null,
+        // Ngày khách bắt đầu trả cho ngân hàng
+      },
+      disbursement_payment_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Payment",
+        default: null,
+        // Payment ID khi ngân hàng giải ngân
+      },
     },
 
     // Thông tin kiểm tra tồn kho
@@ -198,6 +232,7 @@ const orderSchema = new mongoose.Schema(
         "pending", // Mới tạo, chưa check stock
         "deposit_paid", // Đã cọc, stock đã trừ nếu có xe
         "waiting_vehicle_request", // (Case hết xe) Đã request, chờ Hãng approve
+        "waiting_bank_approval", // (payment_method=installment) Chờ ngân hàng duyệt & giải ngân
         "vehicle_ready", // Xe sẵn sàng, chờ khách trả nốt
         "fully_paid", // Đã thanh toán đủ, sẵn sàng giao xe
         "delivered", // Đã giao xe

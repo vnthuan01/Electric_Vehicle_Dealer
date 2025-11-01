@@ -34,6 +34,8 @@ import bankProfileRoutes from "./routes/bankProfileRoutes.js";
 import contractRoutes from "./routes/contractRoutes.js";
 import orderStatusLogRoutes from "./routes/orderStatusLogRoutes.js";
 import orderRequestRoutes from "./routes/orderRequestRoutes.js";
+import bankRoutes from "./routes/bankRoutes.js";
+import bankLoanRoutes from "./routes/bankLoanRoutes.js";
 
 dotenv.config();
 
@@ -85,6 +87,8 @@ app.use(`${apiPrefix}/quotes`, quoteRoutes);
 app.use(`${apiPrefix}/bank-profiles`, bankProfileRoutes);
 app.use(`${apiPrefix}/contracts`, contractRoutes);
 app.use(`${apiPrefix}/order-status-logs`, orderStatusLogRoutes);
+app.use(`${apiPrefix}/banks`, bankRoutes);
+app.use(`${apiPrefix}/bank-loans`, bankLoanRoutes);
 
 console.log(`All routes mounted under prefix ${apiPrefix}`);
 
