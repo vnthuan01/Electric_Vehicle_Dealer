@@ -1,18 +1,20 @@
 import Vehicle from "../models/Vehicle.js";
 import DealerManufacturerDebt from "../models/DealerManufacturerDebt.js";
-import { success, created, error as errorRes } from "../utils/response.js";
-import { paginate } from "../utils/pagination.js";
+import {success, created, error as errorRes} from "../utils/response.js";
+import {paginate} from "../utils/pagination.js";
 import {
   DealerMessage,
   ManufacturerMessage,
   VehicleMessage,
 } from "../utils/MessageRes.js";
 import fetch from "node-fetch";
-import { cleanEmpty } from "../utils/cleanEmpty.js";
-import { emitVehicleDistribution } from "../config/socket.js";
+import {cleanEmpty} from "../utils/cleanEmpty.js";
+import {emitVehicleDistribution} from "../config/socket.js";
 import User from "../models/User.js";
 import Dealership from "../models/Dealership.js";
-import { capitalizeVietnamese } from "../utils/validateWord.js";
+import Manufacturer from "../models/Manufacturer.js";
+import {capitalizeVietnamese} from "../utils/validateWord.js";
+import mongoose from "mongoose";
 
 // Create one or multiple vehicles (EVM Staff, Admin only)
 export async function createVehicle(req, res, next) {
@@ -78,9 +80,9 @@ export async function createVehicle(req, res, next) {
         continue;
       }
 
-      const exists = await Vehicle.findOne({ sku });
+      const exists = await Vehicle.findOne({sku});
       if (exists) {
-        errors.push({ sku, message: VehicleMessage.SKU_ALREADY_EXISTS });
+        errors.push({sku, message: VehicleMessage.SKU_ALREADY_EXISTS});
         continue;
       }
 
@@ -95,7 +97,7 @@ export async function createVehicle(req, res, next) {
       if (Array.isArray(interior_features)) {
         formattedInteriorFeatures = interior_features
           .filter((f) => f && f.name)
-          .map((f) => ({ name: f.name, description: f.description || "" }));
+          .map((f) => ({name: f.name, description: f.description || ""}));
       }
 
       // Parse stocks_by_color from multipart/form-data JSON string
@@ -112,7 +114,13 @@ export async function createVehicle(req, res, next) {
         owner_type: "manufacturer",
         owner_id: manufacturer_id,
         color: sc.color,
-        quantity: sc.quantity,
+        quantity: sc.quantity || 0,
+        sold_quantity: 0,
+        remaining_quantity: sc.quantity || 0,
+        status: "active",
+        delivered_at: new Date(),
+        unit_cost: sc.unit_cost || 0,
+        created_by: req.user.id,
       }));
 
       validVehicles.push(
@@ -208,7 +216,7 @@ export async function getVehicles(req, res, next) {
     if (req.query.battery_type) cond.battery_type = req.query.battery_type;
 
     if (req.query.color_options)
-      cond.color_options = { $in: req.query.color_options.split(",") };
+      cond.color_options = {$in: req.query.color_options.split(",")};
 
     const result = await paginate(
       Vehicle,
@@ -218,7 +226,7 @@ export async function getVehicles(req, res, next) {
     );
 
     const dataWithPopulate = await Vehicle.populate(result.data, [
-      { path: "manufacturer_id", select: "name address" },
+      {path: "manufacturer_id", select: "name address"},
     ]);
 
     return res.json({
@@ -253,10 +261,10 @@ export async function updateVehicle(req, res, next) {
   try {
     req.body = cleanEmpty(req.body);
     const vehicle = await Vehicle.findById(req.params.id);
-    if (!vehicle) return res.status(404).json({ message: "Vehicle not found" });
+    if (!vehicle) return res.status(404).json({message: "Vehicle not found"});
 
     // --- Remove images if requested ---
-    const { imagesToRemove } = req.body;
+    const {imagesToRemove} = req.body;
     if (imagesToRemove && imagesToRemove.length > 0) {
       vehicle.images = vehicle.images.filter(
         (img) => !imagesToRemove.includes(img)
@@ -286,6 +294,7 @@ export async function updateVehicle(req, res, next) {
         if (!sc || !sc.color) continue;
         const qty = Number(sc.quantity || 0);
         const col = sc.color;
+        const unitCost = Number(sc.unit_cost || 0);
 
         // Tìm stock manufacturer đã tồn tại với color này
         const idx = vehicle.stocks?.findIndex(
@@ -293,8 +302,25 @@ export async function updateVehicle(req, res, next) {
         );
 
         if (idx >= 0) {
-          // Cập nhật quantity
+          // Cập nhật quantity và remaining_quantity
+          const oldQuantity = vehicle.stocks[idx].quantity || 0;
+          const oldSold = vehicle.stocks[idx].sold_quantity || 0;
           vehicle.stocks[idx].quantity = qty;
+
+          // Tính remaining dựa trên quantity mới và sold cũ
+          vehicle.stocks[idx].remaining_quantity = Math.max(0, qty - oldSold);
+
+          // Update unit_cost if provided
+          if (unitCost > 0) {
+            vehicle.stocks[idx].unit_cost = unitCost;
+          }
+
+          // Update status
+          if (vehicle.stocks[idx].remaining_quantity === 0) {
+            vehicle.stocks[idx].status = "depleted";
+          } else if (vehicle.stocks[idx].status === "depleted") {
+            vehicle.stocks[idx].status = "active";
+          }
         } else {
           // Thêm mới stock manufacturer
           vehicle.stocks.push({
@@ -302,6 +328,12 @@ export async function updateVehicle(req, res, next) {
             owner_id: vehicle.manufacturer_id,
             color: col,
             quantity: qty,
+            sold_quantity: 0,
+            remaining_quantity: qty,
+            status: qty > 0 ? "active" : "depleted",
+            delivered_at: new Date(),
+            unit_cost: unitCost,
+            created_by: req.user.id,
           });
         }
       }
@@ -316,7 +348,7 @@ export async function updateVehicle(req, res, next) {
     }
 
     await vehicle.save();
-    return res.json({ success: true, vehicle });
+    return res.json({success: true, vehicle});
   } catch (err) {
     next(err);
   }
@@ -334,7 +366,7 @@ export async function deleteVehicle(req, res, next) {
     (vehicle.is_deleted = true), (vehicle.status = "inactive");
     await vehicle.save();
 
-    return success(res, VehicleMessage.DELETE_SUCCESS, { id: vehicle._id });
+    return success(res, VehicleMessage.DELETE_SUCCESS, {id: vehicle._id});
   } catch (err) {
     next(err);
   }
@@ -380,7 +412,7 @@ function summarizeCar(car) {
 
 export async function compareCars(req, res) {
   try {
-    const { id1, id2 } = req.params;
+    const {id1, id2} = req.params;
 
     const [car1, car2] = await Promise.all([
       Vehicle.findById(id1),
@@ -388,7 +420,7 @@ export async function compareCars(req, res) {
     ]);
 
     if (!car1 || !car2) {
-      return res.status(404).json({ message: "Không tìm thấy 1 hoặc cả 2 xe" });
+      return res.status(404).json({message: "Không tìm thấy 1 hoặc cả 2 xe"});
     }
 
     const prompt = `
@@ -413,7 +445,7 @@ export async function compareCars(req, res) {
         },
         body: JSON.stringify({
           model: "llama-3.1-8b-instant",
-          messages: [{ role: "user", content: prompt }],
+          messages: [{role: "user", content: prompt}],
           temperature: 0.7,
         }),
       }
@@ -428,14 +460,14 @@ export async function compareCars(req, res) {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 }
 
 // Distribute vehicles to dealer (Manufacturer/EVM Staff/Admin only)
 export async function distributeVehicleToDealer(req, res, next) {
   try {
-    const { vehicle_id, dealership_id, quantity, notes, color } = req.body;
+    const {vehicle_id, dealership_id, quantity, notes, color} = req.body;
     console.log(req.body);
     // Validate required fields
     if (!vehicle_id || !dealership_id || !quantity || !color) {
@@ -450,7 +482,7 @@ export async function distributeVehicleToDealer(req, res, next) {
       return errorRes(res, VehicleMessage.QUANTITY_MUST_BE_GREATER_THAN_0, 400);
     }
 
-    const dealership = await Dealership.findById({ _id: dealership_id });
+    const dealership = await Dealership.findById({_id: dealership_id});
 
     if (!dealership) {
       return errorRes(res, DealerMessage.NOT_FOUND);
@@ -468,12 +500,12 @@ export async function distributeVehicleToDealer(req, res, next) {
     }
 
     const normalizedColor = capitalizeVietnamese(color || "");
-    // Check manufacturer stock
+    // Check manufacturer stock (use remaining_quantity if available)
     const manufacturerStock = vehicle.stocks.find((s) => {
       if (s.owner_type !== "manufacturer") return false;
-      if (!color) return true;
+      if (!normalizedColor) return true;
 
-      const stockColor = s.color.trim() || "";
+      const stockColor = s.color?.trim() || "";
       return stockColor === normalizedColor;
     });
 
@@ -486,34 +518,78 @@ export async function distributeVehicleToDealer(req, res, next) {
       );
     }
 
-    if (manufacturerStock.quantity < quantity) {
+    // Check available quantity (remaining_quantity if available, otherwise quantity)
+    const availableQuantity =
+      manufacturerStock.remaining_quantity !== undefined
+        ? manufacturerStock.remaining_quantity
+        : manufacturerStock.quantity || 0;
+
+    if (availableQuantity < quantity) {
       return errorRes(
         res,
-        `Insufficient manufacturer stock. Available: ${manufacturerStock.quantity}, Requested: ${quantity}`,
+        `Insufficient manufacturer stock. Available: ${availableQuantity}, Requested: ${quantity}`,
         400
       );
     }
 
-    // Update manufacturer stock
-    manufacturerStock.quantity -= quantity;
+    // Update manufacturer stock (remaining_quantity)
+    if (manufacturerStock.remaining_quantity !== undefined) {
+      manufacturerStock.remaining_quantity = Math.max(
+        0,
+        manufacturerStock.remaining_quantity - quantity
+      );
+
+      // Update status nếu hết hàng
+      if (manufacturerStock.remaining_quantity === 0) {
+        manufacturerStock.status = "depleted";
+      }
+    } else {
+      // Backward compatible: old stock không có remaining_quantity
+      manufacturerStock.quantity = Math.max(
+        0,
+        manufacturerStock.quantity - quantity
+      );
+    }
 
     // Update or create dealer stock
     let dealerStock = vehicle.stocks.find(
       (s) =>
         s.owner_type === "dealer" &&
         s.owner_id.toString() === dealership_id.toString() &&
-        (!color || s.color === color)
+        s.color === normalizedColor
     );
 
     if (dealerStock) {
-      dealerStock.quantity += quantity;
+      // Cập nhật dealer stock
+      const oldQuantity = dealerStock.quantity || 0;
+      const oldSold = dealerStock.sold_quantity || 0;
+      dealerStock.quantity = oldQuantity + quantity;
+      dealerStock.remaining_quantity =
+        (dealerStock.remaining_quantity || oldQuantity - oldSold) + quantity;
+
+      // Update status
+      if (
+        dealerStock.remaining_quantity > 0 &&
+        dealerStock.status === "depleted"
+      ) {
+        dealerStock.status = "active";
+      }
     } else {
+      // Thêm mới dealer stock
       vehicle.stocks.push({
         owner_type: "dealer",
         owner_id: dealership_id,
         quantity: quantity,
+        sold_quantity: 0,
+        remaining_quantity: quantity,
+        status: "active",
         color: normalizedColor,
+        delivered_at: new Date(),
+        unit_cost: vehicle.price,
+        created_by: req.user.id,
+        notes: notes || "Distribution",
       });
+      dealerStock = vehicle.stocks[vehicle.stocks.length - 1];
     }
 
     await vehicle.save();
@@ -594,8 +670,221 @@ export async function distributeVehicleToDealer(req, res, next) {
       quantity,
       total_amount,
       debt_id: debt._id,
-      remaining_manufacturer_stock: manufacturerStock.quantity,
-      dealer_stock: dealerStock ? dealerStock.quantity : quantity,
+      remaining_manufacturer_stock:
+        manufacturerStock.remaining_quantity !== undefined
+          ? manufacturerStock.remaining_quantity
+          : manufacturerStock.quantity,
+      dealer_stock: dealerStock
+        ? dealerStock.remaining_quantity !== undefined
+          ? dealerStock.remaining_quantity
+          : dealerStock.quantity
+        : quantity,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Get vehicle stock by dealership_id (for dealer users)
+export async function getVehicleStock(req, res, next) {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user.dealership_id) {
+      return errorRes(res, "User không thuộc đại lý nào", 403);
+    }
+
+    const dealership_id = user.dealership_id;
+    const {vehicle_id, color, status} = req.query;
+
+    // Build query
+    const vehicleQuery = {};
+    if (vehicle_id) vehicleQuery._id = vehicle_id;
+    if (req.query.category) vehicleQuery.category = req.query.category;
+    if (req.query.status) vehicleQuery.status = req.query.status;
+    if (req.query.manufacturer_id)
+      vehicleQuery.manufacturer_id = req.query.manufacturer_id;
+
+    // Get vehicles (must include stocks field)
+    // If no vehicle_id specified, use aggregation to filter vehicles with dealer stocks
+    let vehicles;
+    if (!vehicle_id) {
+      // Use aggregation to only get vehicles that have stocks for this dealership
+      const pipeline = [
+        {$match: vehicleQuery},
+        {
+          $match: {
+            "stocks.owner_type": "dealer",
+            "stocks.owner_id": new mongoose.Types.ObjectId(dealership_id),
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            name: 1,
+            model: 1,
+            category: 1,
+            sku: 1,
+            manufacturer_id: 1,
+            price: 1,
+            images: 1,
+            color_options: 1,
+            stocks: 1,
+          },
+        },
+      ];
+      vehicles = await Vehicle.aggregate(pipeline);
+      // Populate manufacturer_id manually after aggregation
+      const manufacturerIds = [
+        ...new Set(vehicles.map((v) => v.manufacturer_id).filter((id) => id)),
+      ];
+      const manufacturers = await Manufacturer.find({
+        _id: {$in: manufacturerIds},
+      })
+        .select("name code")
+        .lean();
+      const manufacturerMap = new Map(
+        manufacturers.map((m) => [String(m._id), m])
+      );
+      vehicles = vehicles.map((v) => ({
+        ...v,
+        manufacturer_id: v.manufacturer_id
+          ? manufacturerMap.get(String(v.manufacturer_id)) || v.manufacturer_id
+          : null,
+      }));
+    } else {
+      // When vehicle_id is specified, use regular find
+      vehicles = await Vehicle.find(vehicleQuery)
+        .select(
+          "_id name model category sku manufacturer_id price images color_options stocks"
+        )
+        .populate("manufacturer_id", "name code")
+        .lean();
+    }
+
+    // Filter and format stocks by dealership
+    const stockResults = [];
+
+    for (const vehicle of vehicles) {
+      // Filter stocks for this dealership
+      let dealerStocks =
+        vehicle.stocks?.filter(
+          (s) =>
+            s &&
+            s.owner_type === "dealer" &&
+            s.owner_id &&
+            s.owner_id.toString() === dealership_id.toString()
+        ) || [];
+
+      // Filter by color if provided
+      if (color) {
+        dealerStocks = dealerStocks.filter(
+          (s) => s.color && s.color.toLowerCase() === color.toLowerCase()
+        );
+      }
+
+      // Filter by status if provided
+      if (status) {
+        dealerStocks = dealerStocks.filter(
+          (s) => s.status === status || (!s.status && status === "active")
+        );
+      }
+
+      // Calculate totals for this vehicle
+      const totalQuantity = dealerStocks.reduce(
+        (sum, s) => sum + (s.quantity || 0),
+        0
+      );
+      const totalSold = dealerStocks.reduce(
+        (sum, s) => sum + (s.sold_quantity || 0),
+        0
+      );
+      const totalRemaining = dealerStocks.reduce(
+        (sum, s) =>
+          sum +
+          (s.remaining_quantity !== undefined
+            ? s.remaining_quantity
+            : s.quantity - (s.sold_quantity || 0)),
+        0
+      );
+
+      // Format stock details by color
+      const stocksByColor = {};
+      for (const stock of dealerStocks) {
+        const stockColor = stock.color || "Unknown";
+        if (!stocksByColor[stockColor]) {
+          stocksByColor[stockColor] = {
+            color: stockColor,
+            total_quantity: 0,
+            total_sold: 0,
+            total_remaining: 0,
+            batches: [],
+          };
+        }
+
+        const remaining =
+          stock.remaining_quantity !== undefined
+            ? stock.remaining_quantity
+            : stock.quantity - (stock.sold_quantity || 0);
+
+        stocksByColor[stockColor].total_quantity += stock.quantity || 0;
+        stocksByColor[stockColor].total_sold += stock.sold_quantity || 0;
+        stocksByColor[stockColor].total_remaining += remaining;
+
+        stocksByColor[stockColor].batches.push({
+          stock_entry_id: stock._id,
+          quantity: stock.quantity || 0,
+          sold_quantity: stock.sold_quantity || 0,
+          remaining_quantity: remaining,
+          status: stock.status || "active",
+          delivered_at: stock.delivered_at || stock.createdAt,
+          unit_cost: stock.unit_cost || 0,
+          source_request_id: stock.source_request_id || null,
+          notes: stock.notes || null,
+        });
+      }
+
+      // Only include vehicles that have dealer stocks
+      if (dealerStocks.length > 0 || vehicle_id) {
+        stockResults.push({
+          vehicle: {
+            id: vehicle._id,
+            name: vehicle.name,
+            model: vehicle.model,
+            category: vehicle.category,
+            sku: vehicle.sku,
+            manufacturer: vehicle.manufacturer_id,
+            price: vehicle.price,
+            images: vehicle.images || [],
+            color_options: vehicle.color_options || [],
+          },
+          summary: {
+            total_quantity: totalQuantity,
+            total_sold: totalSold,
+            total_remaining: totalRemaining,
+            batches_count: dealerStocks.length,
+          },
+          stocks_by_color: Object.values(stocksByColor),
+        });
+      }
+    }
+
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const totalRecords = stockResults.length;
+    const paginatedResults = stockResults.slice(skip, skip + limit);
+
+    return success(res, "Lấy thông tin tồn kho thành công", {
+      data: paginatedResults,
+      pagination: {
+        page,
+        limit,
+        total: totalRecords,
+        totalPages: Math.ceil(totalRecords / limit),
+      },
+      dealership_id: dealership_id.toString(),
     });
   } catch (err) {
     next(err);
