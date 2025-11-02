@@ -297,7 +297,7 @@ export async function deletePayment(req, res, next) {
     }
 
     // --- Hoàn lại công nợ Đại lý ↔ Hãng ---
-    await revertDealerManufacturerByOrderPayment(order, payment);
+    await revertDealerManufacturerByOrderPayment(order, null);
 
     return success(res, PaymentMessage.DELETE_SUCCESS, {id});
   } catch (e) {

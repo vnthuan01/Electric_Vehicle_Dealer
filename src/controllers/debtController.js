@@ -484,80 +484,293 @@ export async function settleDealerManufacturerByOrderPayment(
   return {settled_debts: settledDebts};
 }
 
-export async function revertDealerManufacturerByOrderPayment(order, payment) {
+/**
+ * Hoàn lại công nợ Đại lý ↔ Hãng khi xóa/huỷ order
+ *
+ * ✨ SOLUTION 2: Batch-Specific Debt Revert
+ * - Với tracking: Hoàn lại theo từng lô cụ thể (dựa vào used_stocks → settled_by_orders)
+ * - Fallback: Nếu không có used_stocks → Dùng logic cũ (chia theo tỷ lệ)
+ * - Xóa payment records trong debt
+ * - Recalculate totals từ items
+ *
+ * @param {Object} order - Order object với items[].used_stocks[]
+ * @param {Object} [session] - Optional Mongoose session for transaction
+ */
+export async function revertDealerManufacturerByOrderPayment(
+  order,
+  session = null
+) {
   try {
-    if (!order || !payment) return;
+    if (!order) {
+      console.warn("⚠️ Cannot revert debt: order is missing");
+      return;
+    }
 
-    const manufacturerAmountById = new Map();
-
-    // Lấy danh sách vehicle trong đơn
-    const vehicleIds = Array.from(
-      new Set((order.items || []).map((i) => String(i.vehicle_id)))
+    console.log(
+      `🔄 Reverting dealer-manufacturer debt for Order ${order.code}`
     );
-    const vehicles = await Vehicle.find({_id: {$in: vehicleIds}})
-      .select("_id manufacturer_id")
+
+    let revertedCount = 0;
+
+    // ✅ 1. COLLECT ALL used_stocks và TÌM RequestVehicles
+    const requestVehicleIds = [];
+    for (const item of order.items || []) {
+      if (item.used_stocks && item.used_stocks.length > 0) {
+        for (const us of item.used_stocks) {
+          if (us.source_request_id) {
+            requestVehicleIds.push(us.source_request_id);
+          }
+        }
+      }
+    }
+
+    // Batch query tất cả RequestVehicles
+    const requestVehicles =
+      requestVehicleIds.length > 0
+        ? await RequestVehicle.find({_id: {$in: requestVehicleIds}})
+            .select("_id debt_id")
+            .session(session || null)
+            .lean()
+        : [];
+
+    const requestIdToDebtId = new Map(
+      requestVehicles.map((rv) => [String(rv._id), rv.debt_id])
+    );
+
+    // ✅ 2. COLLECT UNIQUE DEBT IDs
+    const debtIds = Array.from(new Set(Array.from(requestIdToDebtId.values())));
+
+    if (debtIds.length === 0) {
+      console.log("⚠️ No debts found for this order");
+      return {reverted_count: 0};
+    }
+
+    // ✅ 3. BATCH QUERY TẤT CẢ DEBTS
+    const debts = await DealerManufacturerDebt.find({_id: {$in: debtIds}})
+      .session(session || null)
       .lean();
 
-    const vehicleIdToManufacturer = new Map(
-      vehicles.map((v) => [String(v._id), String(v.manufacturer_id)])
-    );
+    const debtMap = new Map(debts.map((d) => [String(d._id), d]));
 
-    // Tính tổng doanh thu của từng hãng trong đơn
-    for (const it of order.items || []) {
-      const manufacturerId = vehicleIdToManufacturer.get(String(it.vehicle_id));
-      if (!manufacturerId) continue;
-      const amountPortion =
-        Number(it.vehicle_price || 0) * Number(it.quantity || 1);
-      manufacturerAmountById.set(
-        manufacturerId,
-        (manufacturerAmountById.get(manufacturerId) || 0) + amountPortion
-      );
-    }
-
-    const orderManufacturerBaseTotal = Array.from(
-      manufacturerAmountById.values()
-    ).reduce((s, v) => s + v, 0);
-    if (orderManufacturerBaseTotal <= 0) return;
-
-    const paid = Number(payment.amount || 0);
-    const dealershipId = order.dealership_id;
-
-    // --- Giảm công nợ cho từng hãng ---
-    for (const [manufacturerId, base] of manufacturerAmountById.entries()) {
-      const ratio = base / orderManufacturerBaseTotal;
-      const allocate = Math.round(paid * ratio);
-
-      const debt = await DealerManufacturerDebt.findOne({
-        dealership_id: dealershipId,
-        manufacturer_id: manufacturerId,
-      });
+    // ✅ 4. XỬ LÝ TỪNG DEBT
+    for (const debtId of debtIds) {
+      let debt = debtMap.get(String(debtId));
       if (!debt) continue;
 
-      // Giảm số tiền thanh toán
-      debt.paid_amount = Math.max(0, (debt.paid_amount || 0) - allocate);
-      debt.remaining_amount = Math.max(
-        0,
-        (debt.total_amount || 0) - (debt.paid_amount || 0)
+      // Convert to Mongoose document để có thể modify
+      debt = await DealerManufacturerDebt.findById(debtId).session(
+        session || null
       );
+      if (!debt) continue;
 
-      // Cập nhật trạng thái
-      if (debt.remaining_amount <= 0) debt.status = "settled";
-      else if (debt.paid_amount > 0) debt.status = "partial";
-      else debt.status = "open";
+      let hasChanges = false;
 
-      // Ghi lại log trong payments nếu có
-      if (debt.payments?.length) {
-        debt.payments = debt.payments.filter(
-          (p) => p.ref !== payment.reference
+      // ✅ 5. Process tất cả debt items của debt này
+      for (const debtItem of debt.items || []) {
+        if (
+          !debtItem.settled_by_orders ||
+          debtItem.settled_by_orders.length === 0
+        ) {
+          continue;
+        }
+
+        // Remove settlement records for this order
+        const beforeLength = debtItem.settled_by_orders.length;
+        debtItem.settled_by_orders = debtItem.settled_by_orders.filter(
+          (s) => !s.order_id || s.order_id.toString() !== order._id.toString()
         );
+        const removedCount = beforeLength - debtItem.settled_by_orders.length;
+
+        if (removedCount > 0) {
+          console.log(
+            `  🔄 Removed ${removedCount} settlement record(s) from debt item ${debtItem._id}`
+          );
+          hasChanges = true;
+        }
+
+        // ✅ 6. RECALCULATE debt item totals
+        const totalSettledFromOrders = (
+          debtItem.settled_by_orders || []
+        ).reduce((sum, s) => sum + Number(s.amount || 0), 0);
+        const totalSoldQuantity = (debtItem.settled_by_orders || []).reduce(
+          (sum, s) => sum + Number(s.quantity_sold || 0),
+          0
+        );
+
+        debtItem.settled_amount = totalSettledFromOrders;
+        debtItem.remaining_amount =
+          Number(debtItem.amount || 0) - debtItem.settled_amount;
+        debtItem.sold_quantity = totalSoldQuantity;
+
+        // ✅ 7. UPDATE ITEM STATUS
+        if (debtItem.settled_amount >= debtItem.amount) {
+          debtItem.status = "fully_paid";
+        } else if (debtItem.settled_amount > 0) {
+          debtItem.status = "partial_paid";
+        } else {
+          debtItem.status = "pending_payment";
+        }
       }
 
-      await debt.save();
+      // ✅ 8. RECALCULATE DEBT TOTALS (từ items)
+      debt.paid_amount = debt.items.reduce(
+        (sum, item) => sum + Number(item.settled_amount || 0),
+        0
+      );
+      debt.remaining_amount = Number(debt.total_amount || 0) - debt.paid_amount;
+
+      // ✅ 9. UPDATE DEBT STATUS
+      if (debt.remaining_amount <= 0) {
+        debt.status = "settled";
+      } else if (debt.paid_amount > 0) {
+        debt.status = "partial";
+      } else {
+        debt.status = "open";
+      }
+
+      // ✅ 10. XÓA PAYMENT RECORDS liên quan đến order này
+      if (debt.payments && debt.payments.length > 0) {
+        const beforeLength = debt.payments.length;
+        debt.payments = debt.payments.filter(
+          (p) => !p.order_id || p.order_id.toString() !== order._id.toString()
+        );
+        const removedCount = beforeLength - debt.payments.length;
+
+        if (removedCount > 0) {
+          console.log(
+            `  🔄 Removed ${removedCount} payment record(s) from debt ${debt._id}`
+          );
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        await debt.save(session ? {session} : {});
+        revertedCount++;
+      }
     }
 
-    return true;
+    // ✅ 11. PROCESS FALLBACK LOGIC (no used_stocks)
+    for (const item of order.items || []) {
+      if (item.used_stocks && item.used_stocks.length > 0) {
+        // Already processed above
+        continue;
+      }
+
+      // ========== FALLBACK: Không có used_stocks → Dùng logic cũ ==========
+      console.log("⚠️ Order item has NO used_stocks. Using fallback logic.");
+
+      const vehicleQuery = Vehicle.findById(item.vehicle_id).select(
+        "manufacturer_id"
+      );
+      const vehicle = session
+        ? await vehicleQuery.session(session)
+        : await vehicleQuery;
+
+      if (!vehicle) {
+        console.warn(`⚠️ Vehicle ${item.vehicle_id} not found`);
+        continue;
+      }
+
+      // Tìm debt theo Dealer + Manufacturer (không biết lô cụ thể)
+      const debtQuery = DealerManufacturerDebt.findOne({
+        dealership_id: order.dealership_id,
+        manufacturer_id: vehicle.manufacturer_id,
+        status: {$in: ["open", "partial", "settled"]},
+      });
+      const debt = session ? await debtQuery.session(session) : await debtQuery;
+
+      if (!debt) {
+        console.warn(
+          "⚠️ No debt found for dealer-manufacturer " +
+            `(Dealer: ${order.dealership_id}, Manufacturer: ${vehicle.manufacturer_id})`
+        );
+        continue;
+      }
+
+      // Tính phần đã settle cho item này từ settled_by_orders
+      let totalSettledForOrder = 0;
+      if (Array.isArray(debt.items)) {
+        for (const debtItem of debt.items) {
+          if (!debtItem.settled_by_orders) continue;
+          for (const s of debtItem.settled_by_orders) {
+            if (s.order_id && s.order_id.toString() === order._id.toString()) {
+              totalSettledForOrder += Number(s.amount || 0);
+            }
+          }
+        }
+      }
+
+      if (totalSettledForOrder > 0) {
+        // Giảm số tiền thanh toán
+        debt.paid_amount = Math.max(
+          0,
+          (debt.paid_amount || 0) - totalSettledForOrder
+        );
+        debt.remaining_amount = Math.max(
+          0,
+          (debt.total_amount || 0) - (debt.paid_amount || 0)
+        );
+
+        // Cập nhật trạng thái
+        if (debt.remaining_amount <= 0) debt.status = "settled";
+        else if (debt.paid_amount > 0) debt.status = "partial";
+        else debt.status = "open";
+
+        // Xóa settlement records
+        if (Array.isArray(debt.items)) {
+          for (const debtItem of debt.items) {
+            if (!debtItem.settled_by_orders) continue;
+            debtItem.settled_by_orders = debtItem.settled_by_orders.filter(
+              (s) =>
+                !s.order_id || s.order_id.toString() !== order._id.toString()
+            );
+
+            // Recalculate item totals
+            const itemSettled = (debtItem.settled_by_orders || []).reduce(
+              (sum, s) => sum + Number(s.amount || 0),
+              0
+            );
+            debtItem.settled_amount = itemSettled;
+            debtItem.remaining_amount =
+              Number(debtItem.amount || 0) - debtItem.settled_amount;
+
+            if (debtItem.settled_amount >= debtItem.amount) {
+              debtItem.status = "fully_paid";
+            } else if (debtItem.settled_amount > 0) {
+              debtItem.status = "partial_paid";
+            } else {
+              debtItem.status = "pending_payment";
+            }
+          }
+        }
+
+        // Xóa payment records
+        if (debt.payments && debt.payments.length > 0) {
+          debt.payments = debt.payments.filter(
+            (p) => !p.order_id || p.order_id.toString() !== order._id.toString()
+          );
+        }
+
+        await debt.save(session ? {session} : {});
+        revertedCount++;
+
+        console.log(
+          `  🔄 [Fallback] Reverted ${totalSettledForOrder.toLocaleString()}đ for debt ${
+            debt._id
+          }`
+        );
+      }
+    }
+
+    console.log(
+      `✅ Debt revert completed for Order ${order.code}. ${revertedCount} debt(s) updated.`
+    );
+
+    return {reverted_count: revertedCount};
   } catch (err) {
-    console.error("Failed to revert dealer-manufacturer debt:", err);
+    console.error("❌ Failed to revert dealer-manufacturer debt:", err);
+    throw err;
   }
 }
 
