@@ -171,13 +171,12 @@ router.get("/:id", checkRole(DEALER_ROLES), getOrderById);
  *
  *       Chức năng:
  *       1. Nhận tiền cọc từ khách hàng
- *       2. Upload hợp đồng đã ký
- *       3. Check stock tại đại lý:
+ *       2. Check stock tại đại lý:
  *          - Nếu CÓ xe: Trừ stock ngay (giữ chỗ) → status = "deposit_paid"
  *          - Nếu HẾT xe: Tạo OrderRequest lên hãng → status = "waiting_vehicle_request"
- *       4. Tạo công nợ (Debt)
- *       5. Tạo hóa đơn payment
- *       6. Ghi log order status
+ *       3. Tạo công nợ (Debt)
+ *       4. Tạo hóa đơn payment
+ *       5. Ghi log order status
  *
  *       Yêu cầu: Order phải ở trạng thái "pending"
  *     security:
@@ -208,10 +207,6 @@ router.get("/:id", checkRole(DEALER_ROLES), getOrderById);
  *                 enum: [cash, bank, qr, card]
  *                 description: Phương thức thanh toán
  *                 example: "bank"
- *               signed_contract_url:
- *                 type: string
- *                 description: URL file hợp đồng đã ký (upload trước khi gọi API)
- *                 example: "https://cloudinary.com/contracts/contract_123.pdf"
  *               notes:
  *                 type: string
  *                 description: Ghi chú
@@ -246,7 +241,7 @@ router.post("/:id/pay-deposit", checkRole(DEALER_ROLES), payDeposit);
 /**
  * @openapi
  * /api/orders/{id}/mark-vehicle-ready:
- *   post:
+ *   patch:
  *     tags:
  *       - Orders
  *     summary: Đánh dấu xe đã sẵn sàng, thông báo khách thanh toán
@@ -308,68 +303,68 @@ router.post("/:id/pay-deposit", checkRole(DEALER_ROLES), payDeposit);
  *       404:
  *         description: Order không tồn tại
  */
-router.post(
+router.patch(
   "/:id/mark-vehicle-ready",
   checkRole(DEALER_ROLES),
   markVehicleReady
 );
 
-/**
- * @openapi
- * /api/orders/{id}/pay-final:
- *   post:
- *     tags:
- *       - Orders
- *     summary: Thanh toán số tiền còn lại
- *     description: |
- *       Chuyển order từ "vehicle_ready" → "fully_paid".
- *
- *       **Luồng:** Xe đã sẵn sàng → Khách đến thanh toán nốt → Sẵn sàng giao xe
- *
- *       **Chức năng:**
- *       - Tính số tiền còn lại (final_amount - paid_amount)
- *       - Nhận thanh toán từ khách
- *       - Cập nhật Debt thành "settled"
- *       - Chuyển status → fully_paid
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Order ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - payment_method
- *             properties:
- *               payment_method:
- *                 type: string
- *                 enum: [cash, bank, qr, card]
- *                 example: "cash"
- *               notes:
- *                 type: string
- *                 example: "Thanh toán phần còn lại"
- *     responses:
- *       200:
- *         description: Thanh toán thành công
- *       400:
- *         description: Order không ở trạng thái vehicle_ready
- *       404:
- *         description: Order không tồn tại
- */
-router.post("/:id/pay-final", checkRole(DEALER_ROLES), payFinalAmount);
+// /**
+//  * @openapi
+//  * /api/orders/{id}/pay-final:
+//  *   post:
+//  *     tags:
+//  *       - Orders
+//  *     summary: Thanh toán số tiền còn lại
+//  *     description: |
+//  *       Chuyển order từ "vehicle_ready" → "fully_paid".
+//  *
+//  *       **Luồng:** Xe đã sẵn sàng → Khách đến thanh toán nốt → Sẵn sàng giao xe
+//  *
+//  *       **Chức năng:**
+//  *       - Tính số tiền còn lại (final_amount - paid_amount)
+//  *       - Nhận thanh toán từ khách
+//  *       - Cập nhật Debt thành "settled"
+//  *       - Chuyển status → fully_paid
+//  *     security:
+//  *       - bearerAuth: []
+//  *     parameters:
+//  *       - in: path
+//  *         name: id
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *         description: Order ID
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             required:
+//  *               - payment_method
+//  *             properties:
+//  *               payment_method:
+//  *                 type: string
+//  *                 enum: [cash, bank, qr, card]
+//  *                 example: "cash"
+//  *               notes:
+//  *                 type: string
+//  *                 example: "Thanh toán phần còn lại"
+//  *     responses:
+//  *       200:
+//  *         description: Thanh toán thành công
+//  *       400:
+//  *         description: Order không ở trạng thái vehicle_ready
+//  *       404:
+//  *         description: Order không tồn tại
+//  */
+// router.post("/:id/pay-final", checkRole(DEALER_ROLES), payFinalAmount);
 
 /**
  * @openapi
  * /api/orders/{id}/deliver:
- *   post:
+ *   patch:
  *     tags:
  *       - Orders
  *     summary: Giao xe cho khách hàng
@@ -448,12 +443,12 @@ router.post("/:id/pay-final", checkRole(DEALER_ROLES), payFinalAmount);
  *       404:
  *         description: Order không tồn tại
  */
-router.post("/:id/deliver", checkRole(DEALER_ROLES), deliverOrder);
+router.patch("/:id/deliver", checkRole(DEALER_ROLES), deliverOrder);
 
 /**
  * @openapi
  * /api/orders/{id}/complete:
- *   post:
+ *   patch:
  *     tags:
  *       - Orders
  *     summary: Hoàn tất đơn hàng (đóng hồ sơ)
@@ -494,86 +489,86 @@ router.post("/:id/deliver", checkRole(DEALER_ROLES), deliverOrder);
  *       404:
  *         description: Order không tồn tại
  */
-router.post("/:id/complete", checkRole(DEALER_ROLES), completeOrder);
+router.patch("/:id/complete", checkRole(DEALER_ROLES), completeOrder);
 
-/**
- * @openapi
- * /api/orders/{id}/cancel:
- *   post:
- *     tags:
- *       - Orders
- *     summary: Huỷ đơn hàng với hoàn tiền tự động
- *     description: |
- *       Huỷ đơn hàng ở bất kỳ trạng thái nào (trừ completed).
- *
- *       **Luồng hoàn tiền tự động:**
- *       - Hoàn lại tiền đã cọc/thanh toán (tạo payment refund)
- *       - Hoàn lại stock nếu đã trừ
- *       - Huỷ công nợ (debt) nếu có
- *       - Huỷ OrderRequest nếu đang chờ xe từ hãng
- *
- *       **Yêu cầu:**
- *       - Order không được ở trạng thái "completed" hoặc "canceled"
- *       - Bắt buộc cung cấp lý do huỷ
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Order ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - cancellation_reason
- *             properties:
- *               cancellation_reason:
- *                 type: string
- *                 description: Lý do huỷ đơn hàng (bắt buộc)
- *                 example: "Khách hàng không có nhu cầu mua xe nữa"
- *               refund_method:
- *                 type: string
- *                 enum: [cash, bank, qr, card]
- *                 default: cash
- *                 description: Phương thức hoàn tiền
- *                 example: "bank"
- *     responses:
- *       200:
- *         description: Huỷ đơn hàng thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 order:
- *                   type: object
- *                 refund_summary:
- *                   type: object
- *                   properties:
- *                     refunded:
- *                       type: boolean
- *                     refund_amount:
- *                       type: number
- *                     refund_payments:
- *                       type: array
- *                 stock_restored:
- *                   type: boolean
- *                 debt_canceled:
- *                   type: boolean
- *                 request_canceled:
- *                   type: boolean
- *       400:
- *         description: Order không thể huỷ hoặc thiếu lý do
- *       404:
- *         description: Order không tồn tại
- */
-router.post("/:id/cancel", checkRole(DEALER_ROLES), cancelOrder);
+// /**
+//  * @openapi
+//  * /api/orders/{id}/cancel:
+//  *   post:
+//  *     tags:
+//  *       - Orders
+//  *     summary: Huỷ đơn hàng với hoàn tiền tự động
+//  *     description: |
+//  *       Huỷ đơn hàng ở bất kỳ trạng thái nào (trừ completed).
+//  *
+//  *       **Luồng hoàn tiền tự động:**
+//  *       - Hoàn lại tiền đã cọc/thanh toán (tạo payment refund)
+//  *       - Hoàn lại stock nếu đã trừ
+//  *       - Huỷ công nợ (debt) nếu có
+//  *       - Huỷ OrderRequest nếu đang chờ xe từ hãng
+//  *
+//  *       **Yêu cầu:**
+//  *       - Order không được ở trạng thái "completed" hoặc "canceled"
+//  *       - Bắt buộc cung cấp lý do huỷ
+//  *     security:
+//  *       - bearerAuth: []
+//  *     parameters:
+//  *       - in: path
+//  *         name: id
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *         description: Order ID
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             required:
+//  *               - cancellation_reason
+//  *             properties:
+//  *               cancellation_reason:
+//  *                 type: string
+//  *                 description: Lý do huỷ đơn hàng (bắt buộc)
+//  *                 example: "Khách hàng không có nhu cầu mua xe nữa"
+//  *               refund_method:
+//  *                 type: string
+//  *                 enum: [cash, bank, qr, card]
+//  *                 default: cash
+//  *                 description: Phương thức hoàn tiền
+//  *                 example: "bank"
+//  *     responses:
+//  *       200:
+//  *         description: Huỷ đơn hàng thành công
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 order:
+//  *                   type: object
+//  *                 refund_summary:
+//  *                   type: object
+//  *                   properties:
+//  *                     refunded:
+//  *                       type: boolean
+//  *                     refund_amount:
+//  *                       type: number
+//  *                     refund_payments:
+//  *                       type: array
+//  *                 stock_restored:
+//  *                   type: boolean
+//  *                 debt_canceled:
+//  *                   type: boolean
+//  *                 request_canceled:
+//  *                   type: boolean
+//  *       400:
+//  *         description: Order không thể huỷ hoặc thiếu lý do
+//  *       404:
+//  *         description: Order không tồn tại
+//  */
+// router.post("/:id/cancel", checkRole(DEALER_ROLES), cancelOrder);
 
 /**
  * @openapi
@@ -816,7 +811,7 @@ router.put("/:id", checkRole(DEALER_ROLES), updateOrder);
  *   delete:
  *     tags:
  *       - Orders
- *     summary: Delete order
+ *     summary: Delete order - Cancel order and refund all payments
  *     security:
  *       - bearerAuth: []
  *     parameters:

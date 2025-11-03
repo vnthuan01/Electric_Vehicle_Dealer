@@ -110,18 +110,63 @@ export async function createVehicle(req, res, next) {
         }
       }
 
-      const stocks = stocks_by_color.map((sc) => ({
-        owner_type: "manufacturer",
-        owner_id: manufacturer_id,
-        color: sc.color,
-        quantity: sc.quantity || 0,
-        sold_quantity: 0,
-        remaining_quantity: sc.quantity || 0,
-        status: "active",
-        delivered_at: new Date(),
-        unit_cost: sc.unit_cost || 0,
-        created_by: req.user.id,
-      }));
+      // Filter and validate stock entries before creating
+      const stocks = stocks_by_color
+        .filter((sc) => {
+          // Must be a valid object (not null, not array)
+          if (!sc || typeof sc !== "object" || Array.isArray(sc)) {
+            return false;
+          }
+          // Must have a valid color
+          if (!sc.color || typeof sc.color !== "string" || !sc.color.trim()) {
+            return false;
+          }
+          // Reject if delivered_at is an empty object
+          if (
+            sc.delivered_at &&
+            typeof sc.delivered_at === "object" &&
+            !(sc.delivered_at instanceof Date) &&
+            Object.keys(sc.delivered_at).length === 0
+          ) {
+            return false;
+          }
+          return true;
+        })
+        .map((sc) => {
+          // Ensure delivered_at is always a valid Date instance
+          let deliveredAt = new Date();
+          if (sc.delivered_at) {
+            // If it's already a Date instance, use it
+            if (sc.delivered_at instanceof Date) {
+              deliveredAt = sc.delivered_at;
+            }
+            // If it's a string or number, try to parse it
+            else if (
+              typeof sc.delivered_at === "string" ||
+              typeof sc.delivered_at === "number"
+            ) {
+              const parsed = new Date(sc.delivered_at);
+              if (!isNaN(parsed.getTime())) {
+                deliveredAt = parsed;
+              }
+            }
+            // If it's an object (but not Date) or any other invalid type, use current date
+          }
+
+          return {
+            owner_type: "manufacturer",
+            owner_id: manufacturer_id,
+            color: String(sc.color).trim(),
+            quantity: Number(sc.quantity) || 0,
+            sold_quantity: 0,
+            remaining_quantity: Number(sc.quantity) || 0,
+            status: "active",
+            delivered_at: deliveredAt,
+            unit_cost: Number(sc.unit_cost) || 0,
+            created_by: req.user.id,
+          };
+        })
+        .filter((stock) => stock.color && stock.color.trim() !== "");
 
       validVehicles.push(
         cleanEmpty({
@@ -291,10 +336,47 @@ export async function updateVehicle(req, res, next) {
     // --- Upsert manufacturer stocks by color ---
     if (Array.isArray(stocks_by_color)) {
       for (const sc of stocks_by_color) {
-        if (!sc || !sc.color) continue;
+        // Validate stock entry
+        if (
+          !sc ||
+          typeof sc !== "object" ||
+          Array.isArray(sc) ||
+          !sc.color ||
+          typeof sc.color !== "string" ||
+          !sc.color.trim()
+        ) {
+          continue;
+        }
+
+        // Reject if delivered_at is an empty object
+        if (
+          sc.delivered_at &&
+          typeof sc.delivered_at === "object" &&
+          !(sc.delivered_at instanceof Date) &&
+          Object.keys(sc.delivered_at).length === 0
+        ) {
+          continue;
+        }
+
         const qty = Number(sc.quantity || 0);
-        const col = sc.color;
+        const col = String(sc.color).trim();
         const unitCost = Number(sc.unit_cost || 0);
+
+        // Ensure delivered_at is always a valid Date instance
+        let deliveredAt = new Date();
+        if (sc.delivered_at) {
+          if (sc.delivered_at instanceof Date) {
+            deliveredAt = sc.delivered_at;
+          } else if (
+            typeof sc.delivered_at === "string" ||
+            typeof sc.delivered_at === "number"
+          ) {
+            const parsed = new Date(sc.delivered_at);
+            if (!isNaN(parsed.getTime())) {
+              deliveredAt = parsed;
+            }
+          }
+        }
 
         // Tìm stock manufacturer đã tồn tại với color này
         const idx = vehicle.stocks?.findIndex(
@@ -315,6 +397,11 @@ export async function updateVehicle(req, res, next) {
             vehicle.stocks[idx].unit_cost = unitCost;
           }
 
+          // Update delivered_at if provided and valid
+          if (deliveredAt instanceof Date) {
+            vehicle.stocks[idx].delivered_at = deliveredAt;
+          }
+
           // Update status
           if (vehicle.stocks[idx].remaining_quantity === 0) {
             vehicle.stocks[idx].status = "depleted";
@@ -331,7 +418,7 @@ export async function updateVehicle(req, res, next) {
             sold_quantity: 0,
             remaining_quantity: qty,
             status: qty > 0 ? "active" : "depleted",
-            delivered_at: new Date(),
+            delivered_at: deliveredAt,
             unit_cost: unitCost,
             created_by: req.user.id,
           });
@@ -468,7 +555,7 @@ export async function compareCars(req, res) {
 export async function distributeVehicleToDealer(req, res, next) {
   try {
     const {vehicle_id, dealership_id, quantity, notes, color} = req.body;
-    console.log(req.body);
+
     // Validate required fields
     if (!vehicle_id || !dealership_id || !quantity || !color) {
       return errorRes(
@@ -482,8 +569,8 @@ export async function distributeVehicleToDealer(req, res, next) {
       return errorRes(res, VehicleMessage.QUANTITY_MUST_BE_GREATER_THAN_0, 400);
     }
 
-    const dealership = await Dealership.findById({_id: dealership_id});
-
+    // Validate dealership
+    const dealership = await Dealership.findById(dealership_id);
     if (!dealership) {
       return errorRes(res, DealerMessage.NOT_FOUND);
     }
@@ -495,16 +582,16 @@ export async function distributeVehicleToDealer(req, res, next) {
       is_deleted: false,
     });
 
-    if (!vehicle || vehicle.is_deleted || vehicle.status !== "active") {
+    if (!vehicle) {
       return errorRes(res, DealerMessage.VEHICLE_NOT_FOUND, 404);
     }
 
     const normalizedColor = capitalizeVietnamese(color || "");
-    // Check manufacturer stock (use remaining_quantity if available)
+
+    // Find manufacturer stock by color
     const manufacturerStock = vehicle.stocks.find((s) => {
       if (s.owner_type !== "manufacturer") return false;
       if (!normalizedColor) return true;
-
       const stockColor = s.color?.trim() || "";
       return stockColor === normalizedColor;
     });
@@ -518,7 +605,7 @@ export async function distributeVehicleToDealer(req, res, next) {
       );
     }
 
-    // Check available quantity (remaining_quantity if available, otherwise quantity)
+    // Check available quantity
     const availableQuantity =
       manufacturerStock.remaining_quantity !== undefined
         ? manufacturerStock.remaining_quantity
@@ -532,19 +619,16 @@ export async function distributeVehicleToDealer(req, res, next) {
       );
     }
 
-    // Update manufacturer stock (remaining_quantity)
+    // Deduct manufacturer stock
     if (manufacturerStock.remaining_quantity !== undefined) {
       manufacturerStock.remaining_quantity = Math.max(
         0,
         manufacturerStock.remaining_quantity - quantity
       );
-
-      // Update status nếu hết hàng
       if (manufacturerStock.remaining_quantity === 0) {
         manufacturerStock.status = "depleted";
       }
     } else {
-      // Backward compatible: old stock không có remaining_quantity
       manufacturerStock.quantity = Math.max(
         0,
         manufacturerStock.quantity - quantity
@@ -560,14 +644,12 @@ export async function distributeVehicleToDealer(req, res, next) {
     );
 
     if (dealerStock) {
-      // Cập nhật dealer stock
       const oldQuantity = dealerStock.quantity || 0;
       const oldSold = dealerStock.sold_quantity || 0;
       dealerStock.quantity = oldQuantity + quantity;
       dealerStock.remaining_quantity =
         (dealerStock.remaining_quantity || oldQuantity - oldSold) + quantity;
 
-      // Update status
       if (
         dealerStock.remaining_quantity > 0 &&
         dealerStock.status === "depleted"
@@ -575,7 +657,6 @@ export async function distributeVehicleToDealer(req, res, next) {
         dealerStock.status = "active";
       }
     } else {
-      // Thêm mới dealer stock
       vehicle.stocks.push({
         owner_type: "dealer",
         owner_id: dealership_id,
@@ -594,55 +675,54 @@ export async function distributeVehicleToDealer(req, res, next) {
 
     await vehicle.save();
 
-    // Create or update debt with item detail
+    // Create or update DealerManufacturerDebt
     const total_amount = vehicle.price * quantity;
-    let debt = await DealerManufacturerDebt.findOne({
+    let dealerDebt = await DealerManufacturerDebt.findOne({
       dealership_id: dealership_id,
       manufacturer_id: vehicle.manufacturer_id,
     });
 
-    if (debt) {
-      debt.total_amount += total_amount;
-      debt.remaining_amount += total_amount;
-      debt.status = "open";
-      debt.items = debt.items || [];
-      debt.items.push({
-        request_id: null,
-        vehicle_id: vehicle._id,
-        vehicle_name: vehicle.name,
-        color: color.trim(),
-        unit_price: vehicle.price,
-        quantity,
-        amount: total_amount,
-        delivered_at: new Date(),
-        notes: notes || "Distribution",
-      });
-      await debt.save();
+    const debtItem = {
+      request_id: null, // direct distribution
+      vehicle_id: vehicle._id,
+      vehicle_name: vehicle.name,
+      color: normalizedColor,
+      unit_price: vehicle.price,
+      quantity,
+      amount: total_amount,
+      delivered_at: new Date(),
+      notes: notes || "Distribution",
+
+      // ========== TRACKING FIELDS ==========
+      settled_amount: 0, // chưa thanh toán
+      remaining_amount: total_amount, // còn lại
+      sold_quantity: 0, // chưa bán
+      settled_by_orders: [], // chưa gán đơn
+      status: "pending_payment", // nợ đang chờ thanh toán
+    };
+
+    if (dealerDebt) {
+      dealerDebt.total_amount += total_amount;
+      dealerDebt.remaining_amount += total_amount;
+      dealerDebt.status = "open";
+      dealerDebt.items = dealerDebt.items || [];
+      dealerDebt.items.push(debtItem);
+      await dealerDebt.save();
+      console.log(`💰 Updated DealerManufacturerDebt: +${total_amount}`);
     } else {
-      debt = await DealerManufacturerDebt.create({
+      dealerDebt = await DealerManufacturerDebt.create({
         dealership_id: dealership_id,
         manufacturer_id: vehicle.manufacturer_id,
         total_amount,
         paid_amount: 0,
         remaining_amount: total_amount,
         status: "open",
-        items: [
-          {
-            request_id: null,
-            vehicle_id: vehicle._id,
-            vehicle_name: vehicle.name,
-            color: normalizedColor,
-            unit_price: vehicle.price,
-            quantity,
-            amount: total_amount,
-            delivered_at: new Date(),
-            notes: notes || "Distribution",
-          },
-        ],
+        items: [debtItem],
       });
+      console.log(`💰 Created DealerManufacturerDebt: ${total_amount}`);
     }
 
-    // Emit socket notification for vehicle distribution
+    //  Emit socket notification for vehicle distribution
     if (req.app.get("io")) {
       emitVehicleDistribution(req.app.get("io"), {
         dealershipId: dealership_id,
@@ -659,6 +739,7 @@ export async function distributeVehicleToDealer(req, res, next) {
       });
     }
 
+    //  Final response
     return success(res, VehicleMessage.VEHICLE_DISTRIBUTED_SUCCESS, {
       vehicle: {
         id: vehicle._id,
@@ -669,7 +750,7 @@ export async function distributeVehicleToDealer(req, res, next) {
       dealership_id,
       quantity,
       total_amount,
-      debt_id: debt._id,
+      debt_id: dealerDebt._id,
       remaining_manufacturer_stock:
         manufacturerStock.remaining_quantity !== undefined
           ? manufacturerStock.remaining_quantity

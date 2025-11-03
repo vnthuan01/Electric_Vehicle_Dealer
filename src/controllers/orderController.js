@@ -603,7 +603,6 @@ export async function deleteOrder(req, res, next) {
     }
 
     // --- restore stock nếu order đã trừ stock ---
-    // Các status có thể đã trừ stock: deposit_paid, vehicle_ready, fully_paid, delivered
     const stockDeductedStatuses = [
       "deposit_paid",
       "vehicle_ready",
@@ -625,22 +624,18 @@ export async function deleteOrder(req, res, next) {
 
         const quantity = item.quantity || 1;
 
-        // Có used_stocks tracking không?
         if (item.used_stocks && item.used_stocks.length > 0) {
-          // ========== SOLUTION 2: Restore theo tracking ==========
+          // Restore theo tracking
           const vehicle = await Vehicle.findById(item.vehicle_id).session(
             session
           );
-
           if (!vehicle) {
             console.warn(` Vehicle ${item.vehicle_id} not found, skip restore`);
             continue;
           }
 
           for (const usedStock of item.used_stocks) {
-            // Tìm stock entry bằng subdocument _id
             const stockEntry = vehicle.stocks.id(usedStock.stock_entry_id);
-
             if (!stockEntry) {
               console.warn(
                 ` Stock entry ${usedStock.stock_entry_id} not found in Vehicle ${vehicle._id}`
@@ -648,9 +643,7 @@ export async function deleteOrder(req, res, next) {
               continue;
             }
 
-            // Restore quantity
             if (stockEntry.sold_quantity !== undefined) {
-              // New stock with tracking
               stockEntry.sold_quantity = Math.max(
                 0,
                 stockEntry.sold_quantity - usedStock.quantity
@@ -658,7 +651,6 @@ export async function deleteOrder(req, res, next) {
               stockEntry.remaining_quantity =
                 (stockEntry.remaining_quantity || 0) + usedStock.quantity;
 
-              // Update status
               if (
                 stockEntry.remaining_quantity > 0 &&
                 stockEntry.status === "depleted"
@@ -666,7 +658,6 @@ export async function deleteOrder(req, res, next) {
                 stockEntry.status = "active";
               }
             } else {
-              // Old stock (backward compatible)
               stockEntry.quantity =
                 (stockEntry.quantity || 0) + usedStock.quantity;
             }
@@ -683,14 +674,10 @@ export async function deleteOrder(req, res, next) {
 
           await vehicle.save({session});
         } else {
-          // ========== FALLBACK: Old logic (no tracking) ==========
-          console.log(" No used_stocks tracking, using fallback restore");
-
+          // Fallback: Không có tracking
           const updateResult = await Vehicle.updateOne(
             {_id: item.vehicle_id},
-            {
-              $inc: {"stocks.$[elem].quantity": quantity}, // Cộng lại
-            },
+            {$inc: {"stocks.$[elem].quantity": quantity}},
             {
               arrayFilters: [
                 {
@@ -718,7 +705,6 @@ export async function deleteOrder(req, res, next) {
     if (order.items && order.items.length > 0) {
       for (const item of order.items) {
         if (item.promotion_id) {
-          // Tìm các usage liên quan đơn này
           const usageList = await PromotionUsage.find({
             order_id: order._id,
             promotion_id: item.promotion_id,
@@ -726,7 +712,6 @@ export async function deleteOrder(req, res, next) {
           }).session(session);
 
           for (const usage of usageList) {
-            // Kiểm tra còn quote nào của customer này, promotion này, ở trạng thái pending không
             const pendingQuotes = await PromotionUsage.find({
               customer_id: order.customer_id,
               promotion_id: item.promotion_id,
@@ -734,7 +719,6 @@ export async function deleteOrder(req, res, next) {
             }).session(session);
 
             if (pendingQuotes.length > 0) {
-              // Có promotion này đang pending cho quote khác -> các usage này nên chuyển canceled
               await PromotionUsage.updateMany(
                 {
                   _id: {$in: pendingQuotes.map((q) => q._id)},
@@ -742,11 +726,9 @@ export async function deleteOrder(req, res, next) {
                 {$set: {status: "canceled"}},
                 {session}
               );
-              // Usage của order này cũng chuyển về canceled
               usage.status = "canceled";
               await usage.save({session});
             } else {
-              // Không có pending nào khác, trả usage về available
               usage.status = "available";
               await usage.save({session});
             }
@@ -770,17 +752,37 @@ export async function deleteOrder(req, res, next) {
       await debt.save({session});
     }
 
+    // --- Soft delete hoặc huỷ OrderRequest liên quan ---
+    const orderRequests = await OrderRequest.find({
+      order_id: order._id,
+      status: {$nin: ["canceled", "deleted"]},
+    }).session(session);
+
+    if (orderRequests.length > 0) {
+      for (const reqDoc of orderRequests) {
+        reqDoc.status = "canceled";
+        reqDoc.notes = reqDoc.notes
+          ? `${reqDoc.notes}\n[Auto canceled] Order ${order.code} was deleted`
+          : `[Auto canceled] Order ${order.code} was deleted`;
+        reqDoc.deleted_at = new Date();
+        reqDoc.deleted_by = req.user._id;
+        reqDoc.is_deleted = true;
+        await reqDoc.save({session});
+        console.log(
+          `🗑️ OrderRequest ${reqDoc._id} canceled due to order deletion`
+        );
+      }
+    }
+
     // --- Hoàn lại công nợ Đại lý ↔ Hãng nếu đã settle ---
     try {
       await revertDealerManufacturerByOrderPayment(order, session);
       console.log("Reverted dealer-manufacturer debt for deleted order");
     } catch (debtErr) {
       console.error("Failed to revert dealer-manufacturer debt:", debtErr);
-      // Không throw error để không block luồng delete
-      // Có thể fix debt sau bằng cách chạy lại revert
     }
 
-    // ========== COMMIT TRANSACTION ==========
+    // --- COMMIT TRANSACTION ---
     await session.commitTransaction();
 
     return success(res, OrderMessage.DELETE_SUCCESS, {id: order._id});
@@ -1036,7 +1038,7 @@ export async function payDeposit(req, res, next) {
     const {
       deposit_amount, // Số tiền cọc (VD: 10% của final_amount)
       payment_method, // "cash", "bank", "qr", "card" - cách thanh toán tiền cọc
-      signed_contract_url, // URL file hợp đồng đã ký (upload trước khi gọi API)
+      // signed_contract_url, // URL file hợp đồng đã ký (upload trước khi gọi API)
       notes,
     } = req.body;
 
@@ -1116,20 +1118,20 @@ export async function payDeposit(req, res, next) {
     );
 
     // ========== STEP 3: UPLOAD HỢP ĐỒNG (NẾU CÓ) ==========
-    if (signed_contract_url) {
-      // Lấy tên khách hàng để ghi vào contract
-      const customer = await Customer.findById(order.customer_id)
-        .session(session)
-        .lean();
+    // if (signed_contract_url) {
+    //   // Lấy tên khách hàng để ghi vào contract
+    //   const customer = await Customer.findById(order.customer_id)
+    //     .session(session)
+    //     .lean();
 
-      order.contract = {
-        signed_contract_url,
-        signed_at: new Date(),
-        signed_by: customer?.full_name || "Khách hàng",
-        uploaded_by: req.user?.id,
-        template_used: "standard_contract", // Có thể customize
-      };
-    }
+    //   order.contract = {
+    //     signed_contract_url,
+    //     signed_at: new Date(),
+    //     signed_by: customer?.full_name || "Khách hàng",
+    //     uploaded_by: req.user?.id,
+    //     template_used: "standard_contract", // Có thể customize
+    //   };
+    // }
 
     // ========== STEP 4: CHECK STOCK ==========
     const stockCheckResult = await checkStockForOrder(

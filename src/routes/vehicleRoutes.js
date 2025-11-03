@@ -403,6 +403,36 @@ router.post(
  *           type: string
  *         quantity:
  *           type: number
+ *           description: Total quantity imported
+ *         sold_quantity:
+ *           type: number
+ *           description: Quantity sold from this batch
+ *           default: 0
+ *         remaining_quantity:
+ *           type: number
+ *           description: Remaining quantity (quantity - sold_quantity)
+ *         status:
+ *           type: string
+ *           enum: [active, depleted, reserved]
+ *           default: active
+ *         source_request_id:
+ *           type: string
+ *           description: RequestVehicle ID that created this batch (null for manual/old batches)
+ *           nullable: true
+ *         delivered_at:
+ *           type: string
+ *           format: date-time
+ *           description: Delivery date (for FIFO sorting)
+ *         unit_cost:
+ *           type: number
+ *           description: Unit cost when imported
+ *           default: 0
+ *         created_by:
+ *           type: string
+ *           description: User ID who created this stock entry
+ *         notes:
+ *           type: string
+ *           description: Optional notes for this stock entry
  *
  *     VehicleFull:
  *       type: object
@@ -531,7 +561,8 @@ router.post(
  *         ota_update: { type: boolean }
  *         stocks_by_color:
  *           type: string
- *           description: "JSON array of manufacturer stock entries by color. Example: '[{\"color\":\"Yellow\",\"quantity\":10},{\"color\":\"Red\",\"quantity\":5}]'"
+ *           description: "JSON array of manufacturer stock entries by color. Example: '[{\"color\":\"Yellow\",\"quantity\":10,\"unit_cost\":5000000,\"delivered_at\":\"2024-01-15T00:00:00.000Z\"},{\"color\":\"Red\",\"quantity\":5}]'"
+ *           example: '[{"color":"Yellow","quantity":10,"unit_cost":5000000},{"color":"Red","quantity":5}]'
  *         warranty_years: { type: number }
  *         battery_warranty_years: { type: number }
  *         color_options:

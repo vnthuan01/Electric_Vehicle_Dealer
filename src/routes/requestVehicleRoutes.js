@@ -7,9 +7,10 @@ import {
   deleteRequest,
   updateRequestVehicleStatus,
   inProgressRequest,
-  handleManufacturerApprove,
+  // handleManufacturerApprove,
   handleManufacturerReject,
   getRequestVehicleById,
+  handleManufacturerDelivered,
 } from "../controllers/requestVehicleController.js";
 import {ROLE} from "../enum/roleEnum.js";
 import {checkRole} from "../middlewares/checkRole.js";
@@ -19,9 +20,63 @@ const router = express.Router();
 
 router.use(authenticate);
 
+/**
+ * @openapi
+ * /api/request-vehicles/{id}:
+ *   get:
+ *     tags: [Dealer Requests]
+ *     summary: Get a specific vehicle request by ID
+ *     description: Retrieve detailed information of a single vehicle request, including vehicle info, dealership, and status.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The unique ID of the vehicle request
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved vehicle request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 vehicle_id:
+ *                   type: string
+ *                   description: ID of the requested vehicle
+ *                 dealership_id:
+ *                   type: string
+ *                   description: ID of the dealership making the request
+ *                 quantity:
+ *                   type: number
+ *                 color:
+ *                   type: string
+ *                 notes:
+ *                   type: string
+ *                 status:
+ *                   type: string
+ *                   enum: [pending, approved, rejected, completed, canceled]
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: Vehicle request not found
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Server error
+ */
 router.get(
   "/:id",
-  //   checkRole(ROLE.EVM_STAFF, ROLE.DEALER_MANAGER, ROLE.DEALER_STAFF),
+  // checkRole(ROLE.EVM_STAFF, ROLE.DEALER_MANAGER, ROLE.DEALER_STAFF),
   getRequestVehicleById
 );
 
@@ -166,46 +221,46 @@ router.patch(
  */
 router.patch("/:id/reject", checkRole([ROLE.EVM_STAFF]), rejectRequest);
 
+// /**
+//  * @openapi
+//  * /api/request-vehicles/{id}/delivered:
+//  *   patch:
+//  *     tags: [Dealer Requests]
+//  *     summary: Update delivery status and notes [EVM Staff]
+//  *     description: ⚠️ Only for standalone RequestVehicles (no Order). If linked to Order, use /manufacturer-approve instead.
+//  *     security:
+//  *       - bearerAuth: []
+//  *     parameters:
+//  *       - in: path
+//  *         name: id
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             properties:
+//  *               notes:
+//  *                 type: string
+//  *     responses:
+//  *       200:
+//  *         description: Request status updated
+//  *       400:
+//  *         description: RequestVehicle linked to Order (use /manufacturer-approve instead)
+//  */
+// router.patch(
+//   "/:id/delivered",
+//   checkRole(ROLE.EVM_STAFF),
+//   updateRequestVehicleStatus
+// );
+
 /**
  * @openapi
  * /api/request-vehicles/{id}/delivered:
  *   patch:
- *     tags: [Dealer Requests]
- *     summary: Update delivery status and notes [EVM Staff]
- *     description: ⚠️ Only for standalone RequestVehicles (no Order). If linked to Order, use /manufacturer-approve instead.
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               notes:
- *                 type: string
- *     responses:
- *       200:
- *         description: Request status updated
- *       400:
- *         description: RequestVehicle linked to Order (use /manufacturer-approve instead)
- */
-router.patch(
-  "/:id/delivered",
-  checkRole(ROLE.EVM_STAFF),
-  updateRequestVehicleStatus
-);
-
-/**
- * @openapi
- * /api/request-vehicles/{id}/manufacturer-approve:
- *   post:
  *     tags: [Dealer Requests]
  *     summary: Manufacturer approves vehicle request (transfers stock + creates debt)
  *     description: Handles both Order-linked and standalone RequestVehicles. Updates Order status if applicable.
@@ -234,51 +289,51 @@ router.patch(
  *       400:
  *         description: Invalid request or insufficient stock
  */
-router.post(
-  "/:id/manufacturer-approve",
+router.patch(
+  "/:id/delivered",
   checkRole(ROLE.EVM_STAFF),
-  handleManufacturerApprove
+  handleManufacturerDelivered
 );
 
-/**
- * @openapi
- * /api/request-vehicles/{id}/manufacturer-reject:
- *   post:
- *     tags: [Dealer Requests]
- *     summary: Manufacturer rejects vehicle request
- *     description: Rejects RequestVehicle. If linked to Order, cancels Order and refunds customer.
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: RequestVehicle ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - reason
- *             properties:
- *               reason:
- *                 type: string
- *                 description: Reason for rejection
- *     responses:
- *       200:
- *         description: Request rejected (Order canceled and refunded if applicable)
- *       400:
- *         description: Invalid request
- */
-router.post(
-  "/:id/manufacturer-reject",
-  checkRole(ROLE.EVM_STAFF),
-  handleManufacturerReject
-);
+// /**
+//  * @openapi
+//  * /api/request-vehicles/{id}/manufacturer-reject:
+//  *   patch:
+//  *     tags: [Dealer Requests]
+//  *     summary: Manufacturer rejects vehicle request
+//  *     description: Rejects RequestVehicle. If linked to Order, cancels Order and refunds customer.
+//  *     security:
+//  *       - bearerAuth: []
+//  *     parameters:
+//  *       - in: path
+//  *         name: id
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *         description: RequestVehicle ID
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             required:
+//  *               - reason
+//  *             properties:
+//  *               reason:
+//  *                 type: string
+//  *                 description: Reason for rejection
+//  *     responses:
+//  *       200:
+//  *         description: Request rejected (Order canceled and refunded if applicable)
+//  *       400:
+//  *         description: Invalid request
+//  */
+// router.patch(
+//   "/:id/manufacturer-reject",
+//   checkRole(ROLE.EVM_STAFF),
+//   handleManufacturerReject
+// );
 
 /**
  * @openapi

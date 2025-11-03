@@ -277,7 +277,7 @@ export async function deleteRequest(req, res, next) {
 
 // Cập nhật trạng thái giao xe cho request xe
 export async function updateRequestVehicleStatus(req, res, next) {
-  const session = await mongoose.startSession(); // ✅ THÊM TRANSACTION
+  const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
@@ -299,7 +299,7 @@ export async function updateRequestVehicleStatus(req, res, next) {
       await session.abortTransaction();
       return errorRes(
         res,
-        "⚠️ RequestVehicle này liên kết với Order. " +
+        " RequestVehicle này liên kết với Order. " +
           "Vui lòng dùng POST /api/request-vehicles/:id/manufacturer-approve thay vì API này.",
         400
       );
@@ -367,7 +367,7 @@ export async function updateRequestVehicleStatus(req, res, next) {
         });
       }
 
-      await vehicle.save({session}); // ✅ Với transaction
+      await vehicle.save({session}); //  Với transaction
 
       // Tạo/cập nhật debt
       const total_amount = vehicle.price * request.quantity;
@@ -391,7 +391,7 @@ export async function updateRequestVehicleStatus(req, res, next) {
           amount: total_amount,
           delivered_at: new Date(),
         });
-        await debt.save({session}); // ✅ Với transaction
+        await debt.save({session}); //  Với transaction
       } else {
         debt = await DealerManufacturerDebt.create(
           [
@@ -416,7 +416,7 @@ export async function updateRequestVehicleStatus(req, res, next) {
               ],
             },
           ],
-          {session} // ✅ Với transaction
+          {session} // Với transaction
         );
         debt = debt[0];
       }
@@ -450,7 +450,7 @@ export async function updateRequestVehicleStatus(req, res, next) {
  *   - Case 1: RequestVehicle có order_id → Update Order
  *   - Case 2: RequestVehicle KHÔNG có order_id → Chỉ xử lý stock + debt
  */
-export async function handleManufacturerApprove(req, res, next) {
+export async function handleManufacturerDelivered(req, res, next) {
   const session = await mongoose.startSession();
   session.startTransaction();
 
