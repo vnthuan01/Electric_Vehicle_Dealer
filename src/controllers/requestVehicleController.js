@@ -258,6 +258,57 @@ export async function getAllRequests(req, res, next) {
   }
 }
 
+export async function getAllRequestVehicleForDealer(req, res, next) {
+  try {
+    const {status, vehicle_id} = req.query;
+
+    // Lấy dealership_id từ user và ép ObjectId
+    const dealership_id = req.user?.dealership_id;
+    if (!dealership_id) {
+      return res.status(400).json({message: "Dealership ID is required"});
+    }
+
+    let dealershipObjectId;
+    try {
+      dealershipObjectId = new mongoose.Types.ObjectId(dealership_id);
+    } catch {
+      return res.status(400).json({message: "Invalid dealership ID"});
+    }
+
+    // Build query
+    const extraQuery = {dealership_id: dealershipObjectId};
+    if (status) extraQuery.status = status;
+    if (vehicle_id) {
+      try {
+        extraQuery.vehicle_id = new mongoose.Types.ObjectId(vehicle_id);
+      } catch {
+        return res.status(400).json({message: "Invalid vehicle ID"});
+      }
+    }
+
+    // Paginate
+    const result = await paginate(RequestVehicle, req, [], extraQuery);
+
+    // Populate với select field cụ thể
+    result.data = await RequestVehicle.find(extraQuery)
+      .sort(result.sort)
+      .skip((result.page - 1) * result.limit)
+      .limit(result.limit)
+      .populate({
+        path: "vehicle_id",
+        select: "name model price year", // chỉ lấy các trường mong muốn
+      })
+      .populate({
+        path: "dealership_id",
+        select: "company_name address phone email", // chỉ lấy các trường mong muốn
+      });
+
+    return success(res, DealerMessage.REQUEST_LIST_SUCCESS, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 //Delete request (chỉ khi pending, chưa approved)
 export async function deleteRequest(req, res, next) {
   try {

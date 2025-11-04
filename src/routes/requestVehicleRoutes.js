@@ -5,12 +5,10 @@ import {
   rejectRequest,
   getAllRequests,
   deleteRequest,
-  updateRequestVehicleStatus,
   inProgressRequest,
-  // handleManufacturerApprove,
-  handleManufacturerReject,
   getRequestVehicleById,
   handleManufacturerDelivered,
+  getAllRequestVehicleForDealer,
 } from "../controllers/requestVehicleController.js";
 import {ROLE} from "../enum/roleEnum.js";
 import {checkRole} from "../middlewares/checkRole.js";
@@ -19,6 +17,77 @@ import {authenticate} from "../middlewares/authMiddleware.js";
 const router = express.Router();
 
 router.use(authenticate);
+/**
+ * @openapi
+ * /api/request-vehicles/for-dealer:
+ *   get:
+ *     tags: [Dealer Requests]
+ *     summary: Get all vehicle requests for the dealer (filterable by status, vehicle)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected]
+ *       - in: query
+ *         name: vehicle_id
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of requests for the logged-in dealer
+ */
+router.get(
+  "/for-dealer",
+  checkRole(ROLE.DEALER_MANAGER), // chỉ dealer mới truy cập
+  getAllRequestVehicleForDealer
+);
+
+/**
+ * @openapi
+ * /api/request-vehicles:
+ *   get:
+ *     tags: [Dealer Requests]
+ *     summary: Get all vehicle requests (filterable by status, dealership, vehicle)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, approved, rejected]
+ *       - in: query
+ *         name: dealership_id
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: vehicle_id
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of requests
+ */
+router.get("/", checkRole(ROLE.EVM_STAFF), getAllRequests);
 
 /**
  * @openapi
@@ -119,46 +188,6 @@ router.post(
 
 /**
  * @openapi
- * /api/request-vehicles:
- *   get:
- *     tags: [Dealer Requests]
- *     summary: Get all vehicle requests (filterable by status, dealership, vehicle)
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [pending, approved, rejected]
- *       - in: query
- *         name: dealership_id
- *         schema:
- *           type: string
- *       - in: query
- *         name: vehicle_id
- *         schema:
- *           type: string
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: List of requests
- */
-router.get(
-  "/",
-  checkRole([ROLE.DEALER_MANAGER, ROLE.EVM_STAFF, ROLE.ADMIN]),
-  getAllRequests
-);
-
-/**
- * @openapi
  * /api/request-vehicles/{id}/approve:
  *   patch:
  *     tags: [Dealer Requests]
@@ -195,11 +224,7 @@ router.patch("/:id/approve", checkRole(ROLE.EVM_STAFF), approveRequest);
  *       200:
  *         description: Request in_progress
  */
-router.patch(
-  "/:id/in-progress",
-  checkRole([ROLE.EVM_STAFF]),
-  inProgressRequest
-);
+router.patch("/:id/in-progress", checkRole(ROLE.EVM_STAFF), inProgressRequest);
 
 /**
  * @openapi
@@ -219,7 +244,7 @@ router.patch(
  *       200:
  *         description: Request rejected
  */
-router.patch("/:id/reject", checkRole([ROLE.EVM_STAFF]), rejectRequest);
+router.patch("/:id/reject", checkRole(ROLE.EVM_STAFF), rejectRequest);
 
 // /**
 //  * @openapi
