@@ -104,6 +104,8 @@ export async function login(req, res, next) {
     const payload = {
       id: user._id,
       email: user.email,
+      full_name: user.full_name,
+      phone: user.phone,
       role: user.role_id?.name,
     };
 

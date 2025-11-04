@@ -79,6 +79,7 @@ export const OrderMessage = {
   LIST_SUCCESS: "Orders fetched successfully",
   DETAIL_SUCCESS: "Order details fetched successfully",
   MISSING_REQUIRED_FIELDS: "Missing required fields",
+  ITEMS_LENGTH_ZERO: "Order must contain at least one item",
 };
 
 export const TestDriveMessage = {

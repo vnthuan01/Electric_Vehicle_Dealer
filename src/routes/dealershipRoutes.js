@@ -1,7 +1,7 @@
-import {Router} from "express";
-import {authenticate} from "../middlewares/authMiddleware.js";
-import {checkRole} from "../middlewares/checkRole.js";
-import {ROLE, DEALER_ROLES} from "../enum/roleEnum.js";
+import { Router } from "express";
+import { authenticate } from "../middlewares/authMiddleware.js";
+import { checkRole } from "../middlewares/checkRole.js";
+import { ROLE, DEALER_ROLES } from "../enum/roleEnum.js";
 import {
   getAllDealerships,
   getDealershipById,
@@ -9,6 +9,7 @@ import {
   deactivateDealership,
   activateDealership,
 } from "../controllers/dealershipController.js";
+
 
 const router = Router();
 

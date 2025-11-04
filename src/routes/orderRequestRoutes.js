@@ -1,13 +1,14 @@
-import {Router} from "express";
-import {authenticate} from "../middlewares/authMiddleware.js";
-import {checkRole} from "../middlewares/checkRole.js";
-import {DEALER_ROLES, ROLE} from "../enum/roleEnum.js";
+import { Router } from "express";
+import { authenticate } from "../middlewares/authMiddleware.js";
+import { checkRole } from "../middlewares/checkRole.js";
+import { DEALER_ROLES, ROLE } from "../enum/roleEnum.js";
 import {
-  requestOrderAccordingToDemand,
+  createOrderRequest,
   listOrderRequests,
-  approveOrderRequestMethodCash,
+  approveOrderRequest,
   rejectOrderRequest,
-} from "../controllers/orderController.js";
+  getOrderRequestById,
+} from "../controllers/orderRequestController.js";
 
 const router = Router();
 router.use(authenticate);
@@ -62,7 +63,7 @@ router.use(authenticate);
  *       400:
  *         description: Thiếu dữ liệu hoặc không hợp lệ
  */
-router.post("/", checkRole([ROLE.DEALER_STAFF]), requestOrderAccordingToDemand);
+router.post("/", checkRole([ROLE.DEALER_STAFF]), createOrderRequest);
 
 /**
  * @openapi
@@ -107,6 +108,34 @@ router.get(
 
 /**
  * @openapi
+ * /api/order-request/{id}:
+ *   get:
+ *     tags:
+ *       - Order Requests
+ *     summary: Lấy chi tiết yêu cầu đặt hàng theo ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của Order Request
+ *     responses:
+ *       200:
+ *         description: Chi tiết yêu cầu đặt hàng được trả về
+ *       404:
+ *         description: Không tìm thấy yêu cầu
+ */
+router.get(
+  "/:id",
+  checkRole([...DEALER_ROLES, ROLE.EVM_STAFF]),
+  getOrderRequestById
+);
+
+/**
+ * @openapi
  * /api/order-request/{id}/approve:
  *   patch:
  *     tags:
@@ -130,7 +159,7 @@ router.get(
 router.patch(
   "/:id/approve",
   checkRole([ROLE.DEALER_MANAGER]),
-  approveOrderRequestMethodCash
+  approveOrderRequest
 );
 
 /**

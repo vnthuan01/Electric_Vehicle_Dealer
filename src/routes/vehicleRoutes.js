@@ -10,6 +10,7 @@ import {
   deleteVehicle,
   compareCars,
   distributeVehicleToDealer,
+  getVehicleStock,
 } from "../controllers/vehicleController.js";
 import {uploadVehicleImage} from "../utils/fileUpload.js";
 
@@ -88,6 +89,97 @@ router.use(authenticate);
  *                 total: { type: integer }
  */
 router.get("/", getVehicles);
+
+/**
+ * @openapi
+ * /api/vehicles/stock/my-stock:
+ *   get:
+ *     tags: [Vehicles]
+ *     summary: Get vehicle stock by dealership (for dealer users)
+ *     security: [{ bearerAuth: [] }]
+ *     description: Returns stock information for vehicles owned by the authenticated user's dealership
+ *     parameters:
+ *       - in: query
+ *         name: vehicle_id
+ *         schema: { type: string }
+ *         description: Filter by specific vehicle ID
+ *       - in: query
+ *         name: category
+ *         schema: { type: string, enum: [car, motorbike] }
+ *       - in: query
+ *         name: color
+ *         schema: { type: string }
+ *         description: Filter stocks by color
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [active, depleted, reserved] }
+ *         description: Filter stocks by status
+ *       - in: query
+ *         name: manufacturer_id
+ *         schema: { type: string }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *     responses:
+ *       200:
+ *         description: Stock information retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           vehicle:
+ *                             type: object
+ *                             properties:
+ *                               id: { type: string }
+ *                               name: { type: string }
+ *                               model: { type: string }
+ *                               category: { type: string }
+ *                               sku: { type: string }
+ *                               manufacturer: { type: object }
+ *                               price: { type: number }
+ *                           summary:
+ *                             type: object
+ *                             properties:
+ *                               total_quantity: { type: number }
+ *                               total_sold: { type: number }
+ *                               total_remaining: { type: number }
+ *                               batches_count: { type: number }
+ *                           stocks_by_color:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 color: { type: string }
+ *                                 total_quantity: { type: number }
+ *                                 total_sold: { type: number }
+ *                                 total_remaining: { type: number }
+ *                                 batches: { type: array }
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         page: { type: integer }
+ *                         limit: { type: integer }
+ *                         total: { type: integer }
+ *                         totalPages: { type: integer }
+ *                     dealership_id: { type: string }
+ *       403:
+ *         description: User does not belong to any dealership
+ */
+router.get("/stock/my-stock", getVehicleStock);
 
 /**
  * @openapi
@@ -311,6 +403,36 @@ router.post(
  *           type: string
  *         quantity:
  *           type: number
+ *           description: Total quantity imported
+ *         sold_quantity:
+ *           type: number
+ *           description: Quantity sold from this batch
+ *           default: 0
+ *         remaining_quantity:
+ *           type: number
+ *           description: Remaining quantity (quantity - sold_quantity)
+ *         status:
+ *           type: string
+ *           enum: [active, depleted, reserved]
+ *           default: active
+ *         source_request_id:
+ *           type: string
+ *           description: RequestVehicle ID that created this batch (null for manual/old batches)
+ *           nullable: true
+ *         delivered_at:
+ *           type: string
+ *           format: date-time
+ *           description: Delivery date (for FIFO sorting)
+ *         unit_cost:
+ *           type: number
+ *           description: Unit cost when imported
+ *           default: 0
+ *         created_by:
+ *           type: string
+ *           description: User ID who created this stock entry
+ *         notes:
+ *           type: string
+ *           description: Optional notes for this stock entry
  *
  *     VehicleFull:
  *       type: object
@@ -439,7 +561,8 @@ router.post(
  *         ota_update: { type: boolean }
  *         stocks_by_color:
  *           type: string
- *           description: "JSON array of manufacturer stock entries by color. Example: '[{\"color\":\"Yellow\",\"quantity\":10},{\"color\":\"Red\",\"quantity\":5}]'"
+ *           description: "JSON array of manufacturer stock entries by color. Example: '[{\"color\":\"Yellow\",\"quantity\":10,\"unit_cost\":5000000,\"delivered_at\":\"2024-01-15T00:00:00.000Z\"},{\"color\":\"Red\",\"quantity\":5}]'"
+ *           example: '[{"color":"Yellow","quantity":10,"unit_cost":5000000},{"color":"Red","quantity":5}]'
  *         warranty_years: { type: number }
  *         battery_warranty_years: { type: number }
  *         color_options:

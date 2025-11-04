@@ -13,7 +13,7 @@ export async function getSalesReport(req, res, next) {
     const {startDate, endDate, dealership_id} = req.query;
     const match = {
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
 
     if (startDate && endDate)
@@ -80,7 +80,7 @@ export async function getTopSellingVehicles(req, res, next) {
     const {startDate, endDate, limit = 5} = req.query;
     const match = {
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
 
     if (startDate && endDate)
@@ -151,6 +151,7 @@ export async function getDealerStock(req, res, next) {
               vehicle_name: "$name",
               color: "$stocks.color",
               quantity: "$stocks.quantity",
+              remaining_quantity: "$stocks.remaining_quantity",
             },
           },
         },
@@ -173,7 +174,7 @@ export async function getSalesByStaff(req, res, next) {
     const {dealership_id, startDate, endDate} = req.query;
     const match = {
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
 
     if (dealership_id)
@@ -225,7 +226,7 @@ export async function exportSalesReport(req, res, next) {
     const {startDate, endDate, dealership_id} = req.query;
     const match = {
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
     if (startDate && endDate)
       match.createdAt = {$gte: new Date(startDate), $lte: new Date(endDate)};
@@ -292,7 +293,7 @@ export async function exportTopSelling(req, res, next) {
     const {startDate, endDate, limit = 10} = req.query;
     const match = {
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
     if (startDate && endDate)
       match.createdAt = {$gte: new Date(startDate), $lte: new Date(endDate)};
@@ -368,7 +369,7 @@ export async function exportDealerStock(req, res, next) {
           dealership: "$dealer.company_name",
           vehicle_name: "$name",
           color: "$stocks.color",
-          quantity: "$stocks.quantity",
+          quantity: "$stocks.remaining_quantity",
         },
       },
       {$sort: {dealership: 1}},
@@ -398,7 +399,7 @@ export async function exportSalesByStaff(req, res, next) {
     const {startDate, endDate, dealership_id} = req.query;
     const match = {
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
     if (dealership_id)
       match.dealership_id = new mongoose.Types.ObjectId(dealership_id);
