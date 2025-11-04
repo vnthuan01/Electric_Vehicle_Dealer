@@ -240,6 +240,19 @@ router.patch("/:id/in-progress", checkRole(ROLE.EVM_STAFF), inProgressRequest);
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for rejection
+ *                 example: "Thông tin sai / hãng từ chối phân bổ xe"
  *     responses:
  *       200:
  *         description: Request rejected

@@ -188,6 +188,8 @@ export async function inProgressRequest(req, res, next) {
 export async function rejectRequest(req, res, next) {
   try {
     const {id} = req.params;
+    const {reason} = req.body;
+    console.log(reason);
     const request = await RequestVehicle.findById(id).populate("vehicle_id");
     if (!request) return errorRes(res, DealerMessage.REQUEST_NOT_FOUND, 404);
 
@@ -208,6 +210,7 @@ export async function rejectRequest(req, res, next) {
     }
 
     request.status = "rejected";
+    request.notes = reason;
     await request.save();
 
     // Emit socket notification for rejected request
