@@ -176,7 +176,7 @@ router.get("/orders/:order_id", checkRole(DEALER_ROLES), getContractInfo);
  * /api/contracts/orders/{order_id}:
  *   delete:
  *     tags: [Contracts]
- *     summary: Delete signed contract
+ *     summary: Delete signed contract (PDF/image)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -185,11 +185,27 @@ router.get("/orders/:order_id", checkRole(DEALER_ROLES), getContractInfo);
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               signed_contract_url:
+ *                 type: string
+ *                 description: URL of the signed contract to delete
  *     responses:
  *       200:
- *         description: Contract deleted
+ *         description: Signed contract deleted
+ *       400:
+ *         description: No signed contracts found
  *       404:
- *         description: Order not found
+ *         description: Signed contract not found
+ *       403:
+ *         description: Access denied
+ *       500:
+ *         description: Internal server error
  */
 router.delete(
   "/orders/:order_id",
