@@ -8,10 +8,12 @@ import {
   exportTopSelling,
   exportDealerStock,
   exportSalesByStaff,
+  getDealerManufacturerDebts,
+  getDealerCustomerDebts,
 } from "../controllers/reportController.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
 import {checkRole} from "../middlewares/checkRole.js";
-import {MANAGEMENT_ROLES} from "../enum/roleEnum.js";
+import {MANAGEMENT_ROLES, ROLE} from "../enum/roleEnum.js";
 
 const router = express.Router();
 
@@ -99,15 +101,10 @@ router.get("/dealer-stock", checkRole(MANAGEMENT_ROLES), getDealerStock);
  *   get:
  *     tags:
  *       - Reports
- *     summary: Doanh số theo nhân viên bán hàng
+ *     summary: Doanh số theo nhân viên bán hàng của Dealer
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: query
- *         name: dealership_id
- *         schema:
- *           type: string
- *         description: "ID của đại lý (tuỳ chọn)"
  *       - in: query
  *         name: startDate
  *         schema:
@@ -124,7 +121,77 @@ router.get("/dealer-stock", checkRole(MANAGEMENT_ROLES), getDealerStock);
  *       200:
  *         description: "Báo cáo doanh số theo nhân viên được lấy thành công"
  */
-router.get("/sales-by-staff", checkRole(MANAGEMENT_ROLES), getSalesByStaff);
+router.get("/sales-by-staff", checkRole(ROLE.DEALER_MANAGER), getSalesByStaff);
+
+/**
+ * @openapi
+ * /api/reports/debts-customer:
+ *   get:
+ *     tags:
+ *       - Reports
+ *     summary: Báo cáo công nợ cho Customer của Dealer
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           default: 10
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: "Trạng thái công nợ cho customer debts, ví dụ: partial,settled"
+ *     responses:
+ *       200:
+ *         description: "Báo cáo công nợ Dealer thành công"
+ */
+router.get(
+  "/debts-customer",
+  checkRole(ROLE.DEALER_MANAGER),
+  getDealerCustomerDebts
+);
+
+/**
+ * @openapi
+ * /api/reports/debts-manufacturer:
+ *   get:
+ *     tags:
+ *       - Reports
+ *     summary: Báo công nợ cho Manufacturer của Dealer
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: number
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           default: 10
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: "Trạng thái công nợ cho customer debts, ví dụ: partial,settled"
+ *     responses:
+ *       200:
+ *         description: "Báo cáo công nợ Dealer thành công"
+ */
+router.get(
+  "/debts-manufacturer",
+  checkRole(ROLE.DEALER_MANAGER),
+  getDealerManufacturerDebts
+);
 
 /**
  * @openapi

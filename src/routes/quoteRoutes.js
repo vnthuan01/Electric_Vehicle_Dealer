@@ -122,6 +122,11 @@ router.post("/", checkRole([...DEALER_ROLES]), createQuote);
  *           type: string
  *         description: Keyword search by code or notes
  *       - in: query
+ *         name: customer_id
+ *         schema:
+ *           type: string
+ *         description: Filter quotes by specific customer
+ *       - in: query
  *         name: page
  *         schema:
  *           type: number
