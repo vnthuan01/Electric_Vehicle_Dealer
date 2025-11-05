@@ -168,7 +168,8 @@ export async function saveTemplate(req, res, next) {
 export async function deleteSignedContract(req, res, next) {
   try {
     const {order_id} = req.params;
-
+    const signed_contract_url = req.body?.signed_contract_url; // URL hoặc định danh file cần xóa
+    console.log(signed_contract_url);
     const order = await Order.findById(order_id);
     if (!order) return errorRes(res, "Order not found", 404);
 
@@ -177,22 +178,43 @@ export async function deleteSignedContract(req, res, next) {
       return errorRes(res, "Access denied", 403);
     }
 
-    // Xóa file nếu có
-    if (order.contract?.signed_contract_url) {
-      const filePath = path.join(
-        process.cwd(),
-        order.contract.signed_contract_url
-      );
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+    if (!order.contract || !order.contract.signed_contract_urls?.length) {
+      return errorRes(res, "No signed contracts found", 400);
+    }
+    const urls = order.contract.signed_contract_urls.map((item) =>
+      typeof item === "string" ? JSON.parse(item) : item
+    );
+    // Tìm file cần xóa trong mảng
+    const targetIndex = urls.findIndex(
+      (item) => item.url === signed_contract_url
+    );
+
+    if (targetIndex === -1) {
+      return errorRes(res, "Signed contract not found", 404);
     }
 
-    // Xóa thông tin hợp đồng
-    order.contract = undefined;
+    const fileToDelete = order.contract.signed_contract_urls[targetIndex];
+
+    // Nếu bạn lưu local (có đường dẫn file)
+    if (fileToDelete.url && fileToDelete.url.startsWith("/uploads/")) {
+      const filePath = path.join(process.cwd(), fileToDelete.url);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
+    // Nếu bạn dùng Cloudinary → gợi ý xoá theo public_id (nếu có)
+    // await cloudinary.uploader.destroy(publicId);
+
+    // Xóa phần tử trong mảng
+    order.contract.signed_contract_urls.splice(targetIndex, 1);
+
+    // Nếu mảng rỗng => xóa luôn thông tin contract
+    if (order.contract.signed_contract_urls.length === 0) {
+      order.contract = undefined;
+    }
+
     await order.save();
 
-    return success(res, "Signed contract deleted successfully", {});
+    return success(res, "Signed contract deleted successfully", order.contract);
   } catch (e) {
     next(e);
   }
