@@ -4,10 +4,10 @@ import Option from "../models/Option.js";
 import Accessory from "../models/Accessory.js";
 import Promotion from "../models/Promotion.js";
 import PromotionUsage from "../models/PromotionUsage.js";
-import { success, created, error as errorRes } from "../utils/response.js";
-import { QuoteMessage } from "../utils/MessageRes.js";
-import { paginate } from "../utils/pagination.js";
-import { generateQuotePDF } from "../services/quoteServie.js";
+import {success, created, error as errorRes} from "../utils/response.js";
+import {QuoteMessage} from "../utils/MessageRes.js";
+import {paginate} from "../utils/pagination.js";
+import {generateQuotePDF} from "../services/quoteServie.js";
 
 // Helper tạo code unique cho Quote
 function generateQuoteCode() {
@@ -40,7 +40,7 @@ async function calculateQuoteItem({
     const optionIds = options.map((o) =>
       typeof o === "string" ? o : o.option_id
     );
-    const optionDocs = await Option.find({ _id: { $in: optionIds } }).lean();
+    const optionDocs = await Option.find({_id: {$in: optionIds}}).lean();
     optionSnapshots = optionDocs.map((o) => ({
       option_id: o._id,
       name: o.name,
@@ -51,7 +51,7 @@ async function calculateQuoteItem({
   let accessorySnapshots = [];
   if (accessories?.length) {
     const ids = accessories.map((a) => a.accessory_id);
-    const accessoryDocs = await Accessory.find({ _id: { $in: ids } }).lean();
+    const accessoryDocs = await Accessory.find({_id: {$in: ids}}).lean();
     accessorySnapshots = accessoryDocs.map((a) => {
       const input = accessories.find((x) => x.accessory_id == a._id.toString());
       return {
@@ -93,8 +93,9 @@ async function calculateQuoteItem({
 // =================== CREATE QUOTE ===================
 export async function createQuote(req, res, next) {
   try {
-    const { items = [], notes, customer_id } = req.body;
+    const {items = [], notes, customer_id} = req.body;
     const userId = req.user._id;
+    const dealership_id = req.user?.dealership_id;
 
     if (!customer_id) return errorRes(res, QuoteMessage.MISSING_CUSTOMER, 400);
 
@@ -180,6 +181,7 @@ export async function createQuote(req, res, next) {
     const quote = await Quote.create({
       code,
       customer_id,
+      dealership_id,
       items: itemsWithFinal,
       final_amount: total,
       notes,
@@ -200,7 +202,7 @@ export async function createQuote(req, res, next) {
             status: "pending",
             quote_id: null,
           },
-          { $set: { quote_id: quote._id } }
+          {$set: {quote_id: quote._id}}
         );
       }
     }
@@ -214,10 +216,28 @@ export async function createQuote(req, res, next) {
 // =================== LIST QUOTES ===================
 export async function getQuotes(req, res, next) {
   try {
-    // Chỉ lọc quote còn hạn hoặc valid
     const now = new Date();
-    const cond = { status: { $ne: "canceled" }, endDate: { $gte: now } };
+
+    // Lấy dealership_id từ user
+    const dealership_id = req.user?.dealership_id;
+    const {customer_id} = req.query;
+
+    // Điều kiện query
+    const cond = {
+      status: {$ne: "canceled"},
+      endDate: {$gte: now},
+    };
+
+    // Nếu có dealership_id, thêm vào điều kiện lọc
+    if (dealership_id) {
+      cond.dealership_id = dealership_id;
+    }
+    if (customer_id) {
+      cond.customer_id = customer_id;
+    }
+
     const result = await paginate(Quote, req, ["code", "notes"], cond);
+
     return success(res, QuoteMessage.LIST_SUCCESS, result);
   } catch (e) {
     next(e);
@@ -243,8 +263,8 @@ export async function getQuoteById(req, res, next) {
 // =================== UPDATE QUOTE (KHÔNG UPDATE HẾT HẠN/ĐÃ HỦY) ===================
 export async function updateQuote(req, res, next) {
   try {
-    const { id } = req.params;
-    const { items, notes, status } = req.body;
+    const {id} = req.params;
+    const {items, notes, status} = req.body;
     const quote = await Quote.findById(id);
     if (!quote) return errorRes(res, QuoteMessage.NOT_FOUND, 404);
 
@@ -312,7 +332,7 @@ export async function updateQuote(req, res, next) {
 // =================== DELETE (SOFT DELETE) QUOTE ===================
 export async function deleteQuote(req, res, next) {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
 
     const quote = await Quote.findById(id);
     if (!quote) return errorRes(res, "Quote not found", 404);
@@ -334,7 +354,7 @@ export async function deleteQuote(req, res, next) {
         quote_id: quote._id,
         status: "pending",
       },
-      { $set: { status: "canceled" } }
+      {$set: {status: "canceled"}}
     );
 
     return success(res, QuoteMessage.CANCEL_SUCCESS, {
@@ -349,7 +369,7 @@ export async function deleteQuote(req, res, next) {
 
 export async function exportQuotePDF(req, res, next) {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
     const quote = await Quote.findById(id).lean();
     if (!quote) return errorRes(res, QuoteMessage.NOT_FOUND, 404);
     if (quote.status !== "valid")

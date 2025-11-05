@@ -8,9 +8,9 @@ import {
   assignTestDriveStaff,
   updateTestDriveStatus,
 } from "../controllers/testDriveController.js";
-import { checkRole } from "../middlewares/checkRole.js";
-import { DEALER_ROLES } from "../enum/roleEnum.js";
-import { authenticate } from "../middlewares/authMiddleware.js";
+import {checkRole} from "../middlewares/checkRole.js";
+import {DEALER_ROLES} from "../enum/roleEnum.js";
+import {authenticate} from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -73,7 +73,6 @@ router.get("/:id", getTestDriveById);
  *             properties:
  *               customer_id: { type: string }
  *               vehicle_id: { type: string }
- *               dealership_id: { type: string }
  *               schedule_at: { type: string, format: date-time }
  *               notes: { type: string }
  *     responses:
