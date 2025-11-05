@@ -87,11 +87,11 @@ export async function createPayment(req, res, next) {
 
     // --- Cập nhật trạng thái dựa theo % thanh toán ---
     if (order.paid_amount >= order.final_amount) {
-      order.status = "fullyPayment";
+      order.status = "fully_paid";
     } else if (order.paid_amount > 0) {
-      order.status = "halfPayment";
+      order.status = "deposit_paid";
     } else {
-      order.status = "confirmed";
+      order.status = "pending";
     }
 
     // --- Cập nhật công nợ ---
@@ -274,11 +274,11 @@ export async function deletePayment(req, res, next) {
 
     // --- Cập nhật trạng thái đơn hàng ---
     if (order.paid_amount >= order.final_amount) {
-      order.status = "fullyPayment";
+      order.status = "fully_paid";
     } else if (order.paid_amount > 0) {
-      order.status = "halfPayment";
+      order.status = "deposit_paid";
     } else {
-      order.status = "confirmed";
+      order.status = "pending";
     }
     await order.save();
 
@@ -297,7 +297,7 @@ export async function deletePayment(req, res, next) {
     }
 
     // --- Hoàn lại công nợ Đại lý ↔ Hãng ---
-    await revertDealerManufacturerByOrderPayment(order, payment);
+    await revertDealerManufacturerByOrderPayment(order, null);
 
     return success(res, PaymentMessage.DELETE_SUCCESS, {id});
   } catch (e) {

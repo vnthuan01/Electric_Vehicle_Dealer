@@ -23,25 +23,27 @@ const orderStatusLogSchema = new mongoose.Schema(
     old_status: {
       type: String,
       enum: [
-        "pending",
-        "confirmed",
-        "halfPayment",
-        "fullyPayment",
-        "contract_signed",
-        "delivered",
-        "canceled",
+        "pending", // Mới tạo, chưa check stock
+        "deposit_paid", // Đã cọc, stock đã trừ nếu có xe
+        "waiting_vehicle_request", // (Case hết xe) Đã request, chờ Hãng approve
+        "vehicle_ready", // Xe sẵn sàng, chờ khách trả nốt
+        "fully_paid", // Đã thanh toán đủ, sẵn sàng giao xe
+        "delivered", // Đã giao xe
+        "completed", // Hoàn tất
+        "canceled", // Hủy đơn (do Hãng reject hoặc khách hủy)
       ],
     },
     new_status: {
       type: String,
       enum: [
-        "pending",
-        "confirmed",
-        "halfPayment",
-        "fullyPayment",
-        "contract_signed",
-        "delivered",
-        "canceled",
+        "pending", // Mới tạo, chưa check stock
+        "deposit_paid", // Đã cọc, stock đã trừ nếu có xe
+        "waiting_vehicle_request", // (Case hết xe) Đã request, chờ Hãng approve
+        "vehicle_ready", // Xe sẵn sàng, chờ khách trả nốt
+        "fully_paid", // Đã thanh toán đủ, sẵn sàng giao xe
+        "delivered", // Đã giao xe
+        "completed", // Hoàn tất
+        "canceled", // Hủy đơn (do Hãng reject hoặc khách hủy)
       ],
       required: true,
     },
@@ -103,13 +105,13 @@ const orderStatusLogSchema = new mongoose.Schema(
       delivery_address: String,
     },
   },
-  { timestamps: true }
+  {timestamps: true}
 );
 
 // Indexes
-orderStatusLogSchema.index({ order_id: 1, created_at: -1 });
-orderStatusLogSchema.index({ dealership_id: 1, created_at: -1 });
-orderStatusLogSchema.index({ customer_id: 1, created_at: -1 });
-orderStatusLogSchema.index({ new_status: 1, created_at: -1 });
+orderStatusLogSchema.index({order_id: 1, created_at: -1});
+orderStatusLogSchema.index({dealership_id: 1, created_at: -1});
+orderStatusLogSchema.index({customer_id: 1, created_at: -1});
+orderStatusLogSchema.index({new_status: 1, created_at: -1});
 
 export default mongoose.model("OrderStatusLog", orderStatusLogSchema);

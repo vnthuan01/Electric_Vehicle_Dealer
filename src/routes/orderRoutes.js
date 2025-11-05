@@ -10,7 +10,16 @@ import {
   deleteOrder,
   updateOrderStatus,
   getOrdersForYours,
+  payDeposit,
+  markVehicleReady,
+  payFinalAmount,
+  deliverOrder,
+  completeOrder,
+  cancelOrder,
+  getOrderStatusHistory,
+  //   getOrderPayments,
 } from "../controllers/orderController.js";
+import {getPaymentsByOrder} from "../controllers/paymentController.js";
 
 const router = Router();
 
@@ -75,7 +84,7 @@ router.post("/", checkRole(DEALER_ROLES), createOrder);
  *         name: status
  *         schema:
  *           type: string
- *           enum: [pending, confirmed, halfPayment, fullyPayment, closed, contract_signed, delivered]
+ *           enum: [pending, deposit_paid, waiting_vehicle_request, waiting_bank_approval, vehicle_ready, fully_paid, delivered, completed, canceled]
  *         description: |
  *           Lọc theo trạng thái đơn hàng. - DEALER_MANAGER only
  *       - in: query
@@ -108,7 +117,7 @@ router.get("/", checkRole(ROLE.DEALER_MANAGER), getOrders);
  *         name: status
  *         schema:
  *           type: string
- *           enum: [pending, confirmed, halfPayment, fullyPayment, closed, contract_signed, delivered]
+ *           enum: [pending, deposit_paid, waiting_vehicle_request, waiting_bank_approval, vehicle_ready, fully_paid, delivered, completed, canceled]
  *         description: |
  *           Lọc theo trạng thái đơn hàng.
  *       - in: query
@@ -149,6 +158,576 @@ router.get("/yourself", checkRole(DEALER_ROLES), getOrdersForYours);
  *         description: Not Found
  */
 router.get("/:id", checkRole(DEALER_ROLES), getOrderById);
+
+/**
+ * @openapi
+ * /api/orders/{id}/pay-deposit:
+ *   post:
+ *     tags:
+ *       - Orders
+ *     summary: Khách hàng cọc tiền + Upload hợp đồng + Check stock
+ *     description: |
+ *       API quan trọng nhất trong luồng bán hàng.
+ *
+ *       Chức năng:
+ *       1. Nhận tiền cọc từ khách hàng
+ *       2. Check stock tại đại lý:
+ *          - Nếu CÓ xe: Trừ stock ngay (giữ chỗ) → status = "deposit_paid"
+ *          - Nếu HẾT xe: Tạo OrderRequest lên hãng → status = "waiting_vehicle_request"
+ *       3. Tạo công nợ (Debt)
+ *       4. Tạo hóa đơn payment
+ *       5. Ghi log order status
+ *
+ *       Yêu cầu: Order phải ở trạng thái "pending"
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - deposit_amount
+ *               - payment_method
+ *             properties:
+ *               deposit_amount:
+ *                 type: number
+ *                 description: Số tiền cọc (VD 10% của final_amount)
+ *                 example: 50000000
+ *               payment_method:
+ *                 type: string
+ *                 enum: [cash, bank, qr, card]
+ *                 description: Phương thức thanh toán
+ *                 example: "bank"
+ *               notes:
+ *                 type: string
+ *                 description: Ghi chú
+ *                 example: "Khách cọc qua chuyển khoản"
+ *     responses:
+ *       200:
+ *         description: Đã nhận tiền cọc thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 order:
+ *                   type: object
+ *                   description: Order đã được cập nhật
+ *                 payment:
+ *                   type: object
+ *                   description: Payment record
+ *                 has_stock:
+ *                   type: boolean
+ *                   description: true = có xe, false = hết xe
+ *                 order_request:
+ *                   type: object
+ *                   description: OrderRequest (nếu hết xe)
+ *       400:
+ *         description: Bad Request (order không pending, số tiền không hợp lệ)
+ *       404:
+ *         description: Order không tồn tại
+ */
+router.post("/:id/pay-deposit", checkRole(DEALER_ROLES), payDeposit);
+
+/**
+ * @openapi
+ * /api/orders/{id}/mark-vehicle-ready:
+ *   patch:
+ *     tags:
+ *       - Orders
+ *     summary: Đánh dấu xe đã sẵn sàng, thông báo khách thanh toán
+ *     description: |
+ *       Chuyển order từ "deposit_paid" hoặc "waiting_vehicle_request" → "vehicle_ready".
+ *
+ *       **Khi nào dùng:**
+ *       - Xe có sẵn (deposit_paid): Đã chuẩn bị xe xong, sẵn sàng giao
+ *       - Xe từ hãng (waiting_vehicle_request): Hãng đã approve, xe đã về và chuẩn bị xong
+ *
+ *       **Sau khi ready:** Liên hệ khách đến thanh toán số tiền còn lại và nhận xe
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               vehicle_images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: URL ảnh xe đã chuẩn bị (optional)
+ *                 example: ["https://cloudinary.com/image1.jpg", "https://cloudinary.com/image2.jpg"]
+ *               preparation_notes:
+ *                 type: string
+ *                 description: Ghi chú về việc chuẩn bị xe
+ *                 example: "Đã kiểm tra và vệ sinh xe, đổ đầy nhiên liệu"
+ *               expected_pickup_date:
+ *                 type: string
+ *                 format: date
+ *                 description: Ngày dự kiến khách có thể đến lấy xe
+ *                 example: "2025-01-15"
+ *     responses:
+ *       200:
+ *         description: Xe đã được đánh dấu sẵn sàng
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 order:
+ *                   $ref: '#/components/schemas/Order'
+ *                 message:
+ *                   type: string
+ *                 remaining_amount:
+ *                   type: number
+ *                   description: Số tiền khách còn phải trả
+ *       400:
+ *         description: Order không ở trạng thái phù hợp
+ *       404:
+ *         description: Order không tồn tại
+ */
+router.patch(
+  "/:id/mark-vehicle-ready",
+  checkRole(DEALER_ROLES),
+  markVehicleReady
+);
+
+// /**
+//  * @openapi
+//  * /api/orders/{id}/pay-final:
+//  *   post:
+//  *     tags:
+//  *       - Orders
+//  *     summary: Thanh toán số tiền còn lại
+//  *     description: |
+//  *       Chuyển order từ "vehicle_ready" → "fully_paid".
+//  *
+//  *       **Luồng:** Xe đã sẵn sàng → Khách đến thanh toán nốt → Sẵn sàng giao xe
+//  *
+//  *       **Chức năng:**
+//  *       - Tính số tiền còn lại (final_amount - paid_amount)
+//  *       - Nhận thanh toán từ khách
+//  *       - Cập nhật Debt thành "settled"
+//  *       - Chuyển status → fully_paid
+//  *     security:
+//  *       - bearerAuth: []
+//  *     parameters:
+//  *       - in: path
+//  *         name: id
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *         description: Order ID
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             required:
+//  *               - payment_method
+//  *             properties:
+//  *               payment_method:
+//  *                 type: string
+//  *                 enum: [cash, bank, qr, card]
+//  *                 example: "cash"
+//  *               notes:
+//  *                 type: string
+//  *                 example: "Thanh toán phần còn lại"
+//  *     responses:
+//  *       200:
+//  *         description: Thanh toán thành công
+//  *       400:
+//  *         description: Order không ở trạng thái vehicle_ready
+//  *       404:
+//  *         description: Order không tồn tại
+//  */
+// router.post("/:id/pay-final", checkRole(DEALER_ROLES), payFinalAmount);
+
+/**
+ * @openapi
+ * /api/orders/{id}/deliver:
+ *   patch:
+ *     tags:
+ *       - Orders
+ *     summary: Giao xe cho khách hàng
+ *     description: |
+ *       Chuyển order từ "fully_paid" → "delivered".
+ *
+ *       **Luồng:** Đã thanh toán đủ → Giao xe cho khách → Hoàn tất giao dịch
+ *
+ *       **Chức năng:**
+ *       - Cập nhật thông tin giao xe (người giao, người nhận)
+ *       - Upload giấy tờ xe, biên bản bàn giao
+ *       - Ghi nhận thời gian giao xe
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - recipient_info
+ *             properties:
+ *               delivery_person:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   phone:
+ *                     type: string
+ *                   id_card:
+ *                     type: string
+ *               recipient_info:
+ *                 type: object
+ *                 required:
+ *                   - name
+ *                   - phone
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                     example: "Nguyễn Văn A"
+ *                   phone:
+ *                     type: string
+ *                     example: "0912345678"
+ *                   relationship:
+ *                     type: string
+ *                     example: "Chính chủ"
+ *               delivery_documents:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     name:
+ *                       type: string
+ *                     type:
+ *                       type: string
+ *                     file_url:
+ *                       type: string
+ *               delivery_notes:
+ *                 type: string
+ *               actual_delivery_date:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       200:
+ *         description: Giao xe thành công
+ *       400:
+ *         description: Order không ở trạng thái fully_paid hoặc thiếu thông tin
+ *       404:
+ *         description: Order không tồn tại
+ */
+router.patch("/:id/deliver", checkRole(DEALER_ROLES), deliverOrder);
+
+/**
+ * @openapi
+ * /api/orders/{id}/complete:
+ *   patch:
+ *     tags:
+ *       - Orders
+ *     summary: Hoàn tất đơn hàng (đóng hồ sơ)
+ *     description: |
+ *       Chuyển order từ "delivered" → "completed".
+ *
+ *       **Luồng:** Đã giao xe → Chờ 1-2 ngày → Hoàn tất đơn hàng
+ *
+ *       **Chức năng:**
+ *       - Đóng hoàn toàn hồ sơ đơn hàng
+ *       - Ghi nhận hoàn tất thành công
+ *
+ *       **Yêu cầu:** Order phải delivered ít nhất 1 ngày
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               completion_notes:
+ *                 type: string
+ *                 description: Ghi chú khi hoàn tất
+ *                 example: "Khách hàng hài lòng với dịch vụ"
+ *     responses:
+ *       200:
+ *         description: Hoàn tất đơn hàng thành công
+ *       400:
+ *         description: Order không ở trạng thái delivered hoặc chưa đủ thời gian
+ *       404:
+ *         description: Order không tồn tại
+ */
+router.patch("/:id/complete", checkRole(DEALER_ROLES), completeOrder);
+
+// /**
+//  * @openapi
+//  * /api/orders/{id}/cancel:
+//  *   post:
+//  *     tags:
+//  *       - Orders
+//  *     summary: Huỷ đơn hàng với hoàn tiền tự động
+//  *     description: |
+//  *       Huỷ đơn hàng ở bất kỳ trạng thái nào (trừ completed).
+//  *
+//  *       **Luồng hoàn tiền tự động:**
+//  *       - Hoàn lại tiền đã cọc/thanh toán (tạo payment refund)
+//  *       - Hoàn lại stock nếu đã trừ
+//  *       - Huỷ công nợ (debt) nếu có
+//  *       - Huỷ OrderRequest nếu đang chờ xe từ hãng
+//  *
+//  *       **Yêu cầu:**
+//  *       - Order không được ở trạng thái "completed" hoặc "canceled"
+//  *       - Bắt buộc cung cấp lý do huỷ
+//  *     security:
+//  *       - bearerAuth: []
+//  *     parameters:
+//  *       - in: path
+//  *         name: id
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *         description: Order ID
+//  *     requestBody:
+//  *       required: true
+//  *       content:
+//  *         application/json:
+//  *           schema:
+//  *             type: object
+//  *             required:
+//  *               - cancellation_reason
+//  *             properties:
+//  *               cancellation_reason:
+//  *                 type: string
+//  *                 description: Lý do huỷ đơn hàng (bắt buộc)
+//  *                 example: "Khách hàng không có nhu cầu mua xe nữa"
+//  *               refund_method:
+//  *                 type: string
+//  *                 enum: [cash, bank, qr, card]
+//  *                 default: cash
+//  *                 description: Phương thức hoàn tiền
+//  *                 example: "bank"
+//  *     responses:
+//  *       200:
+//  *         description: Huỷ đơn hàng thành công
+//  *         content:
+//  *           application/json:
+//  *             schema:
+//  *               type: object
+//  *               properties:
+//  *                 order:
+//  *                   type: object
+//  *                 refund_summary:
+//  *                   type: object
+//  *                   properties:
+//  *                     refunded:
+//  *                       type: boolean
+//  *                     refund_amount:
+//  *                       type: number
+//  *                     refund_payments:
+//  *                       type: array
+//  *                 stock_restored:
+//  *                   type: boolean
+//  *                 debt_canceled:
+//  *                   type: boolean
+//  *                 request_canceled:
+//  *                   type: boolean
+//  *       400:
+//  *         description: Order không thể huỷ hoặc thiếu lý do
+//  *       404:
+//  *         description: Order không tồn tại
+//  */
+// router.post("/:id/cancel", checkRole(DEALER_ROLES), cancelOrder);
+
+/**
+ * @openapi
+ * /api/orders/{id}/status-history:
+ *   get:
+ *     tags:
+ *       - Orders
+ *     summary: Lấy lịch sử thay đổi trạng thái đơn hàng (timeline)
+ *     description: |
+ *       Truy vấn tất cả các sự kiện thay đổi trạng thái của đơn hàng.
+ *
+ *       **Thông tin trả về:**
+ *       - Danh sách các sự kiện (mới nhất → cũ nhất)
+ *       - Trạng thái cũ/mới
+ *       - Người thực hiện thay đổi
+ *       - Thời gian và ghi chú
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     responses:
+ *       200:
+ *         description: Lịch sử trạng thái đơn hàng
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 order_code:
+ *                   type: string
+ *                 current_status:
+ *                   type: string
+ *                 total_events:
+ *                   type: number
+ *                 timeline:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       timestamp:
+ *                         type: string
+ *                       old_status:
+ *                         type: string
+ *                       new_status:
+ *                         type: string
+ *                       status_label:
+ *                         type: string
+ *                       changed_by:
+ *                         type: object
+ *                       notes:
+ *                         type: string
+ *                       elapsed_time:
+ *                         type: string
+ *       404:
+ *         description: Order không tồn tại
+ */
+router.get(
+  "/:id/status-history",
+  checkRole(DEALER_ROLES),
+  getOrderStatusHistory
+);
+
+/**
+ * @openapi
+ * /api/orders/{id}/payments:
+ *   get:
+ *     tags:
+ *       - Orders
+ *     summary: Lấy tổng hợp thanh toán của đơn hàng
+ *     description: |
+ *       Xem tất cả các giao dịch thanh toán liên quan đến đơn hàng.
+ *
+ *       **Thông tin bao gồm:**
+ *       - Danh sách payments (deposit, final, refund)
+ *       - Tổng hợp: Tổng đã trả, tổng hoàn, còn lại
+ *       - Tiến độ thanh toán (%)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     responses:
+ *       200:
+ *         description: Chi tiết thanh toán đơn hàng
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 order:
+ *                   type: object
+ *                   properties:
+ *                     code:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     final_amount:
+ *                       type: number
+ *                     paid_amount:
+ *                       type: number
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     total_order_amount:
+ *                       type: number
+ *                     total_deposit:
+ *                       type: number
+ *                     total_final:
+ *                       type: number
+ *                     total_paid:
+ *                       type: number
+ *                     total_refunded:
+ *                       type: number
+ *                     net_paid:
+ *                       type: number
+ *                     remaining_amount:
+ *                       type: number
+ *                     payment_progress:
+ *                       type: number
+ *                       description: Phần trăm đã thanh toán (0-100)
+ *                 payments:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       payment_type:
+ *                         type: string
+ *                       payment_type_label:
+ *                         type: string
+ *                       amount:
+ *                         type: number
+ *                       payment_method:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       created_at:
+ *                         type: string
+ *                 payment_count:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: number
+ *                     deposit:
+ *                       type: number
+ *                     final:
+ *                       type: number
+ *                     refund:
+ *                       type: number
+ */
+router.get("/:id/payments", checkRole(DEALER_ROLES), getPaymentsByOrder);
 
 /**
  * @openapi
@@ -232,7 +811,7 @@ router.put("/:id", checkRole(DEALER_ROLES), updateOrder);
  *   delete:
  *     tags:
  *       - Orders
- *     summary: Delete order
+ *     summary: Delete order - Cancel order and refund all payments
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -260,12 +839,12 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *     summary: Update order status and optionally paid amount
  *     description: |
  *       Transition allowed:
- *       - pending -> confirmed
- *       - confirmed -> halfPayment
- *       - halfPayment -> fullyPayment
- *       - fullyPayment -> closed
- *       - closed -> contract_signed
- *       - contract_signed -> delivered
+ *       - pending -> deposit_paid
+ *       - deposit_paid -> vehicle_ready | waiting_vehicle_request
+ *       - waiting_vehicle_request -> vehicle_ready
+ *       - vehicle_ready -> fully_paid
+ *       - fully_paid -> delivered
+ *       - delivered -> completed
  *       Also allows updating paid amount for the order to reflect customer payment.
  *     security:
  *       - bearerAuth: []
@@ -287,9 +866,9 @@ router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [pending, confirmed, halfPayment, fullyPayment, closed, contract_signed, delivered]
+ *                 enum: [pending, deposit_paid, waiting_vehicle_request, waiting_bank_approval, vehicle_ready, fully_paid, delivered, completed, canceled]
  *           example:
- *             status: "confirmed"
+ *             status: "fully_paid"
  *     responses:
  *       200:
  *         description: OK, order status updated and paid amount recorded

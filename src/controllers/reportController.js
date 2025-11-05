@@ -2,9 +2,11 @@ import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import Vehicle from "../models/Vehicle.js";
 import {success} from "../utils/response.js";
-import {AuthMessage} from "../utils/MessageRes.js";
+import {AuthMessage, DealerMessage} from "../utils/MessageRes.js";
 import {generateReportExcelSingle} from "../services/reportService.js";
 import fs from "fs";
+import DealerManufacturerDebt from "../models/DealerManufacturerDebt.js";
+import Debt from "../models/Debt.js";
 /**
  * Doanh số theo thời gian / sản phẩm / đại lý
  */
@@ -13,7 +15,7 @@ export async function getSalesReport(req, res, next) {
     const {startDate, endDate, dealership_id} = req.query;
     const match = {
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
 
     if (startDate && endDate)
@@ -80,7 +82,7 @@ export async function getTopSellingVehicles(req, res, next) {
     const {startDate, endDate, limit = 5} = req.query;
     const match = {
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
 
     if (startDate && endDate)
@@ -151,6 +153,7 @@ export async function getDealerStock(req, res, next) {
               vehicle_name: "$name",
               color: "$stocks.color",
               quantity: "$stocks.quantity",
+              remaining_quantity: "$stocks.remaining_quantity",
             },
           },
         },
@@ -170,14 +173,14 @@ export async function getDealerStock(req, res, next) {
  */
 export async function getSalesByStaff(req, res, next) {
   try {
-    const {dealership_id, startDate, endDate} = req.query;
+    const {startDate, endDate} = req.query;
+    const dealership_id = req.user?.dealership_id;
     const match = {
+      dealership_id: new mongoose.Types.ObjectId(dealership_id),
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
 
-    if (dealership_id)
-      match.dealership_id = new mongoose.Types.ObjectId(dealership_id);
     if (startDate && endDate)
       match.createdAt = {$gte: new Date(startDate), $lte: new Date(endDate)};
 
@@ -217,6 +220,153 @@ export async function getSalesByStaff(req, res, next) {
   }
 }
 
+/**
+ * Lấy công nợ giữa dealer đang login và các manufacturer
+ */
+export async function getDealerManufacturerDebts(req, res, next) {
+  try {
+    const dealership_id = req.user?.dealership_id;
+    if (!dealership_id) return next(new Error("Missing dealership_id"));
+
+    // Lọc chỉ công nợ còn dư
+    const extraQuery = {
+      dealership_id: dealership_id,
+      remaining_amount: {$gt: 0},
+    };
+
+    // Phân trang
+    const page = parseInt(req.query.page || 1);
+    const limit = parseInt(req.query.limit || 10);
+    const skip = (page - 1) * limit;
+
+    const [data, totalCount] = await Promise.all([
+      DealerManufacturerDebt.find(extraQuery)
+        .populate({path: "manufacturer_id", select: "name"})
+        .skip(skip)
+        .limit(limit),
+      DealerManufacturerDebt.countDocuments(extraQuery),
+    ]);
+
+    // Tổng công nợ
+    const totals = await DealerManufacturerDebt.aggregate([
+      {$match: extraQuery},
+      {
+        $group: {
+          _id: null,
+          totalAmount: {$sum: {$ifNull: ["$total_amount", 0]}},
+          remainingAmount: {$sum: {$ifNull: ["$remaining_amount", 0]}},
+        },
+      },
+    ]);
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return success(res, DealerMessage.DEBTS_RETRIEVED, {
+      page,
+      limit,
+      totalPages,
+      totalItems: totalCount,
+      data,
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
+/**
+ * GET /api/debts/dealer-customer
+ * Lấy công nợ giữa dealer đang login và khách hàng
+ */
+export async function getDealerCustomerDebts(req, res, next) {
+  try {
+    const dealership_id = req.user?.dealership_id;
+    if (!dealership_id) return next(new Error("Missing dealership_id"));
+
+    // Lọc theo trạng thái công nợ
+    let statusFilter = ["partial", "settled"];
+    if (req.query.status) {
+      statusFilter = req.query.status
+        .split(",")
+        .map((s) => s.trim().toLowerCase());
+    }
+
+    const matchStage = {
+      status: {$in: statusFilter},
+    };
+
+    // --- Pipeline ---
+    const pipeline = [
+      {
+        $lookup: {
+          from: "orders",
+          localField: "order_id",
+          foreignField: "_id",
+          as: "order",
+        },
+      },
+      {$unwind: "$order"},
+      {
+        $match: {
+          ...matchStage,
+          "order.dealership_id": dealership_id,
+        },
+      },
+      {
+        $lookup: {
+          from: "customers",
+          localField: "customer_id",
+          foreignField: "_id",
+          as: "customer",
+        },
+      },
+      {$unwind: "$customer"},
+      {
+        $project: {
+          total_amount: 1,
+          remaining_amount: 1,
+          status: 1,
+          order_id: "$order._id",
+          customer_id: "$customer._id",
+          order: {
+            code: "$order.code",
+            final_amount: "$order.final_amount",
+            status: "$order.status",
+            paid_amount: "$order.paid_amount",
+          },
+          customer: {
+            full_name: "$customer.full_name",
+            phone: "$customer.phone",
+            email: "$customer.email",
+          },
+        },
+      },
+    ];
+
+    const page = parseInt(req.query.page || 1);
+    const limit = parseInt(req.query.limit || 10);
+    const skip = (page - 1) * limit;
+
+    const [data, totalCount] = await Promise.all([
+      Debt.aggregate([...pipeline, {$skip: skip}, {$limit: limit}]),
+      Debt.aggregate([...pipeline, {$count: "count"}]),
+    ]);
+
+    const totalItems = totalCount[0]?.count || 0;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return success(res, DealerMessage.DEBTS_RETRIEVED, {
+      page,
+      limit,
+      totalPages,
+      totalItems,
+      filters: {status: statusFilter},
+      data,
+    });
+  } catch (e) {
+    next(e);
+  }
+}
+
 /** ===============================
  *  Doanh số theo thời gian / sản phẩm / đại lý
  * =============================== */
@@ -225,7 +375,7 @@ export async function exportSalesReport(req, res, next) {
     const {startDate, endDate, dealership_id} = req.query;
     const match = {
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
     if (startDate && endDate)
       match.createdAt = {$gte: new Date(startDate), $lte: new Date(endDate)};
@@ -292,7 +442,7 @@ export async function exportTopSelling(req, res, next) {
     const {startDate, endDate, limit = 10} = req.query;
     const match = {
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
     if (startDate && endDate)
       match.createdAt = {$gte: new Date(startDate), $lte: new Date(endDate)};
@@ -368,7 +518,7 @@ export async function exportDealerStock(req, res, next) {
           dealership: "$dealer.company_name",
           vehicle_name: "$name",
           color: "$stocks.color",
-          quantity: "$stocks.quantity",
+          quantity: "$stocks.remaining_quantity",
         },
       },
       {$sort: {dealership: 1}},
@@ -395,13 +545,13 @@ export async function exportDealerStock(req, res, next) {
  * =============================== */
 export async function exportSalesByStaff(req, res, next) {
   try {
-    const {startDate, endDate, dealership_id} = req.query;
+    const {startDate, endDate} = req.query;
+    const dealership_id = req.user?.dealership_id;
     const match = {
+      dealership_id: new mongoose.Types.ObjectId(dealership_id),
       is_deleted: false,
-      status: {$in: ["delivered", "closed", "fullyPayment"]},
+      status: {$in: ["delivered", "fully_paid", "completed"]},
     };
-    if (dealership_id)
-      match.dealership_id = new mongoose.Types.ObjectId(dealership_id);
     if (startDate && endDate)
       match.createdAt = {$gte: new Date(startDate), $lte: new Date(endDate)};
 

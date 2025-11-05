@@ -95,11 +95,28 @@ export async function createQuote(req, res, next) {
   try {
     const {items = [], notes, customer_id} = req.body;
     const userId = req.user._id;
+    const dealership_id = req.user?.dealership_id;
 
     if (!customer_id) return errorRes(res, QuoteMessage.MISSING_CUSTOMER, 400);
 
     if (!Array.isArray(items) || items.length === 0)
       return errorRes(res, QuoteMessage.EMPTY_ITEMS, 400);
+
+    // --- Validate: Khách PHẢI chọn màu cho mỗi xe ---
+    for (const item of items) {
+      if (!item.color || item.color.trim() === "") {
+        const vehicle = await Vehicle.findById(item.vehicle_id)
+          .select("name")
+          .lean();
+        return errorRes(
+          res,
+          `Xe "${
+            vehicle?.name || item.vehicle_id
+          }" chưa chọn màu! Vui lòng chọn màu xe trước khi tạo báo giá.`,
+          400
+        );
+      }
+    }
 
     // --- Check vehicle trùng ---
     const hasDuplicateVehicleWithColor = items.some((item, idx) => {
@@ -164,6 +181,7 @@ export async function createQuote(req, res, next) {
     const quote = await Quote.create({
       code,
       customer_id,
+      dealership_id,
       items: itemsWithFinal,
       final_amount: total,
       notes,
@@ -198,10 +216,28 @@ export async function createQuote(req, res, next) {
 // =================== LIST QUOTES ===================
 export async function getQuotes(req, res, next) {
   try {
-    // Chỉ lọc quote còn hạn hoặc valid
     const now = new Date();
-    const cond = {status: {$ne: "canceled"}, endDate: {$gte: now}};
+
+    // Lấy dealership_id từ user
+    const dealership_id = req.user?.dealership_id;
+    const {customer_id} = req.query;
+
+    // Điều kiện query
+    const cond = {
+      status: {$ne: "canceled"},
+      endDate: {$gte: now},
+    };
+
+    // Nếu có dealership_id, thêm vào điều kiện lọc
+    if (dealership_id) {
+      cond.dealership_id = dealership_id;
+    }
+    if (customer_id) {
+      cond.customer_id = customer_id;
+    }
+
     const result = await paginate(Quote, req, ["code", "notes"], cond);
+
     return success(res, QuoteMessage.LIST_SUCCESS, result);
   } catch (e) {
     next(e);

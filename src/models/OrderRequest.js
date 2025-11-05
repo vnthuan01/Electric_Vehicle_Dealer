@@ -23,6 +23,13 @@ const orderRequestSchema = new mongoose.Schema(
       ref: "Dealership",
       required: true,
     },
+    // THÊM MỚI - Link về Order (nếu OrderRequest được tạo từ Order)
+    order_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Order",
+      required: false,
+      default: null,
+    },
 
     items: [
       {
@@ -43,7 +50,7 @@ const orderRequestSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "canceled"],
       default: "pending",
     },
 

@@ -1,0 +1,368 @@
+erDiagram
+    %% ========== CORE ENTITIES ==========
+    
+    User ||--o{ Role : "has"
+    User }o--o| Dealership : "belongs to"
+    User }o--o| Manufacturer : "belongs to"
+    
+    Customer }o--|| Dealership : "belongs to"
+    Customer ||--o{ Order : "places"
+    Customer ||--o{ Quote : "requests"
+    Customer ||--o{ Debt : "owes"
+    Customer ||--o{ TestDrive : "schedules"
+    Customer ||--o{ Feedback : "submits"
+    Customer ||--o{ BankLoan : "applies for"
+    Customer ||--o{ BankProfile : "has"
+    Customer ||--o{ PromotionUsage : "uses"
+    
+    Vehicle }o--|| Manufacturer : "produced by"
+    Vehicle ||--o{ Order : "included in"
+    Vehicle ||--o{ Quote : "quoted in"
+    Vehicle ||--o{ RequestVehicle : "requested"
+    Vehicle ||--o{ TestDrive : "tested"
+    Vehicle ||--o{ PromotionUsage : "promoted"
+    
+    %% ========== ORDER MANAGEMENT ==========
+    
+    Order }o--|| Customer : "for"
+    Order }o--|| Dealership : "processed by"
+    Order }o--o| User : "sold by"
+    Order }o--o| Quote : "created from"
+    Order ||--o{ Payment : "has"
+    Order ||--o| Debt : "generates"
+    Order ||--o| BankLoan : "has"
+    Order ||--o| OrderRequest : "creates"
+    Order ||--o{ RequestVehicle : "fulfilled by"
+    Order ||--o{ OrderStatusLog : "logged"
+    Order }o--o| Promotion : "applies"
+    Order }o--o{ Accessory : "includes"
+    Order }o--o{ Option : "includes"
+    
+    Quote ||--o{ Order : "converted to"
+    Quote }o--o| Promotion : "applies"
+    Quote }o--o{ Accessory : "includes"
+    Quote }o--o{ Option : "includes"
+    
+    Payment }o--|| Order : "for"
+    Payment }o--|| Customer : "from"
+    
+    Debt }o--|| Order : "from"
+    Debt }o--|| Customer : "owed by"
+    
+    OrderRequest ||--o{ RequestVehicle : "creates"
+    OrderRequest }o--o| Order : "fulfills"
+    OrderRequest }o--|| Dealership : "requested by"
+    OrderRequest }o--|| User : "requested by"
+    OrderRequest }o--o| User : "approved by"
+    OrderRequest }o--o| User : "rejected by"
+    
+    RequestVehicle }o--|| Vehicle : "requests"
+    RequestVehicle }o--|| Dealership : "requested by"
+    RequestVehicle }o--o| DealerManufacturerDebt : "creates"
+    RequestVehicle }o--o| OrderRequest : "from"
+    RequestVehicle }o--o| Order : "fulfills"
+    
+    OrderStatusLog }o--|| Order : "tracks"
+    OrderStatusLog }o--|| Customer : "for"
+    OrderStatusLog }o--|| Dealership : "at"
+    OrderStatusLog }o--|| User : "changed by"
+    
+    %% ========== DEBT MANAGEMENT ==========
+    
+    DealerManufacturerDebt }o--|| Dealership : "owed by"
+    DealerManufacturerDebt }o--|| Manufacturer : "owed to"
+    DealerManufacturerDebt ||--o{ RequestVehicle : "from"
+    DealerManufacturerDebt ||--o{ Order : "settled by"
+    DealerManufacturerDebt ||--o{ Payment : "paid via"
+    
+    %% ========== PROMOTION MANAGEMENT ==========
+    
+    Promotion ||--o{ PromotionUsage : "used in"
+    Promotion }o--o{ Dealership : "allocated to"
+    Promotion }o--o{ Order : "applied to"
+    Promotion }o--o{ Quote : "applied to"
+    
+    PromotionUsage }o--|| Customer : "for"
+    PromotionUsage }o--|| Vehicle : "for"
+    PromotionUsage }o--|| Promotion : "uses"
+    PromotionUsage }o--o| Order : "in"
+    PromotionUsage }o--o| Quote : "in"
+    
+    %% ========== BANKING & LOANS ==========
+    
+    Bank ||--o{ BankLoan : "provides"
+    Bank ||--o{ BankProfile : "has profile"
+    
+    BankLoan }o--|| Order : "for"
+    BankLoan }o--|| Customer : "for"
+    BankLoan }o--|| Dealership : "at"
+    BankLoan }o--|| Bank : "from"
+    BankLoan }o--o| Payment : "disbursed via"
+    BankLoan }o--o| User : "created by"
+    
+    BankProfile }o--|| Order : "for"
+    BankProfile }o--|| Customer : "for"
+    BankProfile }o--|| Dealership : "at"
+    
+    Installment }o--|| Order : "for"
+    Installment }o--|| Customer : "for"
+    
+    %% ========== ADDITIONAL FEATURES ==========
+    
+    TestDrive }o--|| Customer : "for"
+    TestDrive }o--|| Vehicle : "of"
+    TestDrive }o--|| Dealership : "at"
+    TestDrive }o--o| User : "assigned to"
+    
+    Feedback }o--|| Customer : "from"
+    Feedback }o--|| Dealership : "to"
+    Feedback }o--o{ User : "commented by"
+    
+    Dealership }o--|| Manufacturer : "represents"
+    Dealership ||--o{ User : "has staff"
+    Dealership ||--o{ Customer : "serves"
+    Dealership ||--o{ Order : "processes"
+    Dealership ||--o{ OrderRequest : "makes"
+    Dealership ||--o{ RequestVehicle : "requests"
+    Dealership ||--o{ DealerManufacturerDebt : "owes"
+    Dealership }o--o{ Promotion : "allocated"
+    Dealership ||--o{ TestDrive : "provides"
+    Dealership ||--o{ Feedback : "receives"
+    
+    Manufacturer ||--o{ Vehicle : "produces"
+    Manufacturer ||--o{ Dealership : "has"
+    Manufacturer ||--o{ User : "has staff"
+    Manufacturer ||--o{ DealerManufacturerDebt : "owed by"
+    
+    %% ========== ENTITY DEFINITIONS ==========
+    
+    User {
+        ObjectId _id PK
+        string full_name
+        string email UK
+        string phone
+        string password
+        ObjectId role_id FK
+        ObjectId dealership_id FK
+        ObjectId manufacturer_id FK
+    }
+    
+    Role {
+        ObjectId _id PK
+        string name UK "Dealer Staff|Dealer Manager|EVM Staff|Admin"
+    }
+    
+    Customer {
+        ObjectId _id PK
+        string full_name
+        string phone
+        string email
+        ObjectId dealership_id FK
+    }
+    
+    Vehicle {
+        ObjectId _id PK
+        string name
+        string sku UK
+        string category "car|motorbike"
+        ObjectId manufacturer_id FK
+        number price
+        array stocks "embedded"
+    }
+    
+    Order {
+        ObjectId _id PK
+        string code UK
+        ObjectId customer_id FK
+        ObjectId dealership_id FK
+        ObjectId salesperson_id FK
+        ObjectId quote_id FK
+        array items "embedded"
+        number final_amount
+        number paid_amount
+        string status
+        ObjectId bank_loan_id FK
+        ObjectId order_request_id FK
+    }
+    
+    Quote {
+        ObjectId _id PK
+        string code UK
+        ObjectId customer_id FK
+        array items "embedded"
+        number final_amount
+        string status
+    }
+    
+    Payment {
+        ObjectId _id PK
+        ObjectId order_id FK
+        ObjectId customer_id FK
+        string method
+        number amount
+        date paid_at
+    }
+    
+    Debt {
+        ObjectId _id PK
+        ObjectId customer_id FK
+        ObjectId order_id FK
+        number total_amount
+        number paid_amount
+        number remaining_amount
+        string status
+    }
+    
+    RequestVehicle {
+        ObjectId _id PK
+        ObjectId vehicle_id FK
+        ObjectId dealership_id FK
+        string color
+        number quantity
+        string status
+        ObjectId debt_id FK
+        ObjectId order_request_id FK
+        ObjectId order_id FK
+    }
+    
+    OrderRequest {
+        ObjectId _id PK
+        string code UK
+        ObjectId requested_by FK
+        ObjectId approved_by FK
+        ObjectId rejected_by FK
+        ObjectId dealership_id FK
+        ObjectId order_id FK
+        array items "embedded"
+        string status
+    }
+    
+    OrderStatusLog {
+        ObjectId _id PK
+        ObjectId order_id FK
+        ObjectId customer_id FK
+        ObjectId dealership_id FK
+        string old_status
+        string new_status
+        ObjectId changed_by FK
+    }
+    
+    DealerManufacturerDebt {
+        ObjectId _id PK
+        ObjectId dealership_id FK
+        ObjectId manufacturer_id FK
+        number total_amount
+        number paid_amount
+        number remaining_amount
+        string status
+        array items "embedded"
+        array payments "embedded"
+    }
+    
+    Promotion {
+        ObjectId _id PK
+        string name
+        string type
+        number value
+        date start_date
+        date end_date
+        boolean is_active
+    }
+    
+    PromotionUsage {
+        ObjectId _id PK
+        ObjectId customer_id FK
+        ObjectId vehicle_id FK
+        ObjectId promotion_id FK
+        ObjectId order_id FK
+        ObjectId quote_id FK
+        string status
+    }
+    
+    Bank {
+        ObjectId _id PK
+        string name UK
+        string code UK
+    }
+    
+    BankLoan {
+        ObjectId _id PK
+        ObjectId order_id FK UK
+        ObjectId customer_id FK
+        ObjectId dealership_id FK
+        ObjectId bank_id FK
+        number loan_amount
+        number down_payment
+        number loan_term_months
+        number interest_rate
+        string status
+    }
+    
+    BankProfile {
+        ObjectId _id PK
+        ObjectId order_id FK
+        ObjectId customer_id FK
+        ObjectId dealership_id FK
+        string bank_name
+        number loan_amount
+        string status
+    }
+    
+    Installment {
+        ObjectId _id PK
+        ObjectId order_id FK
+        ObjectId customer_id FK
+        number loan_amount
+        number tenure_months
+        string status
+    }
+    
+    TestDrive {
+        ObjectId _id PK
+        ObjectId customer_id FK
+        ObjectId vehicle_id FK
+        ObjectId dealership_id FK
+        date schedule_at
+        string status
+        ObjectId assigned_staff_id FK
+    }
+    
+    Feedback {
+        ObjectId _id PK
+        ObjectId customer_id FK
+        ObjectId dealership_id FK
+        string content
+        string status
+        array comments "embedded"
+    }
+    
+    Accessory {
+        ObjectId _id PK
+        string name
+        number price
+        string type
+    }
+    
+    Option {
+        ObjectId _id PK
+        string name
+        number price
+        string category
+    }
+    
+    Dealership {
+        ObjectId _id PK
+        string code UK
+        string company_name
+        string tax_code UK
+        ObjectId manufacturer_id FK
+        string status
+    }
+    
+    Manufacturer {
+        ObjectId _id PK
+        string name
+        string code UK
+        string country
+    }
+

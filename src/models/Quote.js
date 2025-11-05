@@ -8,7 +8,12 @@ const quoteSchema = new mongoose.Schema(
       ref: "Customer",
       required: true,
     },
-
+    dealership_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Dealership",
+      required: true,
+      index: true,
+    },
     items: [
       {
         vehicle_id: {
