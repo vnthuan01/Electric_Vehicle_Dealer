@@ -91,7 +91,11 @@ export async function uploadSignedContract(req, res, next) {
       order.contract = {};
     }
 
-    order.contract.signed_contract_url = fileUrl;
+    order.contract.signed_contract_urls.push({
+      url: fileUrl,
+      type: req.file.mimetype,
+      uploaded_at: new Date(),
+    });
     order.contract.signed_at = new Date();
     order.contract.signed_by = req.user?.full_name || "Unknown";
     order.contract.uploaded_by = req.user?.id;

@@ -284,16 +284,21 @@ const orderSchema = new mongoose.Schema(
 
     // Thông tin hợp đồng
     contract: {
-      signed_contract_url: String, // URL file hợp đồng đã ký
-      signed_at: Date, // Thời điểm ký
-      signed_by: String, // Tên người ký
+      signed_contract_urls: [
+        {
+          url: {type: String, required: true},
+          type: {type: String, required: true},
+          uploaded_at: {type: Date, default: Date.now},
+        },
+      ],
+      signed_at: Date,
+      signed_by: String,
       uploaded_by: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
       },
-      template_used: String, // Template đã sử dụng
+      template_used: String,
     },
-
     notes: String,
     is_deleted: {type: Boolean, default: false},
     deleted_at: {type: Date},
