@@ -268,12 +268,6 @@ router.post("/:id/pay-deposit", checkRole(DEALER_ROLES), payDeposit);
  *           schema:
  *             type: object
  *             properties:
- *               vehicle_images:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: URL ảnh xe đã chuẩn bị (optional)
- *                 example: ["https://cloudinary.com/image1.jpg", "https://cloudinary.com/image2.jpg"]
  *               preparation_notes:
  *                 type: string
  *                 description: Ghi chú về việc chuẩn bị xe
@@ -309,62 +303,62 @@ router.patch(
   markVehicleReady
 );
 
-// /**
-//  * @openapi
-//  * /api/orders/{id}/pay-final:
-//  *   post:
-//  *     tags:
-//  *       - Orders
-//  *     summary: Thanh toán số tiền còn lại
-//  *     description: |
-//  *       Chuyển order từ "vehicle_ready" → "fully_paid".
-//  *
-//  *       **Luồng:** Xe đã sẵn sàng → Khách đến thanh toán nốt → Sẵn sàng giao xe
-//  *
-//  *       **Chức năng:**
-//  *       - Tính số tiền còn lại (final_amount - paid_amount)
-//  *       - Nhận thanh toán từ khách
-//  *       - Cập nhật Debt thành "settled"
-//  *       - Chuyển status → fully_paid
-//  *     security:
-//  *       - bearerAuth: []
-//  *     parameters:
-//  *       - in: path
-//  *         name: id
-//  *         required: true
-//  *         schema:
-//  *           type: string
-//  *         description: Order ID
-//  *     requestBody:
-//  *       required: true
-//  *       content:
-//  *         application/json:
-//  *           schema:
-//  *             type: object
-//  *             required:
-//  *               - payment_method
-//  *             properties:
-//  *               payment_method:
-//  *                 type: string
-//  *                 enum: [cash, bank, qr, card]
-//  *                 example: "cash"
-//  *               notes:
-//  *                 type: string
-//  *                 example: "Thanh toán phần còn lại"
-//  *     responses:
-//  *       200:
-//  *         description: Thanh toán thành công
-//  *       400:
-//  *         description: Order không ở trạng thái vehicle_ready
-//  *       404:
-//  *         description: Order không tồn tại
-//  */
-// router.post("/:id/pay-final", checkRole(DEALER_ROLES), payFinalAmount);
+/**
+ * @openapi
+ * /api/orders/{id}/pay-final:
+ *   post:
+ *     tags:
+ *       - Orders
+ *     summary: Thanh toán số tiền còn lại
+ *     description: |
+ *       Chuyển order từ "vehicle_ready" → "fully_paid".
+ *
+ *       **Luồng:** Xe đã sẵn sàng → Khách đến thanh toán nốt → Sẵn sàng giao xe
+ *
+ *       **Chức năng:**
+ *       - Tính số tiền còn lại (final_amount - paid_amount)
+ *       - Nhận thanh toán từ khách
+ *       - Cập nhật Debt thành "settled"
+ *       - Chuyển status → fully_paid
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - payment_method
+ *             properties:
+ *               payment_method:
+ *                 type: string
+ *                 enum: [cash, bank, qr, card]
+ *                 example: "cash"
+ *               notes:
+ *                 type: string
+ *                 example: "Thanh toán phần còn lại"
+ *     responses:
+ *       200:
+ *         description: Thanh toán thành công
+ *       400:
+ *         description: Order không ở trạng thái vehicle_ready
+ *       404:
+ *         description: Order không tồn tại
+ */
+router.post("/:id/pay-final", checkRole(DEALER_ROLES), payFinalAmount);
 
 /**
  * @openapi
  * /api/orders/{id}/deliver:
- *   patch:
+ *   post:
  *     tags:
  *       - Orders
  *     summary: Giao xe cho khách hàng
@@ -443,7 +437,7 @@ router.patch(
  *       404:
  *         description: Order không tồn tại
  */
-router.patch("/:id/deliver", checkRole(DEALER_ROLES), deliverOrder);
+router.post("/:id/deliver", checkRole(DEALER_ROLES), deliverOrder);
 
 /**
  * @openapi
