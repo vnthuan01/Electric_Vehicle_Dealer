@@ -73,7 +73,7 @@ export async function updateDealerManufacturerDebtPayment(debtId, paidAmount) {
   if (!debt) throw new Error("Debt not found");
 
   debt.paid_amount += paidAmount;
-  debt.remaining_amount = debt.total_amount - debt.paid_amount;
+  debt.remaining_amount = Math.max(0, debt.total_amount - debt.paid_amount);
 
   if (debt.remaining_amount <= 0) debt.status = "settled";
   else if (debt.paid_amount > 0) debt.status = "partial";
@@ -313,8 +313,10 @@ export async function settleDealerManufacturerByOrderPayment(
           (sum, item) => sum + Number(item.settled_amount || 0),
           0
         );
-        debt.remaining_amount =
-          Number(debt.total_amount || 0) - debt.paid_amount;
+        debt.remaining_amount = Math.max(
+          0,
+          Number(debt.total_amount || 0) - debt.paid_amount
+        );
 
         // ✅ 12. UPDATE DEBT STATUS
         if (debt.remaining_amount <= 0) {
@@ -404,7 +406,10 @@ export async function settleDealerManufacturerByOrderPayment(
 
       // Đối trừ tổng (không theo lô)
       debt.paid_amount = Number(debt.paid_amount || 0) + itemPayment;
-      debt.remaining_amount = Number(debt.total_amount || 0) - debt.paid_amount;
+      debt.remaining_amount = Math.max(
+        0,
+        Number(debt.total_amount || 0) - debt.paid_amount
+      );
 
       if (debt.remaining_amount <= 0) {
         debt.status = "settled";
@@ -617,7 +622,10 @@ export async function revertDealerManufacturerByOrderPayment(
         (sum, item) => sum + Number(item.settled_amount || 0),
         0
       );
-      debt.remaining_amount = Number(debt.total_amount || 0) - debt.paid_amount;
+      debt.remaining_amount = Math.max(
+        0,
+        Number(debt.total_amount || 0) - debt.paid_amount
+      );
 
       // ✅ 9. UPDATE DEBT STATUS
       if (debt.remaining_amount <= 0) {
