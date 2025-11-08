@@ -47,7 +47,7 @@ router.use(authenticate);
  *     responses:
  *       200: { description: Báo cáo doanh số thành công }
  */
-router.get("/sales", checkRole(MANAGEMENT_ROLES), getSalesReport);
+router.get("/sales", checkRole([...MANAGEMENT_ROLES]), getSalesReport);
 
 /**
  * @openapi
@@ -81,7 +81,11 @@ router.get("/sales", checkRole(MANAGEMENT_ROLES), getSalesReport);
  *       200:
  *         description: "Danh sách sản phẩm bán chạy được lấy thành công"
  */
-router.get("/top-selling", checkRole(MANAGEMENT_ROLES), getTopSellingVehicles);
+router.get(
+  "/top-selling",
+  checkRole([...MANAGEMENT_ROLES]),
+  getTopSellingVehicles
+);
 
 /**
  * @openapi
@@ -94,7 +98,7 @@ router.get("/top-selling", checkRole(MANAGEMENT_ROLES), getTopSellingVehicles);
  *     responses:
  *       200: { description: Dữ liệu tồn kho đại lý }
  */
-router.get("/dealer-stock", checkRole(MANAGEMENT_ROLES), getDealerStock);
+router.get("/dealer-stock", checkRole([...MANAGEMENT_ROLES]), getDealerStock);
 
 /**
  * @openapi
@@ -228,7 +232,7 @@ router.get(
  */
 router.get(
   "/manufacturer/vehicle-consumption",
-  checkRole(EVM_ADMIN_ROLES),
+  checkRole(ROLE.EVM_STAFF),
   getManufacturerVehicleConsumption
 );
 
@@ -246,7 +250,11 @@ router.get(
  *         content:
  *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: {}
  */
-router.get("/export/sales", checkRole(MANAGEMENT_ROLES), exportSalesReport);
+router.get(
+  "/export/sales",
+  checkRole([...MANAGEMENT_ROLES]),
+  exportSalesReport
+);
 
 /**
  * @openapi
@@ -264,7 +272,7 @@ router.get("/export/sales", checkRole(MANAGEMENT_ROLES), exportSalesReport);
  */
 router.get(
   "/export/top-selling",
-  checkRole(MANAGEMENT_ROLES),
+  checkRole([...MANAGEMENT_ROLES]),
   exportTopSelling
 );
 
@@ -284,7 +292,7 @@ router.get(
  */
 router.get(
   "/export/dealer-stock",
-  checkRole(MANAGEMENT_ROLES),
+  checkRole([...MANAGEMENT_ROLES]),
   exportDealerStock
 );
 
@@ -304,7 +312,7 @@ router.get(
  */
 router.get(
   "/export/sales-by-staff",
-  checkRole(MANAGEMENT_ROLES),
+  checkRole([...MANAGEMENT_ROLES]),
   exportSalesByStaff
 );
 
