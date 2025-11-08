@@ -21,7 +21,13 @@ function generateQuoteCode() {
   return `Q${y}${m}${d}${h}${min}${s}`;
 }
 
-// Helper tính giá cuối cùng cho item quote
+/**
+ * Helper tính giá cuối cùng cho item quote
+ * Logic tính toán:
+ * - Vehicle price: nhân với số lượng xe
+ * - Options: tính riêng, KHÔNG nhân với số lượng xe (tùy chọn độc lập)
+ * - Accessories: tính riêng, KHÔNG nhân với số lượng xe (phụ kiện độc lập)
+ */
 async function calculateQuoteItem({
   vehicle_id,
   color,
@@ -31,29 +37,44 @@ async function calculateQuoteItem({
   options,
   accessories,
 }) {
-  // Lấy snapshot xe
+  // === 1. Lấy snapshot xe ===
   const vehicle = await Vehicle.findById(vehicle_id).lean();
   if (!vehicle) throw Error("Vehicle not found: " + vehicle_id);
-  // Lấy snapshot options
+
+  const vehicleQuantity = quantity || 1;
+
+  // === 2. Lấy snapshot options (có quantity riêng, không phụ thuộc số lượng xe) ===
   let optionSnapshots = [];
   if (options?.length) {
     const optionIds = options.map((o) =>
       typeof o === "string" ? o : o.option_id
     );
     const optionDocs = await Option.find({_id: {$in: optionIds}}).lean();
-    optionSnapshots = optionDocs.map((o) => ({
-      option_id: o._id,
-      name: o.name,
-      price: o.price,
-    }));
+
+    optionSnapshots = optionDocs.map((o) => {
+      const input = options.find(
+        (x) =>
+          x === o._id.toString() || x.option_id?.toString() === o._id.toString()
+      );
+      return {
+        option_id: o._id,
+        name: o.name,
+        price: o.price,
+        quantity: input?.quantity || 1,
+      };
+    });
   }
-  // Lấy snapshot accessories
+
+  // === 3. Lấy snapshot accessories (có quantity riêng, không phụ thuộc số lượng xe) ===
   let accessorySnapshots = [];
   if (accessories?.length) {
     const ids = accessories.map((a) => a.accessory_id);
     const accessoryDocs = await Accessory.find({_id: {$in: ids}}).lean();
+
     accessorySnapshots = accessoryDocs.map((a) => {
-      const input = accessories.find((x) => x.accessory_id == a._id.toString());
+      const input = accessories.find(
+        (x) => x.accessory_id?.toString() === a._id.toString()
+      );
       return {
         accessory_id: a._id,
         name: a.name,
@@ -63,30 +84,39 @@ async function calculateQuoteItem({
     });
   }
 
-  // Options/accessories tổng
+  // === 4. Tính tổng options (tính riêng, không nhân với số lượng xe) ===
   const optionsTotal = optionSnapshots.reduce(
-    (sum, o) => sum + (o.price || 0),
+    (sum, o) => sum + (o.price || 0) * (o.quantity || 1),
     0
   );
+
+  // === 5. Tính tổng accessories (tính riêng, không nhân với số lượng xe) ===
   const accessoriesTotal = accessorySnapshots.reduce(
     (sum, a) => sum + (a.price || 0) * (a.quantity || 1),
     0
   );
-  // Tính toán tổng
-  const subtotal =
-    (vehicle.price + optionsTotal + accessoriesTotal) * (quantity || 1);
-  const finalAmount = subtotal - (discount || 0);
+
+  // === 6. Tính subtotal ===
+  // Vehicle: nhân với số lượng xe
+  // Options + Accessories: cộng thêm (không nhân với số lượng xe)
+  const vehicleTotal = vehicle.price * vehicleQuantity;
+  const subtotal = vehicleTotal + optionsTotal + accessoriesTotal;
+
+  // === 7. Áp dụng discount ===
+  const finalAmount = Math.max(0, subtotal - (discount || 0));
+
+  // === 8. Trả về kết quả ===
   return {
     vehicle_id: vehicle._id,
     vehicle_name: vehicle.name,
     vehicle_price: vehicle.price,
     color,
-    quantity: quantity || 1,
+    quantity: vehicleQuantity,
     discount: discount || 0,
     promotion_id,
     options: optionSnapshots,
     accessories: accessorySnapshots,
-    final_amount: finalAmount > 0 ? finalAmount : 0,
+    final_amount: finalAmount,
   };
 }
 

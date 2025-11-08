@@ -788,7 +788,7 @@ export async function revertDealerManufacturerByOrderPayment(
  */
 export async function listCustomerDebts(req, res, next) {
   try {
-    const extraQuery = {remaining_amount: {$gt: 0}};
+    const extraQuery = {remaining_amount: {$gt: 0}, is_deleted: false};
 
     const result = await paginate(Debt, req, [], extraQuery);
 
@@ -833,7 +833,7 @@ export async function listCustomerDebts(req, res, next) {
  */
 export async function listManufacturerDebts(req, res, next) {
   try {
-    const extraQuery = {remaining_amount: {$gt: 0}};
+    const extraQuery = {remaining_amount: {$gt: 0}, is_deleted: false};
 
     const result = await paginate(DealerManufacturerDebt, req, [], extraQuery);
 
@@ -896,6 +896,7 @@ export async function getDealerDebts(req, res, next) {
 
     const matchStage = {
       status: {$in: statusFilter},
+    is_deleted: false,
       // ...(onlyUnpaid ? { remaining_amount: { $gt: 0 } } : {}), // tùy chọn mở rộng
     };
 
@@ -986,7 +987,7 @@ export async function getDealerManufacturerDebtById(req, res, next) {
       .populate("manufacturer_id", "name address phone email")
       .lean();
 
-    if (!debt) {
+    if (!debt || debt.is_deleted) {
       return errorRes(res, "Debt not found", 404);
     }
 
@@ -1069,7 +1070,7 @@ export async function getDealerManufacturerDebtByRequest(req, res, next) {
       .populate("dealership_id", "company_name address phone email")
       .populate("manufacturer_id", "name address phone email")
       .lean();
-    if (!debt) {
+    if (!debt || debt.is_deleted) {
       return errorRes(res, "Debt not found", 404);
     }
     const debtItem = (debt.items || []).find(

@@ -118,6 +118,8 @@ export const ManufacturerMessage = {
     "No manufacturer stock available for this vehicle's color",
   //Debts
   DEBTS_RETRIEVED: "Manufacturer debts retrieved successfully",
+  VEHICLE_CONSUMPTION_RETRIEVED:
+    "Manufacturer vehicle consumption report retrieved successfully",
 };
 
 export const DealerMessage = {
