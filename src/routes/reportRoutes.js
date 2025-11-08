@@ -14,7 +14,11 @@ import {
 } from "../controllers/reportController.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
 import {checkRole} from "../middlewares/checkRole.js";
-import {EVM_ADMIN_ROLES, MANAGEMENT_ROLES, ROLE} from "../enum/roleEnum.js";
+import {
+  EVM_MANAGEMENT_ROLES,
+  MANAGEMENT_ROLES,
+  ROLE,
+} from "../enum/roleEnum.js";
 
 const router = express.Router();
 
@@ -47,7 +51,7 @@ router.use(authenticate);
  *     responses:
  *       200: { description: Báo cáo doanh số thành công }
  */
-router.get("/sales", checkRole([...MANAGEMENT_ROLES]), getSalesReport);
+router.get("/sales", checkRole([...EVM_MANAGEMENT_ROLES]), getSalesReport);
 
 /**
  * @openapi
@@ -83,7 +87,7 @@ router.get("/sales", checkRole([...MANAGEMENT_ROLES]), getSalesReport);
  */
 router.get(
   "/top-selling",
-  checkRole([...MANAGEMENT_ROLES]),
+  checkRole([...EVM_MANAGEMENT_ROLES]),
   getTopSellingVehicles
 );
 
@@ -98,7 +102,11 @@ router.get(
  *     responses:
  *       200: { description: Dữ liệu tồn kho đại lý }
  */
-router.get("/dealer-stock", checkRole([...MANAGEMENT_ROLES]), getDealerStock);
+router.get(
+  "/dealer-stock",
+  checkRole([...EVM_MANAGEMENT_ROLES]),
+  getDealerStock
+);
 
 /**
  * @openapi
@@ -252,7 +260,7 @@ router.get(
  */
 router.get(
   "/export/sales",
-  checkRole([...MANAGEMENT_ROLES]),
+  checkRole([...EVM_MANAGEMENT_ROLES]),
   exportSalesReport
 );
 
@@ -272,7 +280,7 @@ router.get(
  */
 router.get(
   "/export/top-selling",
-  checkRole([...MANAGEMENT_ROLES]),
+  checkRole([...EVM_MANAGEMENT_ROLES]),
   exportTopSelling
 );
 
@@ -292,7 +300,7 @@ router.get(
  */
 router.get(
   "/export/dealer-stock",
-  checkRole([...MANAGEMENT_ROLES]),
+  checkRole([...EVM_MANAGEMENT_ROLES]),
   exportDealerStock
 );
 
@@ -312,7 +320,7 @@ router.get(
  */
 router.get(
   "/export/sales-by-staff",
-  checkRole([...MANAGEMENT_ROLES]),
+  checkRole([...EVM_MANAGEMENT_ROLES]),
   exportSalesByStaff
 );
 
