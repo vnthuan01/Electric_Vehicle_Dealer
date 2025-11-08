@@ -59,14 +59,20 @@ router.use(authenticate);
  *                       type: string
  *                     options:
  *                       type: array
+ *                       description: Options are calculated separately, NOT multiplied by vehicle quantity
  *                       items:
  *                         type: object
  *                         required: [option_id]
  *                         properties:
  *                           option_id:
  *                             type: string
+ *                           quantity:
+ *                             type: number
+ *                             default: 1
+ *                             description: Total quantity of this option (independent of vehicle quantity)
  *                     accessories:
  *                       type: array
+ *                       description: Accessories are calculated separately, NOT multiplied by vehicle quantity
  *                       items:
  *                         type: object
  *                         required: [accessory_id, quantity]
@@ -76,6 +82,7 @@ router.use(authenticate);
  *                           quantity:
  *                             type: number
  *                             default: 1
+ *                             description: Total quantity of this accessory (independent of vehicle quantity)
  *                     color:
  *                       type: string
  *                       description: Vehicle color chosen
@@ -93,7 +100,9 @@ router.use(authenticate);
  *                 promotion_id: "68e66da88a31a08794fd0b64"
  *                 options:
  *                   - option_id: "68d137662d41dc0589f4c9a4"
+ *                     quantity: 1
  *                   - option_id: "68d137662d41dc0589f4c9a3"
+ *                     quantity: 2
  *                 accessories:
  *                   - accessory_id: "68d137ac2d41dc0589f4c9ab"
  *                     quantity: 1
@@ -206,17 +215,20 @@ router.get("/:id", checkRole([...DEALER_ROLES]), getQuoteById);
  *                     promotion_id: { type: string }
  *                     options:
  *                       type: array
+ *                       description: Options are calculated separately, NOT multiplied by vehicle quantity
  *                       items:
  *                         type: object
  *                         properties:
  *                           option_id: { type: string }
+ *                           quantity: { type: number, default: 1, description: "Total quantity of this option (independent of vehicle quantity)" }
  *                     accessories:
  *                       type: array
+ *                       description: Accessories are calculated separately, NOT multiplied by vehicle quantity
  *                       items:
  *                         type: object
  *                         properties:
  *                           accessory_id: { type: string }
- *                           quantity: { type: number, default: 1 }
+ *                           quantity: { type: number, default: 1, description: "Total quantity of this accessory (independent of vehicle quantity)" }
  *                     color: { type: string, description: "Vehicle color chosen" }
  *               notes: { type: string }
  *               status:
@@ -230,8 +242,12 @@ router.get("/:id", checkRole([...DEALER_ROLES]), getQuoteById);
  *                 discount: 1500
  *                 color: "Blue"
  *                 promotion_id: ""
- *                 options: []
- *                 accessories: []
+ *                 options:
+ *                   - option_id: "68d137662d41dc0589f4c9a4"
+ *                     quantity: 1
+ *                 accessories:
+ *                   - accessory_id: "68d137ac2d41dc0589f4c9ab"
+ *                     quantity: 2
  *     responses:
  *       200:
  *         description: Updated successfully

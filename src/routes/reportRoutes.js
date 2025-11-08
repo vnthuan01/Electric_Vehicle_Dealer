@@ -10,10 +10,11 @@ import {
   exportSalesByStaff,
   getDealerManufacturerDebts,
   getDealerCustomerDebts,
+  getManufacturerVehicleConsumption,
 } from "../controllers/reportController.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
 import {checkRole} from "../middlewares/checkRole.js";
-import {MANAGEMENT_ROLES, ROLE} from "../enum/roleEnum.js";
+import {EVM_ADMIN_ROLES, MANAGEMENT_ROLES, ROLE} from "../enum/roleEnum.js";
 
 const router = express.Router();
 
@@ -191,6 +192,44 @@ router.get(
   "/debts-manufacturer",
   checkRole(ROLE.DEALER_MANAGER),
   getDealerManufacturerDebts
+);
+
+/**
+ * @openapi
+ * /api/reports/manufacturer/vehicle-consumption:
+ *   get:
+ *     tags:
+ *       - Reports
+ *     summary: Manufacturer vehicle consumption velocity
+ *     description: Tốc độ tiêu thụ xe theo từng hãng trong khoảng thời gian
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Ngày bắt đầu (mặc định 30 ngày trước endDate nếu không truyền)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Ngày kết thúc (mặc định hiện tại nếu không truyền)
+ *       - in: query
+ *         name: manufacturer_id
+ *         schema:
+ *           type: string
+ *         description: Lọc theo một hãng cụ thể
+ *     responses:
+ *       200:
+ *         description: Dữ liệu tốc độ tiêu thụ xe theo hãng
+ */
+router.get(
+  "/manufacturer/vehicle-consumption",
+  checkRole(EVM_ADMIN_ROLES),
+  getManufacturerVehicleConsumption
 );
 
 /**

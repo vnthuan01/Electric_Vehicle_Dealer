@@ -2,11 +2,16 @@ import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import Vehicle from "../models/Vehicle.js";
 import {success} from "../utils/response.js";
-import {AuthMessage, DealerMessage} from "../utils/MessageRes.js";
+import {
+  AuthMessage,
+  DealerMessage,
+  ManufacturerMessage,
+} from "../utils/MessageRes.js";
 import {generateReportExcelSingle} from "../services/reportService.js";
 import fs from "fs";
 import DealerManufacturerDebt from "../models/DealerManufacturerDebt.js";
 import Debt from "../models/Debt.js";
+import {AppError} from "../utils/AppError.js";
 /**
  * Doanh số theo thời gian / sản phẩm / đại lý
  */
@@ -232,6 +237,7 @@ export async function getDealerManufacturerDebts(req, res, next) {
     const extraQuery = {
       dealership_id: dealership_id,
       remaining_amount: {$gt: 0},
+      is_deleted: false,
     };
 
     // Phân trang
@@ -296,6 +302,7 @@ export async function getDealerCustomerDebts(req, res, next) {
 
     // --- Pipeline ---
     const pipeline = [
+      {$match: {is_deleted: false}},
       {
         $lookup: {
           from: "orders",
@@ -364,6 +371,129 @@ export async function getDealerCustomerDebts(req, res, next) {
     });
   } catch (e) {
     next(e);
+  }
+}
+
+/**
+ * Tốc độ tiêu thụ xe theo Manufacturer
+ */
+export async function getManufacturerVehicleConsumption(req, res, next) {
+  try {
+    const {startDate, endDate, manufacturer_id} = req.query;
+
+    const end = endDate ? new Date(endDate) : new Date();
+    if (Number.isNaN(end.getTime())) {
+      return next(new AppError("Invalid endDate", 400));
+    }
+
+    const start = startDate ? new Date(startDate) : new Date(end);
+    if (Number.isNaN(start.getTime())) {
+      return next(new AppError("Invalid startDate", 400));
+    }
+
+    if (!startDate) {
+      start.setDate(start.getDate() - 29);
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    if (start > end) {
+      return next(new AppError("startDate must be before endDate", 400));
+    }
+
+    const match = {
+      is_deleted: false,
+      status: {$in: ["delivered", "fully_paid", "completed"]},
+      createdAt: {$gte: start, $lte: end},
+    };
+
+    const pipeline = [
+      {$match: match},
+      {$unwind: "$items"},
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "items.vehicle_id",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      {$unwind: "$vehicle"},
+      {$match: {"vehicle.is_deleted": false}},
+    ];
+
+    if (manufacturer_id) {
+      pipeline.push({
+        $match: {
+          "vehicle.manufacturer_id": new mongoose.Types.ObjectId(
+            manufacturer_id
+          ),
+        },
+      });
+    }
+
+    pipeline.push(
+      {
+        $group: {
+          _id: "$vehicle.manufacturer_id",
+          totalQuantity: {$sum: "$items.quantity"},
+          totalRevenue: {$sum: "$items.final_amount"},
+          vehicles: {
+            $addToSet: {
+              vehicle_id: "$vehicle._id",
+              vehicle_name: "$vehicle.name",
+              model: "$vehicle.model",
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "manufacturers",
+          localField: "_id",
+          foreignField: "_id",
+          as: "manufacturer",
+        },
+      },
+      {$unwind: {path: "$manufacturer", preserveNullAndEmptyArrays: true}},
+      {
+        $project: {
+          _id: 0,
+          manufacturer_id: "$_id",
+          manufacturer_name: "$manufacturer.name",
+          totalQuantity: 1,
+          totalRevenue: 1,
+          vehicles: 1,
+        },
+      },
+      {$sort: {totalQuantity: -1}}
+    );
+
+    const consumption = await Order.aggregate(pipeline);
+
+    const dayMs = 1000 * 60 * 60 * 24;
+    const totalDays = Math.max(
+      1,
+      Math.floor((end.getTime() - start.getTime()) / dayMs) + 1
+    );
+
+    const data = consumption.map((item) => ({
+      ...item,
+      averageDailySales: Number((item.totalQuantity / totalDays).toFixed(2)),
+      averageDailyRevenue: Number((item.totalRevenue / totalDays).toFixed(2)),
+    }));
+
+    return success(res, ManufacturerMessage.VEHICLE_CONSUMPTION_RETRIEVED, {
+      timeframe: {
+        start: start.toISOString(),
+        end: end.toISOString(),
+        totalDays,
+      },
+      data,
+    });
+  } catch (err) {
+    next(err);
   }
 }
 

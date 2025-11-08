@@ -106,6 +106,10 @@ const dealerManufacturerDebtSchema = new mongoose.Schema(
         note: String,
       },
     ],
+
+    is_deleted: { type: Boolean, default: false },
+    deleted_at: { type: Date },
+    deleted_by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
