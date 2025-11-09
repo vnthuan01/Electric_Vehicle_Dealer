@@ -152,6 +152,7 @@ export async function getStatusLogById(req, res, next) {
 }
 
 // ==================== GET ORDER STATUS HISTORY ====================
+// ==================== GET ORDER STATUS HISTORY ====================
 export async function getOrderStatusHistory(req, res, next) {
   try {
     const {order_id} = req.params;
@@ -159,7 +160,7 @@ export async function getOrderStatusHistory(req, res, next) {
 
     // Kiểm tra order thuộc dealership
     const order = await Order.findById(order_id)
-      .select("dealership_id status delivery.status")
+      .select("dealership_id status delivery.status createdAt updatedAt")
       .lean();
     if (!order) return errorRes(res, "Order not found", 404);
 
@@ -176,19 +177,13 @@ export async function getOrderStatusHistory(req, res, next) {
     // Tạo timeline
     const timeline = logs.map((log) => ({
       id: log._id,
-      timestamp: log.created_at,
+      created_at: log.createdAt, // thời điểm log được tạo
+      updated_at: log.updatedAt || log.createdAt, // nếu chưa có updated_at thì dùng created_at
       status_change:
         log.old_status !== log.new_status
           ? {
               from: log.old_status,
               to: log.new_status,
-            }
-          : null,
-      delivery_status_change:
-        log.old_delivery_status !== log.new_delivery_status
-          ? {
-              from: log.old_delivery_status,
-              to: log.new_delivery_status,
             }
           : null,
       changed_by: log.changed_by,
@@ -201,7 +196,8 @@ export async function getOrderStatusHistory(req, res, next) {
     // Thêm trạng thái hiện tại
     timeline.push({
       id: "current",
-      timestamp: new Date(),
+      created_at: order.createdAt,
+      updated_at: order.updatedAt,
       current_status: order.status,
       current_delivery_status: order.delivery?.status,
       is_current: true,

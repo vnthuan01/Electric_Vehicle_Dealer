@@ -9,6 +9,7 @@ import {
   getRequestVehicleById,
   handleManufacturerDelivered,
   getAllRequestVehicleForDealer,
+  getRequestVehiclesByOrderRequest,
 } from "../controllers/requestVehicleController.js";
 import {ROLE} from "../enum/roleEnum.js";
 import {checkRole} from "../middlewares/checkRole.js";
@@ -147,6 +148,106 @@ router.get(
   "/:id",
   // checkRole(ROLE.EVM_STAFF, ROLE.DEALER_MANAGER, ROLE.DEALER_STAFF),
   getRequestVehicleById
+);
+
+/**
+ * @openapi
+ * /api/request-vehicles/by-order-request/{order_request_id}:
+ *   get:
+ *     tags: [Dealer Requests]
+ *     summary: Lấy danh sách RequestVehicle theo Order Request ID
+ *     description: Trả về danh sách các RequestVehicle thuộc cùng một `order_request_id`.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: order_request_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của Order Request để lọc danh sách yêu cầu xe
+ *     responses:
+ *       200:
+ *         description: Danh sách RequestVehicle trả về thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Danh sách yêu cầu xe theo Order Request ID
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         example: 674cb3aa1fb3f92d6c88ad35
+ *                       status:
+ *                         type: string
+ *                         example: pending
+ *                       vehicle_id:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: 674cb4561fb3f92d6c88af11
+ *                           name:
+ *                             type: string
+ *                             example: VinFast VF e34
+ *                           model:
+ *                             type: string
+ *                             example: VF e34 2025
+ *                           manufacturer_id:
+ *                             type: string
+ *                             example: 674cb5671fb3f92d6c88af12
+ *                           price:
+ *                             type: number
+ *                             example: 700000000
+ *                           images:
+ *                             type: array
+ *                             items:
+ *                               type: string
+ *                           specifications:
+ *                             type: object
+ *                       dealership_id:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: 674cb6781fb3f92d6c88af13
+ *                           company_name:
+ *                             type: string
+ *                             example: VinFast Hanoi
+ *                           address:
+ *                             type: string
+ *                             example: 123 Hai Ba Trung, Hanoi
+ *                           phone:
+ *                             type: string
+ *                             example: "02412345678"
+ *                           email:
+ *                             type: string
+ *                             example: dealership@example.com
+ *                       order_id:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: 674cb7891fb3f92d6c88af14
+ *                           code:
+ *                             type: string
+ *                             example: ORD-2025-001
+ */
+router.get(
+  "/by-order-request/:id",
+  // checkRole(ROLE.EVM_STAFF, ROLE.DEALER_MANAGER, ROLE.DEALER_STAFF),
+  getRequestVehiclesByOrderRequest
 );
 
 /**

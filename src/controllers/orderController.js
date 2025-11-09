@@ -259,7 +259,8 @@ export async function createOrder(req, res, next) {
 
     // 2.5. Tạo Order
     const [order] = await Order.create([orderData], {session});
-
+    // 2.6 Set báo giá là đã sài
+    await Quote.updateOne({_id: quote_id}, {$set: {status: "used"}}, {session});
     // ========== STEP 3: GHI LOG ORDER STATUS ==========
     await createStatusLog(
       order._id,
@@ -472,6 +473,8 @@ export async function getOrdersForYours(req, res, next) {
     // ----- POPULATE CUSTOMER -----
     const populatedData = await Order.populate(result.data, [
       {path: "customer_id", select: "full_name email phone"},
+      {path: "salesperson_id", select: "full_name email phone"},
+      {path: "dealership_id", select: "company_name"},
     ]);
 
     return success(res, OrderMessage.LIST_SUCCESS, {
@@ -486,8 +489,10 @@ export async function getOrdersForYours(req, res, next) {
 // ==================== Get Order By ID ====================
 export async function getOrderById(req, res, next) {
   try {
-    const order = await Order.findById(req.params.id).populate("customer_id");
-
+    const order = await Order.findById(req.params.id)
+      .populate({path: "customer_id", select: "full_name email phone"})
+      .populate({path: "salesperson_id", select: "full_name email phone"})
+      .populate({path: "dealership_id", select: "company_name"});
     if (!order) return errorRes(res, OrderMessage.NOT_FOUND, 404);
     return success(res, OrderMessage.DETAIL_SUCCESS, order);
   } catch (err) {
@@ -2028,15 +2033,29 @@ async function checkStockForOrder(items, dealership_id) {
       throw new Error(`Không tìm thấy xe: ${item.vehicle_id}`);
     }
 
-    // Tìm stock của đại lý theo màu cụ thể
-    const dealerStock = vehicle.stocks?.find(
+    // ✅ FIX: Tìm TẤT CẢ dealer stocks phù hợp (còn hàng, active)
+    // Logic giống deductStockForOrder để đảm bảo consistency
+    const eligibleStocks = (vehicle.stocks || []).filter(
       (s) =>
         s.owner_type === "dealer" &&
         s.owner_id.toString() === dealership_id.toString() &&
-        s.color === item.color
+        s.color === item.color &&
+        (s.remaining_quantity !== undefined
+          ? s.remaining_quantity > 0 // New stock with tracking
+          : s.quantity > 0) && // Old stock (backward compatible)
+        (!s.status || s.status === "active") // No status = old stock, treat as active
     );
 
-    const available = dealerStock?.quantity || 0;
+    // ✅ Tính tổng số lượng có sẵn (giống deductStockForOrder)
+    const totalAvailable = eligibleStocks.reduce(
+      (sum, s) =>
+        sum +
+        (s.remaining_quantity !== undefined
+          ? s.remaining_quantity
+          : s.quantity),
+      0
+    );
+
     const requested = item.quantity || 1;
 
     details.push({
@@ -2044,11 +2063,11 @@ async function checkStockForOrder(items, dealership_id) {
       vehicle_name: item.vehicle_name,
       color: item.color,
       requested_quantity: requested,
-      available_quantity: available,
+      available_quantity: totalAvailable,
     });
 
     // Nếu bất kỳ xe nào không đủ → hasStock = false
-    if (available < requested) {
+    if (totalAvailable < requested) {
       hasStock = false;
     }
   }
