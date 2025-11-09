@@ -184,18 +184,34 @@ export async function createOrderRequest(req, res, next) {
 export async function listOrderRequests(req, res, next) {
   try {
     const {status, q, startDate, endDate} = req.query;
-
+    const dealership_id = req.user?.dealership_id;
     const extraQuery = {};
+
+    // Lọc theo đại lý
+    if (dealership_id) {
+      extraQuery.dealership_id = dealership_id;
+    }
+
+    // Lọc theo trạng thái
     if (status) extraQuery.status = status;
-    if (q) extraQuery.code = {$regex: q, $options: "i"};
+
+    // Tìm kiếm theo mã
+    if (q) {
+      extraQuery.code = {$regex: q, $options: "i"};
+      extraQuery.requested_by = {$regex: q, $options: "i"};
+    }
+
+    // Lọc theo ngày tạo
     if (startDate || endDate) {
       extraQuery.createdAt = {};
       if (startDate) extraQuery.createdAt.$gte = new Date(startDate);
       if (endDate) extraQuery.createdAt.$lte = new Date(endDate);
     }
 
+    // Phân trang + tìm kiếm
     const result = await paginate(OrderRequest, req, ["code"], extraQuery);
 
+    // Populate các trường liên kết
     const populatedData = await OrderRequest.populate(result.data, [
       {path: "requested_by", select: "full_name email"},
       {path: "approved_by", select: "full_name email"},
@@ -205,6 +221,61 @@ export async function listOrderRequests(req, res, next) {
     ]);
 
     return success(res, "Order requests retrieved successfully", {
+      ...result,
+      data: populatedData,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+/**
+ * List order requests của chính người dùng hiện tại
+ * GET /api/order-requests/my
+ */
+export async function listMyOrderRequests(req, res, next) {
+  try {
+    const {status, q, startDate, endDate} = req.query;
+    const dealership_id = req.user?.dealership_id;
+    const user_id = req.user?.id;
+    console.log(user_id);
+
+    const extraQuery = {
+      requested_by: user_id,
+    };
+
+    // Lọc theo đại lý (chỉ lấy trong phạm vi của user)
+    if (dealership_id) {
+      extraQuery.dealership_id = dealership_id;
+    }
+
+    // Lọc theo trạng thái
+    if (status) extraQuery.status = status;
+
+    // Tìm kiếm theo mã
+    if (q) {
+      extraQuery.code = {$regex: q, $options: "i"};
+    }
+
+    // Lọc theo ngày tạo
+    if (startDate || endDate) {
+      extraQuery.createdAt = {};
+      if (startDate) extraQuery.createdAt.$gte = new Date(startDate);
+      if (endDate) extraQuery.createdAt.$lte = new Date(endDate);
+    }
+
+    // Phân trang + tìm kiếm
+    const result = await paginate(OrderRequest, req, ["code"], extraQuery);
+
+    // Populate các trường liên kết
+    const populatedData = await OrderRequest.populate(result.data, [
+      {path: "requested_by", select: "full_name email"},
+      {path: "approved_by", select: "full_name email"},
+      {path: "rejected_by", select: "full_name email"},
+      {path: "dealership_id", select: "name"},
+      {path: "order_id", select: "code status"},
+    ]);
+
+    return success(res, "My order requests retrieved successfully", {
       ...result,
       data: populatedData,
     });
@@ -542,9 +613,16 @@ export async function getOrderRequestById(req, res, next) {
   try {
     const request = await OrderRequest.findById(req.params.id)
       .populate("requested_by", "full_name email")
-      .populate("dealership_id", "name")
+      .populate("approved_by", "full_name email")
+      .populate("rejected_by", "full_name email")
+      .populate("dealership_id", "company_name")
+      .populate("order_id", "code")
       .lean();
-    if (!request) return errorRes(res, "Order request not found", 404);
+
+    if (!request) {
+      return errorRes(res, "Order request not found", 404);
+    }
+
     return success(res, "Order request detail", request);
   } catch (err) {
     next(err);

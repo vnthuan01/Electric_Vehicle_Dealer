@@ -962,3 +962,30 @@ export async function getRequestVehicleById(req, res, next) {
     next(err);
   }
 }
+
+export async function getRequestVehiclesByOrderRequest(req, res, next) {
+  try {
+    const {order_request_id} = req.params;
+
+    const requests = await RequestVehicle.find({order_request_id})
+      .populate(
+        "vehicle_id",
+        "name model manufacturer_id price images specifications"
+      )
+      .populate("dealership_id", "company_name address phone email")
+      .populate("order_id", "code status final_amount created_at")
+      .lean();
+
+    if (!requests || requests.length === 0) {
+      return errorRes(
+        res,
+        "Không tìm thấy yêu cầu xe nào cho Order Request này",
+        404
+      );
+    }
+
+    return success(res, "Danh sách yêu cầu xe theo Order Request ID", requests);
+  } catch (err) {
+    next(err);
+  }
+}
