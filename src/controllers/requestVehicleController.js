@@ -965,15 +965,17 @@ export async function getRequestVehicleById(req, res, next) {
 
 export async function getRequestVehiclesByOrderRequest(req, res, next) {
   try {
-    const {order_request_id} = req.params;
-
-    const requests = await RequestVehicle.find({order_request_id})
+    const {id} = req.params;
+    console.log(id);
+    const requests = await RequestVehicle.findOne({
+      order_request_id: id,
+    })
       .populate(
         "vehicle_id",
         "name model manufacturer_id price images specifications"
       )
       .populate("dealership_id", "company_name address phone email")
-      .populate("order_id", "code status final_amount created_at")
+      .populate("order_id", "code")
       .lean();
 
     if (!requests || requests.length === 0) {
