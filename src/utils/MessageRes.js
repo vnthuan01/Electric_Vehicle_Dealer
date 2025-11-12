@@ -1,255 +1,252 @@
 export const AuthMessage = {
   //User
-  USER_NOT_FOUND: "User not found",
-  UPDATE_SUCCESS: "User updated successfully",
-  DELETE_SUCCESS: "User deleted successfully",
-  FETCH_SUCCESS: "Fetched users successfully",
-  FETCH_ONE_SUCCESS: "Fetched user successfully",
+  USER_NOT_FOUND: "Không tìm thấy người dùng",
+  UPDATE_SUCCESS: "Cập nhật người dùng thành công",
+  DELETE_SUCCESS: "Xóa người dùng thành công",
+  FETCH_SUCCESS: "Lấy danh sách người dùng thành công",
+  FETCH_ONE_SUCCESS: "Lấy thông tin người dùng thành công",
 
   // Register
-  REGISTER_SUCCESS: "User registered successfully",
-  EMAIL_ALREADY_EXISTS: "Email already exists",
-  INVALID_ROLE: "Invalid role",
-  UNAUTHORIZED: "Unauthorized",
-  ADMIN_CANNOT_CREATE_ADMIN: "Admin cannot create another Admin",
+  REGISTER_SUCCESS: "Đăng ký thành công",
+  EMAIL_ALREADY_EXISTS: "Email đã tồn tại",
+  INVALID_ROLE: "Vai trò không hợp lệ",
+  UNAUTHORIZED: "Không có quyền thực hiện hành động này",
+  ADMIN_CANNOT_CREATE_ADMIN: "Admin không thể tạo tài khoản Admin khác",
   DEALER_MANAGER_ONLY_CREATE_STAFF:
-    "Dealer Manager can only create Dealer Staff accounts",
-  REGISTER_FAILED: "User registration failed",
+    "Quản lý đại lý chỉ có thể tạo tài khoản nhân viên cho đại lý của họ",
+  REGISTER_FAILED: "Đăng ký thất bại",
   MUST_PROVIDE_DEALERSHIP_OR_MANUFACTURER_ID:
-    "Must provide either dealership_id or manufacturer_id",
+    "Phải cung cấp dealership_id hoặc manufacturer_id",
   // Login
-  LOGIN_SUCCESS: "Login successful",
-  INVALID_CREDENTIALS: "Invalid credentials",
+  LOGIN_SUCCESS: "Đăng nhập thành công",
+  INVALID_CREDENTIALS: "Thông tin đăng nhập không hợp lệ",
 
   // Refresh token
-  REFRESH_SUCCESS: "Token refreshed successfully",
-  REFRESH_REQUIRED: "Refresh token required",
-  REFRESH_INVALID: "Invalid refresh token",
+  REFRESH_SUCCESS: "Làm mới token thành công",
+  REFRESH_REQUIRED: "Cần làm mới token",
+  REFRESH_INVALID: "Token làm mới không hợp lệ",
 
   // Logout
-  LOGOUT_SUCCESS: "Logged out successfully",
+  LOGOUT_SUCCESS: "Đăng xuất thành công",
 };
 
 export const UserMessage = {
-  FETCH_SUCCESS: "Fetched users successfully",
-  FETCH_ONE_SUCCESS: "Fetched user successfully",
-  USER_NOT_FOUND: "User not found",
-  EMAIL_ALREADY_EXISTS: "Email already exists",
-  INVALID_ROLE: "Invalid role",
-  CREATE_SUCCESS: "User created successfully",
-  UPDATE_SUCCESS: "User updated successfully",
-  DELETE_SUCCESS: "User deleted successfully",
+  FETCH_SUCCESS: "Lấy danh sách người dùng thành công",
+  FETCH_ONE_SUCCESS: "Lấy thông tin người dùng thành công",
+  USER_NOT_FOUND: "Người dùng không tồn tại",
+  EMAIL_ALREADY_EXISTS: "Email đã tồn tại",
+  INVALID_ROLE: "Vai trò không hợp lệ",
+  CREATE_SUCCESS: "Tạo người dùng thành công",
+  UPDATE_SUCCESS: "Cập nhật người dùng thành công",
+  DELETE_SUCCESS: "Xóa người dùng thành công",
 };
 
 export const CustomerMessage = {
-  CREATE_SUCCESS: "Customer created successfully",
-  UPDATE_SUCCESS: "Customer updated successfully",
-  DELETE_SUCCESS: "Customer deleted successfully",
-  LIST_RETRIEVED: "Customer list retrieved successfully",
-  DETAIL_RETRIEVED: "Customer details retrieved successfully",
-  NOT_FOUND: "Customer not found",
-  FORBIDDEN: "Forbidden",
+  CREATE_SUCCESS: "Tạo khách hàng thành công",
+  UPDATE_SUCCESS: "Cập nhật khách hàng thành công",
+  DELETE_SUCCESS: "Xóa khách hàng thành công",
+  LIST_RETRIEVED: "Danh sách khách hàng được lấy thành công",
+  DETAIL_RETRIEVED: "Chi tiết khách hàng được lấy thành công",
+  NOT_FOUND: "Khách hàng không tồn tại",
+  FORBIDDEN: "Bạn không có quyền",
 };
 
 export const VehicleMessage = {
-  LIST_SUCCESS: "Vehicle list retrieved successfully",
-  DETAIL_SUCCESS: "Vehicle detail retrieved successfully",
-  CREATE_SUCCESS: "Vehicle(s) created successfully",
-  UPDATE_SUCCESS: "Vehicle updated successfully",
-  DELETE_SUCCESS: "Vehicle deleted successfully",
+  LIST_SUCCESS: "Lấy danh sách xe thành công",
+  DETAIL_SUCCESS: "Lấy chi tiết xe thành công",
+  CREATE_SUCCESS: "Tạo xe thành công",
+  UPDATE_SUCCESS: "Cập nhật xe thành công",
+  DELETE_SUCCESS: "Xóa xe thành công",
 
-  NOT_FOUND: "Vehicle not found",
-  INVALID_REQUEST: "Invalid request or no valid vehicles to create",
+  NOT_FOUND: "Xe không tồn tại",
+  INVALID_REQUEST: "Dữ liệu xe không hợp lệ",
   MISSING_REQUIRED_FIELDS:
-    "Missing required fields: sku, name, category, price",
+    "Thiếu các trường bắt buộc: sku, name, category, price",
   MISSING_REQUIRED_FIELDS_DISTRIBUTE:
-    "Missing required fields: vehicle_id, dealership_id, quantity, color",
-  VEHICLE_DISTRIBUTED_SUCCESS: "Vehicle distributed successfully.",
-  QUANTITY_MUST_BE_GREATER_THAN_0: "Quantity must be greater than 0",
-  SKU_ALREADY_EXISTS: "Vehicle with this SKU already exists",
+    "Thiếu các trường bắt buộc để phân bổ xe: vehicle_id, dealership_id, quantity, color",
+  VEHICLE_DISTRIBUTED_SUCCESS: "Phân bổ xe thành công",
+  QUANTITY_MUST_BE_GREATER_THAN_0: "Số lượng phải lớn hơn 0",
+  SKU_ALREADY_EXISTS: "Xe với SKU này đã tồn tại",
 };
 
 export const OrderMessage = {
-  CREATE_SUCCESS: "Order created successfully",
-  UPDATE_SUCCESS: "Order updated successfully",
-  DELETE_SUCCESS: "Order deleted successfully",
-  STATUS_UPDATE_SUCCESS: "Order status updated successfully",
-  NOT_FOUND: "Order not found",
-  INVALID_STATUS: "Invalid order status",
-  LIST_SUCCESS: "Orders fetched successfully",
-  DETAIL_SUCCESS: "Order details fetched successfully",
-  MISSING_REQUIRED_FIELDS: "Missing required fields",
-  ITEMS_LENGTH_ZERO: "Order must contain at least one item",
+  CREATE_SUCCESS: "Đơn hàng được tạo thành công",
+  UPDATE_SUCCESS: "Đơn hàng được cập nhật thành công",
+  DELETE_SUCCESS: "Đơn hàng được xóa thành công",
+  STATUS_UPDATE_SUCCESS: "Trạng thái đơn hàng được cập nhật thành công",
+  NOT_FOUND: "Đơn hàng không tồn tại",
+  INVALID_STATUS: "Trạng thái đơn hàng không hợp lệ",
+  LIST_SUCCESS: "Danh sách đơn hàng được lấy thành công",
+  DETAIL_SUCCESS: "Chi tiết đơn hàng được lấy thành công",
+  MISSING_REQUIRED_FIELDS: "Thiếu các trường bắt buộc",
+  ITEMS_LENGTH_ZERO: "Đơn hàng phải có ít nhất một mục",
 };
 
 export const TestDriveMessage = {
-  CREATE_SUCCESS: "Test drive created successfully",
-  LIST_SUCCESS: "Test drive fetched all successfully",
-  INVALID_REQUEST: "Invalid test drive data",
-  MISSING_REQUIRED_FIELDS: "Missing required fields",
-  CUSTOMER_NOT_FOUND: "Customer not found",
-  VEHICLE_NOT_FOUND: "Vehicle not found",
-  ASSIGN_SUCCESS: "Assigned staff to test drive successfully",
-  STATUS_UPDATE_SUCCESS: "Test drive status updated successfully",
+  CREATE_SUCCESS: "Đăng ký lái thử thành công",
+  LIST_SUCCESS: "Lấy danh sách lái thử thành công",
+  INVALID_REQUEST: "Yêu cầu lái thử không hợp lệ",
+  MISSING_REQUIRED_FIELDS: "Thiếu các trường bắt buộc",
+  CUSTOMER_NOT_FOUND: "Khách hàng không tồn tại",
+  VEHICLE_NOT_FOUND: "Xe không tồn tại",
+  ASSIGN_SUCCESS: "Nhân viên được phân công cho lái thử thành công",
+  STATUS_UPDATE_SUCCESS: "Trạng thái lái thử được cập nhật thành công",
 };
 
 export const FeedbackMessage = {
-  CREATE_SUCCESS: "Feedback created successfully",
-  INVALID_REQUEST: "Invalid feedback data",
-  RETRIEVED_SUCCESS: "Feedbacks fetched successfully",
-  MISSING_REQUIRED_FIELDS: "Missing required fields",
-  HANDLER_INVALID: "Invalid handler",
-  NOT_FOUND: "Feedback/Complaint not found",
-  FORBIDDEN: "You are not allowed to update this feedback",
-  STATUS_UPDATE_SUCCESS: "Feedback status updated successfully",
-  COMMENT_ADDED: "Comment added to feedback",
+  CREATE_SUCCESS: "Tạo feedback thành công",
+  INVALID_REQUEST: "Yêu cầu không hợp lệ",
+  RETRIEVED_SUCCESS: "Lấy feedback thành công",
+  MISSING_REQUIRED_FIELDS: "Thiếu các trường bắt buộc",
+  HANDLER_INVALID: "Người xử lý không hợp lệ",
+  NOT_FOUND: "Feedback không tồn tại",
+  FORBIDDEN: "Bạn không có quyền truy cập/cập nhật feedback này",
+  STATUS_UPDATE_SUCCESS: "Trạng thái feedback được cập nhật thành công",
+  COMMENT_ADDED: "Bình luận được thêm thành công",
 };
 
 export const ManufacturerMessage = {
-  CREATE_SUCCESS: "Manufacturer created successfully",
-  LIST_SUCCESS: "Fetched manufacturers successfully",
-  DETAIL_SUCCESS: "Fetched manufacturer successfully",
-  UPDATE_SUCCESS: "Manufacturer updated successfully",
-  DELETE_SUCCESS: "Manufacturer deleted successfully",
+  CREATE_SUCCESS: "Tạo hãng thành công",
+  LIST_SUCCESS: "Lấy danh sách hãng thành công",
+  DETAIL_SUCCESS: "Lấy chi tiết hãng thành công",
+  UPDATE_SUCCESS: "Cập nhật hãng thành công",
+  DELETE_SUCCESS: "Xóa hãng thành công",
 
-  NOT_FOUND: "Manufacturer not found",
-  INVALID_REQUEST: "Invalid manufacturer data",
+  NOT_FOUND: "Hãng không tồn tại",
+  INVALID_REQUEST: "Yêu cầu hãng không hợp lệ",
   NO_STOCK_AVAILABLE:
-    "No manufacturer stock available for this vehicle's color",
+    "Không có tồn kho của hãng cho màu xe này hoặc xe đã hết hàng",
   //Debts
-  DEBTS_RETRIEVED: "Manufacturer debts retrieved successfully",
+  DEBTS_RETRIEVED: "Lấy công nợ hãng thành công",
   VEHICLE_CONSUMPTION_RETRIEVED:
-    "Manufacturer vehicle consumption report retrieved successfully",
+    "Lấy thông tin tiêu thụ xe của hãng thành công",
 };
 
 export const DealerMessage = {
   // General
-  CREATE_SUCCESS: "Dealership created successfully",
-  UPDATE_SUCCESS: "Dealership updated successfully",
-  DELETE_SUCCESS: "Dealership deleted successfully",
-  LIST_RETRIEVED: "Dealership list retrieved successfully",
-  DETAIL_RETRIEVED: "Dealership details retrieved successfully",
-  DEACTIVATE_SUCCESS: "Dealership deactivated successfully",
-  ALREADY_INACTIVE: "Dealership is already inactive",
-  MANUFACTURER_REQUIRED: "Manufacturer not found",
-  NOT_FOUND: "Dealership not found",
-  DEBTS_RETRIEVED: "Dealer debts retrieved successfully",
-  MISSING_FIELDS: "Missing required fields.",
-  VEHICLE_NOT_FOUND: "Vehicle not found or inactive/deleted",
-  REQUEST_NOT_FOUND: "Request not found.",
+  CREATE_SUCCESS: "Tạo đại lý thành công",
+  UPDATE_SUCCESS: "Cập nhật đại lý thành công",
+  DELETE_SUCCESS: "Xóa đại lý thành công",
+  LIST_RETRIEVED: "Lấy danh sách đại lý thành công",
+  DETAIL_RETRIEVED: "Lấy chi tiết đại lý thành công",
+  DEACTIVATE_SUCCESS: "Đại lý đã được hủy kích hoạt thành công",
+  ALREADY_INACTIVE: "Đại lý đã ở trạng thái không hoạt động",
+  MANUFACTURER_REQUIRED: "Phải có manufacturer_id để tạo đại lý",
+  NOT_FOUND: "Đại lý không tồn tại",
+  DEBTS_RETRIEVED: "Lấy công nợ đại lý thành công",
+  MISSING_FIELDS: "Thiếu các trường bắt buộc",
+  VEHICLE_NOT_FOUND: "Xe không tồn tại hoặc đã xóa",
+  REQUEST_NOT_FOUND: "Yêu cầu không tồn tại",
 
   //Debts
-  DEBTS_RETRIEVED: "Dealer debts retrieved successfully",
+  DEBTS_RETRIEVED: "Lấy công nợ đại lý thành công",
 
   // Request creation
   REQUEST_CREATED_PENDING:
-    "Vehicle request has been created and is pending approval.",
-  DUPLICATE_REQUEST:
-    "You have already sent a request for this vehicle with this color.",
-  DELETE_REQUEST_SUCCESS: "Vehicle request deleted successfully.",
+    "Yêu cầu xe đã được tạo và đang chờ phê duyệt từ hãng.",
+  DUPLICATE_REQUEST: "Bạn đã gửi yêu cầu cho xe này với màu này rồi.",
+  DELETE_REQUEST_SUCCESS: "Yêu cầu xe đã được xóa thành công.",
   // Approval
-  REQUEST_APPROVED: "Vehicle request has been approved successfully.",
-  REQUEST_REJECTED: "Vehicle request has been rejected.",
-  INSUFFICIENT_STOCK:
-    "Manufacturer does not have enough stock to fulfill this request.",
+  REQUEST_APPROVED: "Yêu cầu xe đã được phê duyệt thành công.",
+  REQUEST_REJECTED: "Yêu cầu xe đã bị từ chối.",
+  INSUFFICIENT_STOCK: "Hãng không có đủ xe trong kho để duyệt yêu cầu này.",
 
   // Validation
-  REQUEST_ALREADY_PROCESSED: "This request has already been processed.",
-  REQUEST_CANNOT_DELETE:
-    "Cannot delete a request that has already been processed.",
+  REQUEST_ALREADY_PROCESSED: "Yêu cầu xe đã được xử lý trước đó.",
+  REQUEST_CANNOT_DELETE: "Không thể xóa yêu cầu đã được xử lý.", // Cannot delete a request that has already been processed.
 
   // Listing
-  REQUEST_LIST_SUCCESS: "List of vehicle requests retrieved successfully.",
+  REQUEST_LIST_SUCCESS: "Lấy danh sách yêu cầu xe thành công.",
 };
 
 export const PromotionMessage = {
   // CRUD cơ bản
-  CREATE_SUCCESS: "Promotion created successfully",
-  CREATE_FAILED: "Failed to create promotion",
-  FETCH_SUCCESS: "Fetched promotions successfully",
-  FETCH_ONE_SUCCESS: "Fetched promotion successfully",
-  UPDATE_SUCCESS: "Promotion updated successfully",
-  DELETE_SUCCESS: "Promotion deleted successfully",
-  NOT_FOUND: "Promotion not found",
-  NOT_FOUND_OR_UNAUTHORIZED: "Promotion not found or unauthorized",
+  CREATE_SUCCESS: "Khuyến mãi được tạo thành công",
+  CREATE_FAILED: "Tạo khuyến mãi thất bại",
+  FETCH_SUCCESS: "Lấy danh sách khuyến mãi thành công",
+  FETCH_ONE_SUCCESS: "Lấy chi tiết khuyến mãi thành công",
+  UPDATE_SUCCESS: "Khuyến mãi được cập nhật thành công",
+  DELETE_SUCCESS: "Khuyến mãi được xóa thành công",
+  NOT_FOUND: "Khuyến mãi không tồn tại",
+  NOT_FOUND_OR_UNAUTHORIZED:
+    "Khuyến mãi không tồn tại hoặc không có quyền truy cập",
 
   // Trạng thái
-  ACTIVATED: "Promotion activated successfully",
-  DEACTIVATED: "Promotion deactivated successfully",
-  EXPIRED: "Promotion has expired",
+  ACTIVATED: "Khuyến mãi được kích hoạt thành công",
+  DEACTIVATED: "Khuyến mãi được hủy kích hoạt thành công",
+  EXPIRED: "Khuyến mãi đã hết hạn",
 
   // Validation
-  INVALID_DATE_RANGE: "Invalid date range (end_date must be after start_date)",
-  INVALID_TYPE: "Invalid promotion type",
-  VALUE_REQUIRED: "Promotion value is required",
+  INVALID_DATE_RANGE: "Ngày bắt đầu phải trước ngày kết thúc",
+  INVALID_TYPE: "Loại khuyến mãi không hợp lệ",
+  VALUE_REQUIRED: "Giá trị khuyến mãi là bắt buộc",
 
   // Phân bổ cho đại lý
-  ASSIGN_SUCCESS: "Assigned promotion to dealerships successfully",
-  ASSIGN_FAILED: "Failed to assign promotion to dealerships",
-  DUPLICATE_DEALERSHIP:
-    "Some dealerships are already assigned to this promotion",
-  INVALID_DEALERSHIPS: "Invalid dealership list",
-  NO_VALID_DEALERSHIP: "No valid dealership found",
+  ASSIGN_SUCCESS: "Phân bổ khuyến mãi cho đại lý thành công",
+  ASSIGN_FAILED: "Phân bổ khuyến mãi cho đại lý thất bại",
+  DUPLICATE_DEALERSHIP: "Khuyến mãi đã được phân bổ cho đại lý này rồi",
+  INVALID_DEALERSHIPS: "Danh sách đại lý bất hợp lệ", // Invalid dealership list
+  NO_VALID_DEALERSHIP: "Không có đại lý nào hợp lệ", // No valid dealership found
 };
 
 export const AccessoryMessage = {
-  CREATE_SUCCESS: "Accessory created successfully",
-  LIST_SUCCESS: "Fetched accessories successfully",
-  DETAIL_SUCCESS: "Fetched accessory successfully",
-  UPDATE_SUCCESS: "Accessory updated successfully",
-  DELETE_SUCCESS: "Accessory deleted successfully",
+  CREATE_SUCCESS: "Tạo phụ kiện thành công",
+  LIST_SUCCESS: "Lấy danh sách phụ kiện thành công",
+  DETAIL_SUCCESS: "Lấy chi tiết phụ kiện thành công",
+  UPDATE_SUCCESS: "Cập nhật phụ kiện thành công",
+  DELETE_SUCCESS: "Xóa phụ kiện thành công",
 
-  NOT_FOUND: "Accessory not found",
+  NOT_FOUND: "Phụ kiện không tồn tại",
 };
 
 export const OptionMessage = {
-  CREATE_SUCCESS: "Option created successfully",
-  LIST_SUCCESS: "Fetched options successfully",
-  DETAIL_SUCCESS: "Fetched option successfully",
-  UPDATE_SUCCESS: "Option updated successfully",
-  DELETE_SUCCESS: "Option deleted successfully",
+  CREATE_SUCCESS: "Tạo tùy chọn xe thành công",
+  LIST_SUCCESS: "Lấy danh sách tùy chọn xe thành công",
+  DETAIL_SUCCESS: "Lấy chi tiết tùy chọn xe thành công",
+  UPDATE_SUCCESS: "Cập nhật tùy chọn xe thành công",
+  DELETE_SUCCESS: "Xóa tùy chọn xe thành công",
 
-  NOT_FOUND: "Option not found",
+  NOT_FOUND: "Tùy chọn xe không tồn tại",
 };
 
 export const RoleMessage = {
-  CREATE_SUCCESS: "Role created successfully",
-  LIST_SUCCESS: "Fetched roles successfully",
-  DETAIL_SUCCESS: "Fetched role successfully",
-  NOT_FOUND: "Role not found",
-  INVALID_REQUEST: "Invalid role data",
-  ROLE_ALREADY_EXISTS: "Role already exists",
+  CREATE_SUCCESS: "Tạo role thành công",
+  LIST_SUCCESS: "Lấy danh sách role thành công",
+  DETAIL_SUCCESS: "Lấy chi tiết role thành công",
+  NOT_FOUND: "Role không tồn tại",
+  INVALID_REQUEST: "Yêu cầu role không hợp lệ",
+  ROLE_ALREADY_EXISTS: "Role đã tồn tại",
 };
 
 export const PaymentMessage = {
-  CREATE_SUCCESS: "Payment created successfully",
-  LIST_RETRIEVED: "Payment list retrieved successfully",
+  CREATE_SUCCESS: "Tạo thanh toán thành công",
+  LIST_RETRIEVED: "Lấy danh sách thanh toán thành công",
   MISSING_REQUIRED_FIELDS:
-    "Missing required fields: order_id, amount, or method",
-  MISSING_REQUIRED_FIELDS_UPDATE: "Missing required notes field.",
-  ORDER_NOT_FOUND: "Order not found",
+    "Thiếu các trường bắt buộc: order_id, amount, hoặc method",
+  MISSING_REQUIRED_FIELDS_UPDATE: "Thiếu field notes ", // Missing required notes field.
+  ORDER_NOT_FOUND: "Đơn hàng không tồn tại",
   EXCEEDS_FINAL_AMOUNT: (amount) =>
-    `Payment amount exceeds the final order total. You only need to pay ${amount.toLocaleString()} VNĐ more`,
-  ALREADY_FULLY_PAID: "This order has already been fully paid",
-  DELETE_SUCCESS: "Payment deleted successfully",
-  UPDATE_SUCCESS: "Payment updated successfully",
-  NOT_FOUND: "Payment not found",
-  ACCESS_DENIED: "Access denied: Payment not in your dealership",
+    `Payment amount exceeds the final order total. You only need to pay ${amount.toLocaleString()} VNĐ more`, // Payment amount exceeds the final order total. You only need to pay ${amount.toLocaleString()} VNĐ more
+  ALREADY_FULLY_PAID: "Đơn hàng đã được thanh toán đầy đủ rồi",
+  DELETE_SUCCESS: "Xóa thanh toán thành công",
+  UPDATE_SUCCESS: "Cập nhật thanh toán thành công",
+  NOT_FOUND: "Thanh toán không tồn tại",
+  ACCESS_DENIED: "Từ chối truy cập. Thanh toán không thuộc đại lý của bạn.", //. Access denied: Payment not in your dealership
 };
 
 export const QuoteMessage = {
-  CREATE_SUCCESS: "Quote created successfully",
-  LIST_SUCCESS: "Quote list retrieved successfully",
-  DETAIL_SUCCESS: "Quote detail retrieved successfully",
-  UPDATE_SUCCESS: "Quote updated successfully",
-  DELETE_SUCCESS: "Quote deleted successfully",
-  NOT_FOUND: "Quote not found",
-  QUOTE_NOT_VALID: "Quote is not valid",
-  QUOTE_EXPIRED_OR_CANCELED: "Quote is expired or canceled",
-  QUOTE_ALREADY_CANCELED: "Quote is already canceled",
-  EMPTY_ITEMS: "Empty items",
-  CANCEL_SUCCESS: "Quote canceled successfully",
-  DUPLICATE_VEHICLES: "Duplicate vehicles in quote are not allowed",
+  CREATE_SUCCESS: "Tạo báo giá thành công",
+  LIST_SUCCESS: "Lấy danh sách báo giá thành công",
+  DETAIL_SUCCESS: "Lấy chi tiết báo giá thành công",
+  UPDATE_SUCCESS: "Cập nhật báo giá thành công",
+  DELETE_SUCCESS: "Xóa báo giá thành công",
+  NOT_FOUND: "Báo giá không tồn tại",
+  QUOTE_NOT_VALID: "Báo giá không hợp lệ",
+  QUOTE_EXPIRED_OR_CANCELED: "Báo giá đã hết hạn hoặc bị hủy",
+  QUOTE_ALREADY_CANCELED: "Báo gía đã bị hủy",
+  EMPTY_ITEMS: "Báo giá không có mục nào", // empty items
+  CANCEL_SUCCESS: "Hủy báo giá thành công",
+  DUPLICATE_VEHICLES: "Không cho phép trùng lặp xe trong ", // Duplicate vehicles in quote are not allowed
   PROMOTION_ALREADY_USED: (promotionId) =>
-    `Promotion ${promotionId} has already been used`,
+    `Khuyến mãi với ID ${promotionId} đã được sử dụng rồi.`, // Promotion ${promotionId} has already been used
 };
