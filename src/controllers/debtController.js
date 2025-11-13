@@ -345,11 +345,9 @@ export async function settleDealerManufacturerByOrderPayment(
           paid_at: new Date(),
           method: payment.method,
           order_id: order._id,
-          note: `Auto settle from Order ${order.code} - ${
+          note: `Tự động tất toán công nợ cho đơn hàng ${order.code} - ${
             usedStock.quantity
-          } unit(s) from RequestVehicle ${
-            requestVehicle.code || requestVehicle._id
-          }`,
+          } đơn vị từ yêu cầu xe. ${requestVehicle.code || requestVehicle._id}`,
         });
 
         await debt.save(session ? {session} : {});
@@ -434,7 +432,7 @@ export async function settleDealerManufacturerByOrderPayment(
         paid_at: new Date(),
         method: payment.method,
         order_id: order._id,
-        note: `Auto settle from Order ${order.code} (fallback - no batch tracking)`,
+        note: `Tự động tất toán đơn hàng ${order.code} (fallback - không theo lô)`,
       });
 
       // ==== BỔ SUNG: Ghi nhận settled_by_orders cho từng debt item theo tỷ lệ số lượng ====
