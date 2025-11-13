@@ -7,6 +7,8 @@ import {
   deleteTestDrive,
   assignTestDriveStaff,
   updateTestDriveStatus,
+  getTestDrivesByStaff,
+  getTestDrivesByCustomer,
 } from "../controllers/testDriveController.js";
 import {checkRole} from "../middlewares/checkRole.js";
 import {DEALER_ROLES} from "../enum/roleEnum.js";
@@ -35,6 +37,41 @@ router.use(authenticate);
  *       200: { description: Test drive list retrieved successfully }
  */
 router.get("/", getTestDrives);
+
+/**
+ * @openapi
+ * /api/testdrives/my:
+ *   get:
+ *     tags: [TestDrives]
+ *     summary: List test drives of current staff
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: Test drive list retrieved successfully }
+ */
+router.get("/my", checkRole(DEALER_ROLES), getTestDrivesByStaff);
+
+/**
+ * @openapi
+ * /api/testdrives/customer/:customer_id:
+ *   get:
+ *     tags: [TestDrives]
+ *     summary: List test drives of a customer
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: customer_id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Test drive list retrieved successfully }
+ */
+router.get(
+  "/customer/:customer_id",
+  checkRole(DEALER_ROLES),
+  getTestDrivesByCustomer
+);
 
 /**
  * @openapi

@@ -279,8 +279,16 @@ export async function settleDealerManufacturerByOrderPayment(
           Number(debtItem.settled_amount || 0) + actualStockPayment;
         debtItem.remaining_amount =
           Number(debtItem.amount || 0) - debtItem.settled_amount;
-        debtItem.sold_quantity =
-          Number(debtItem.sold_quantity || 0) + Number(usedStock.quantity || 1);
+        // ✅ Chỉ cộng sold_quantity 1 lần duy nhất cho mỗi order
+        const alreadySettledForOrder = debtItem.settled_by_orders?.some(
+          (s) => s.order_id?.toString() === order._id.toString()
+        );
+
+        if (!alreadySettledForOrder) {
+          debtItem.sold_quantity =
+            Number(debtItem.sold_quantity || 0) +
+            Number(usedStock.quantity || 1);
+        }
 
         // ✅ 9. TRACK: Order này đã thanh toán bao nhiêu
         if (!debtItem.settled_by_orders) {
@@ -896,7 +904,7 @@ export async function getDealerDebts(req, res, next) {
 
     const matchStage = {
       status: {$in: statusFilter},
-    is_deleted: false,
+      is_deleted: false,
       // ...(onlyUnpaid ? { remaining_amount: { $gt: 0 } } : {}), // tùy chọn mở rộng
     };
 
