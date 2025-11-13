@@ -822,7 +822,7 @@ router.put("/:id", checkRole(DEALER_ROLES), updateOrder);
  *       404:
  *         description: Not Found
  */
-router.delete("/:id", checkRole(MANAGEMENT_ROLES), deleteOrder);
+router.delete("/:id", checkRole(DEALER_ROLES), deleteOrder);
 
 /**
  * @openapi
