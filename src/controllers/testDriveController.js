@@ -61,6 +61,68 @@ export async function getTestDrives(req, res, next) {
   }
 }
 
+export async function getTestDrivesByStaff(req, res, next) {
+  try {
+    const staff_id = req.user?._id;
+    const dealership_id = req.user?.dealership_id;
+
+    if (!staff_id) {
+      return errorRes(res, TestDriveMessage.INVALID_REQUEST, 400);
+    }
+
+    const result = await paginate(TestDrive, req, ["notes"], {
+      assigned_staff_id: staff_id,
+      dealership_id,
+    });
+
+    const populatedData = await Promise.all(
+      result.data.map((td) =>
+        TestDrive.findById(td._id).populate(
+          "customer_id vehicle_id dealership_id assigned_staff_id"
+        )
+      )
+    );
+
+    return success(res, TestDriveMessage.LIST_SUCCESS, {
+      ...result,
+      data: populatedData,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTestDrivesByCustomer(req, res, next) {
+  try {
+    const {customer_id} = req.params;
+    const dealership_id = req.user?.dealership_id;
+
+    if (!customer_id) {
+      return errorRes(res, TestDriveMessage.MISSING_REQUIRED_FIELDS, 400);
+    }
+
+    const result = await paginate(TestDrive, req, ["notes"], {
+      customer_id,
+      dealership_id,
+    });
+
+    const populatedData = await Promise.all(
+      result.data.map((td) =>
+        TestDrive.findById(td._id).populate(
+          "customer_id vehicle_id dealership_id assigned_staff_id"
+        )
+      )
+    );
+
+    return success(res, TestDriveMessage.LIST_SUCCESS, {
+      ...result,
+      data: populatedData,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getTestDriveById(req, res, next) {
   try {
     const item = await TestDrive.findById(req.params.id).populate(

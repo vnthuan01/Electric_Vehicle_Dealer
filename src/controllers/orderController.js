@@ -2035,26 +2035,36 @@ async function checkStockForOrder(items, dealership_id) {
 
     // ✅ FIX: Tìm TẤT CẢ dealer stocks phù hợp (còn hàng, active)
     // Logic giống deductStockForOrder để đảm bảo consistency
-    const eligibleStocks = (vehicle.stocks || []).filter(
-      (s) =>
-        s.owner_type === "dealer" &&
-        s.owner_id.toString() === dealership_id.toString() &&
-        s.color === item.color &&
-        (s.remaining_quantity !== undefined
-          ? s.remaining_quantity > 0 // New stock with tracking
-          : s.quantity > 0) && // Old stock (backward compatible)
-        (!s.status || s.status === "active") // No status = old stock, treat as active
-    );
+    const eligibleStocks = (vehicle.stocks || []).filter((s) => {
+      const sameDealer = String(s.owner_id) === String(dealership_id);
+      const sameColor =
+        s.color && item.color
+          ? s.color.trim().toLowerCase() === item.color.trim().toLowerCase()
+          : false;
+      const isActive = !s.status || s.status.toLowerCase() === "active";
+      const availableQty = s.remaining_quantity ?? s.quantity ?? 0;
 
-    // ✅ Tính tổng số lượng có sẵn (giống deductStockForOrder)
+      return (
+        s.owner_type === "dealer" &&
+        sameDealer &&
+        sameColor &&
+        availableQty > 0 &&
+        isActive
+      );
+    });
+
     const totalAvailable = eligibleStocks.reduce(
-      (sum, s) =>
-        sum +
-        (s.remaining_quantity !== undefined
-          ? s.remaining_quantity
-          : s.quantity),
+      (sum, s) => sum + (s.remaining_quantity ?? s.quantity ?? 0),
       0
     );
+
+    console.log("DEBUG STOCK CHECK:", {
+      dealership_id,
+      item,
+      eligibleStocksCount: eligibleStocks.length,
+      eligibleStocks,
+      totalAvailable,
+    });
 
     const requested = item.quantity || 1;
 

@@ -6,7 +6,7 @@ const getSecret = () => {
 };
 
 // Tạo Access Token
-export function signToken(payload, expiresIn = "2h") {
+export function signToken(payload, expiresIn = "120m") {
   return jwt.sign(payload, getSecret(), {expiresIn, algorithm: "HS256"});
 }
 
