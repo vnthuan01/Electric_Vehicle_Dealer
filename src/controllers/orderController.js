@@ -601,13 +601,40 @@ export async function deleteOrder(req, res, next) {
   session.startTransaction();
 
   try {
+    const {cancellation_reason, refund_method = "cash"} = req.body;
+
+    // --- validate reason ---
+    if (!cancellation_reason || cancellation_reason.trim() === "") {
+      return errorRes(res, "Vui lòng cung cấp lý do huỷ đơn hàng", 400);
+    }
+
     const order = await Order.findById(req.params.id).session(session);
     if (!order) {
       await session.abortTransaction();
       return errorRes(res, OrderMessage.NOT_FOUND, 404);
     }
 
-    // --- restore stock nếu order đã trừ stock ---
+    // --- REFUND PAYMENT nếu đã thanh toán ---
+    const refundPayments = [];
+
+    if (order.paid_amount > 0) {
+      const refundPayment = new Payment({
+        order_id: order._id,
+        customer_id: order.customer_id,
+        dealership_id: order.dealership_id,
+        amount: order.paid_amount,
+        payment_type: "refund",
+        method: refund_method, // mặc định cash
+        notes: `Hoàn tiền do xoá đơn hàng ${order.code}. Lý do: ${cancellation_reason}`,
+      });
+
+      await refundPayment.save({session});
+      refundPayments.push(refundPayment);
+
+      console.log(`💰 Refund created for deleteOrder: ${refundPayment._id}`);
+    }
+
+    // --- RESTORE STOCK (GIỮ NGUYÊN LOGIC CŨ) ---
     const stockDeductedStatuses = [
       "deposit_paid",
       "vehicle_ready",
@@ -620,33 +647,19 @@ export async function deleteOrder(req, res, next) {
       order.items?.length > 0
     ) {
       for (const item of order.items) {
-        if (!item.color) {
-          console.warn(
-            ` Item ${item.vehicle_id} has no color, skipping stock restore`
-          );
-          continue;
-        }
+        if (!item.color) continue;
 
         const quantity = item.quantity || 1;
 
         if (item.used_stocks && item.used_stocks.length > 0) {
-          // Restore theo tracking
           const vehicle = await Vehicle.findById(item.vehicle_id).session(
             session
           );
-          if (!vehicle) {
-            console.warn(` Vehicle ${item.vehicle_id} not found, skip restore`);
-            continue;
-          }
+          if (!vehicle) continue;
 
           for (const usedStock of item.used_stocks) {
             const stockEntry = vehicle.stocks.id(usedStock.stock_entry_id);
-            if (!stockEntry) {
-              console.warn(
-                ` Stock entry ${usedStock.stock_entry_id} not found in Vehicle ${vehicle._id}`
-              );
-              continue;
-            }
+            if (!stockEntry) continue;
 
             if (stockEntry.sold_quantity !== undefined) {
               stockEntry.sold_quantity = Math.max(
@@ -666,23 +679,15 @@ export async function deleteOrder(req, res, next) {
               stockEntry.quantity =
                 (stockEntry.quantity || 0) + usedStock.quantity;
             }
-
-            console.log(
-              `  Restored ${usedStock.quantity} to stock ${usedStock.stock_entry_id} ` +
-                `(remaining: ${
-                  stockEntry.remaining_quantity !== undefined
-                    ? stockEntry.remaining_quantity
-                    : stockEntry.quantity
-                })`
-            );
           }
 
           await vehicle.save({session});
         } else {
-          // Fallback: Không có tracking
-          const updateResult = await Vehicle.updateOne(
+          await Vehicle.updateOne(
             {_id: item.vehicle_id},
-            {$inc: {"stocks.$[elem].quantity": quantity}},
+            {
+              $inc: {"stocks.$[elem].quantity": quantity},
+            },
             {
               arrayFilters: [
                 {
@@ -694,19 +699,11 @@ export async function deleteOrder(req, res, next) {
               session,
             }
           );
-
-          if (updateResult.modifiedCount > 0) {
-            console.log(
-              `Restored ${quantity}x ${item.vehicle_name} (${item.color}) - Fallback`
-            );
-          }
         }
       }
-
-      console.log(" Stock restoration completed");
     }
 
-    // --- Update PromotionUsage trạng thái khi huỷ order ---
+    // --- UPDATE PROMOTION USAGE (GIỮ NGUYÊN LOGIC CŨ) ---
     if (order.items && order.items.length > 0) {
       for (const item of order.items) {
         if (item.promotion_id) {
@@ -725,12 +722,11 @@ export async function deleteOrder(req, res, next) {
 
             if (pendingQuotes.length > 0) {
               await PromotionUsage.updateMany(
-                {
-                  _id: {$in: pendingQuotes.map((q) => q._id)},
-                },
+                {_id: {$in: pendingQuotes.map((q) => q._id)}},
                 {$set: {status: "canceled"}},
                 {session}
               );
+
               usage.status = "canceled";
               await usage.save({session});
             } else {
@@ -742,13 +738,20 @@ export async function deleteOrder(req, res, next) {
       }
     }
 
-    // --- Soft delete order ---
+    // --- UPDATE ORDER STATUS + cancellation_reason (THÊM MỚI) ---
+    const deleteNote = `[${new Date().toISOString()}] Đơn hàng bị xoá. Lý do: ${cancellation_reason}`;
+
+    order.status = "canceled"; // thêm
+    order.cancellation_reason = cancellation_reason; // thêm
+    order.notes = order.notes ? `${order.notes}\n${deleteNote}` : deleteNote; // thêm
+
+    // --- Soft delete ---
     order.is_deleted = true;
     order.deleted_at = new Date();
     order.deleted_by = req.user._id;
     await order.save({session});
 
-    // --- Soft delete customer debt liên quan ---
+    // --- Soft delete debt ---
     const debt = await Debt.findOne({order_id: order._id}).session(session);
     if (debt) {
       debt.is_deleted = true;
@@ -757,7 +760,7 @@ export async function deleteOrder(req, res, next) {
       await debt.save({session});
     }
 
-    // --- Soft delete hoặc huỷ OrderRequest liên quan ---
+    // --- Soft delete order requests ---
     const orderRequests = await OrderRequest.find({
       order_id: order._id,
       status: {$nin: ["canceled", "deleted"]},
@@ -773,27 +776,28 @@ export async function deleteOrder(req, res, next) {
         reqDoc.deleted_by = req.user._id;
         reqDoc.is_deleted = true;
         await reqDoc.save({session});
-        console.log(
-          `🗑️ OrderRequest ${reqDoc._id} canceled due to order deletion`
-        );
       }
     }
 
-    // --- Hoàn lại công nợ Đại lý ↔ Hãng nếu đã settle ---
+    // --- Revert dealer-manufacturer debt ---
     try {
       await revertDealerManufacturerByOrderPayment(order, session);
-      console.log("Reverted dealer-manufacturer debt for deleted order");
     } catch (debtErr) {
       console.error("Failed to revert dealer-manufacturer debt:", debtErr);
     }
 
-    // --- COMMIT TRANSACTION ---
     await session.commitTransaction();
 
-    return success(res, OrderMessage.DELETE_SUCCESS, {id: order._id});
+    return success(res, OrderMessage.DELETE_SUCCESS, {
+      id: order._id,
+      refund_summary: {
+        refunded: order.paid_amount > 0,
+        refund_amount: order.paid_amount,
+        refund_payments: refundPayments,
+      },
+    });
   } catch (err) {
     await session.abortTransaction();
-    console.error(" Delete Order Error:", err);
     next(err);
   } finally {
     session.endSession();

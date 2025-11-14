@@ -815,7 +815,30 @@ router.put("/:id", checkRole(DEALER_ROLES), updateOrder);
  *         schema:
  *           type: string
  *         description: |
- *           Xóa order. - DEALER_MANAGER only
+ *           Xóa đơn hàng (soft delete). Bao gồm:
+ *           - Huỷ đơn hàng
+ *           - Ghi lại lý do huỷ
+ *           - Refund toàn bộ số tiền đã thanh toán
+ *           - Chỉ dành cho DEALER_MANAGER
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               cancellation_reason:
+ *                 type: string
+ *                 example: "Khách hàng yêu cầu huỷ đơn"
+ *                 description: Lý do huỷ đơn hàng (bắt buộc)
+ *               refund_method:
+ *                 type: string
+ *                 enum: [cash, bank_transfer]
+ *                 example: cash
+ *                 description: |
+ *                   Phương thức hoàn tiền. Mặc định là "cash".
+ *             required:
+ *               - cancellation_reason
  *     responses:
  *       200:
  *         description: OK
