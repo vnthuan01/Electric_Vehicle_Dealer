@@ -339,7 +339,10 @@ export async function deleteRequest(req, res, next) {
       return errorRes(res, DealerMessage.REQUEST_CANNOT_DELETE, 400);
     }
 
-    await request.deleteOne();
+    request.is_deleted = true;
+    request.deleted_at = new Date();
+    request.deleted_by = req.user._id;
+    await request.save();
     return success(res, DealerMessage.DELETE_REQUEST_SUCCESS);
   } catch (err) {
     next(err);
