@@ -391,12 +391,14 @@ export async function approveOrderRequest(req, res, next) {
         continue;
       }
 
-      // ✅ Check duplicate RequestVehicle
+      // ✅ Check duplicate RequestVehicle - chỉ check những RequestVehicle chưa bị soft delete
+      // Cho phép tạo RequestVehicle mới nếu RequestVehicle cũ đã bị soft delete (is_deleted: true)
       const existing = await RequestVehicle.findOne({
         vehicle_id: item.vehicle_id,
         dealership_id: request.dealership_id,
         color: normalizedColor,
-        is_deleted: {$ne: true},
+        status: {$nin: ["delivered", "rejected"]},
+        $or: [{is_deleted: false}, {is_deleted: {$exists: false}}],
       }).session(session);
 
       if (existing) {
