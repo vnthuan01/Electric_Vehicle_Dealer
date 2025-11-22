@@ -213,6 +213,9 @@ export async function rejectRequest(req, res, next) {
 
     request.status = "rejected";
     request.notes = reason;
+    request.is_deleted = true;
+    request.deleted_at = new Date();
+    request.deleted_by = req.user._id;
     if (request.order_request_id) {
       await OrderRequest.updateOne(
         {_id: request.order_request_id},

@@ -396,7 +396,7 @@ export async function approveOrderRequest(req, res, next) {
         vehicle_id: item.vehicle_id,
         dealership_id: request.dealership_id,
         color: normalizedColor,
-        status: {$in: ["pending", "in_progress", "approved"]}, // Chưa hoàn tất
+        is_deleted: {$ne: true},
       }).session(session);
 
       if (existing) {
