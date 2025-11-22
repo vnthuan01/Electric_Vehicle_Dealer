@@ -207,9 +207,9 @@ export async function rejectRequest(req, res, next) {
     const request = await RequestVehicle.findById(id).populate("vehicle_id");
     if (!request) return errorRes(res, DealerMessage.REQUEST_NOT_FOUND, 404);
 
-    if (request.status !== "pending") {
-      return errorRes(res, DealerMessage.REQUEST_ALREADY_PROCESSED, 400);
-    }
+    // if (request.status !== "pending") {
+    //   return errorRes(res, DealerMessage.REQUEST_ALREADY_PROCESSED, 400);
+    // }
 
     request.status = "rejected";
     request.notes = reason;
