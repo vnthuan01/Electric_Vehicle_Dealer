@@ -1378,7 +1378,11 @@ export async function markVehicleReady(req, res, next) {
     }
 
     // 1.2. Validate status phải là "deposit_paid" hoặc "waiting_vehicle_request"
-    const allowedStatuses = ["deposit_paid", "waiting_vehicle_request"];
+    const allowedStatuses = [
+      "deposit_paid",
+      "waiting_vehicle_request",
+      "pending",
+    ];
     if (!allowedStatuses.includes(order.status)) {
       await session.abortTransaction();
       return errorRes(
@@ -2059,6 +2063,7 @@ async function checkStockForOrder(items, dealership_id) {
 
     // ✅ FIX: Tìm TẤT CẢ dealer stocks phù hợp (còn hàng, active)
     // Logic giống deductStockForOrder để đảm bảo consistency
+    // Chỉ check remaining_quantity, không check quantity (vì quantity chỉ là số lượng tượng trưng)
     const eligibleStocks = (vehicle.stocks || []).filter((s) => {
       const sameDealer = String(s.owner_id) === String(dealership_id);
       const sameColor =
@@ -2066,7 +2071,7 @@ async function checkStockForOrder(items, dealership_id) {
           ? s.color.trim().toLowerCase() === item.color.trim().toLowerCase()
           : false;
       const isActive = !s.status || s.status.toLowerCase() === "active";
-      const availableQty = s.remaining_quantity ?? s.quantity ?? 0;
+      const availableQty = s.remaining_quantity ?? 0;
 
       return (
         s.owner_type === "dealer" &&
@@ -2078,7 +2083,7 @@ async function checkStockForOrder(items, dealership_id) {
     });
 
     const totalAvailable = eligibleStocks.reduce(
-      (sum, s) => sum + (s.remaining_quantity ?? s.quantity ?? 0),
+      (sum, s) => sum + (s.remaining_quantity ?? 0),
       0
     );
 
