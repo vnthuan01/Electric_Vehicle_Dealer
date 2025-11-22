@@ -13,8 +13,8 @@ const requestVehicleSchema = new mongoose.Schema(
       ref: "Dealership",
       required: true,
     },
-    color: { type: String },
-    quantity: { type: Number, required: true },
+    color: {type: String},
+    quantity: {type: Number, required: true},
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "in_progress", "delivered"],
@@ -42,8 +42,12 @@ const requestVehicleSchema = new mongoose.Schema(
       ref: "Order",
       required: false,
     },
+    // Soft delete fields
+    is_deleted: {type: Boolean, default: false},
+    deleted_at: {type: Date},
+    deleted_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
   },
-  { timestamps: true }
+  {timestamps: true}
 );
 
 export default mongoose.model("RequestVehicle", requestVehicleSchema);

@@ -767,6 +767,8 @@ export async function deleteOrder(req, res, next) {
     }).session(session);
 
     if (orderRequests.length > 0) {
+      const orderRequestIds = orderRequests.map((req) => req._id);
+
       for (const reqDoc of orderRequests) {
         reqDoc.status = "canceled";
         reqDoc.notes = reqDoc.notes
@@ -776,6 +778,24 @@ export async function deleteOrder(req, res, next) {
         reqDoc.deleted_by = req.user._id;
         reqDoc.is_deleted = true;
         await reqDoc.save({session});
+      }
+
+      // --- Soft delete RequestVehicle from canceled orderRequests ---
+      const requestVehicles = await RequestVehicle.find({
+        order_request_id: {$in: orderRequestIds},
+        is_deleted: {$ne: true},
+      }).session(session);
+
+      if (requestVehicles.length > 0) {
+        for (const reqVehicle of requestVehicles) {
+          reqVehicle.is_deleted = true;
+          reqVehicle.deleted_at = new Date();
+          reqVehicle.deleted_by = req.user._id;
+          reqVehicle.notes = reqVehicle.notes
+            ? `${reqVehicle.notes}\n[Auto deleted] Order ${order.code} was deleted`
+            : `[Auto deleted] Order ${order.code} was deleted`;
+          await reqVehicle.save({session});
+        }
       }
     }
 
