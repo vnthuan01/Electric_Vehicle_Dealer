@@ -210,18 +210,6 @@ export async function rejectRequest(req, res, next) {
     if (request.status !== "pending") {
       return errorRes(res, DealerMessage.REQUEST_ALREADY_PROCESSED, 400);
     }
-    const statusOrder = [
-      "pending",
-      "approved",
-      "in_progress",
-      "delivered",
-      "rejected",
-    ];
-    const currIdx = statusOrder.indexOf(request.status);
-    const nextIdx = statusOrder.indexOf("rejected");
-    if (nextIdx < currIdx) {
-      return errorRes(res, "Cannot revert to previous status", 400);
-    }
 
     request.status = "rejected";
     request.notes = reason;
