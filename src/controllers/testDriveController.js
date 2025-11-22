@@ -63,9 +63,10 @@ export async function getTestDrives(req, res, next) {
 
 export async function getTestDrivesByStaff(req, res, next) {
   try {
-    const staff_id = req.user?._id;
+    const staff_id = req.user?.id;
     const dealership_id = req.user?.dealership_id;
-
+    console.log(staff_id);
+    console.log(dealership_id);
     if (!staff_id) {
       return errorRes(res, TestDriveMessage.INVALID_REQUEST, 400);
     }
