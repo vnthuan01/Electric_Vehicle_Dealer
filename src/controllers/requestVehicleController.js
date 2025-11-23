@@ -223,7 +223,9 @@ export async function rejectRequest(req, res, next) {
           $set: {
             status: "rejected",
             notes:
-              "Tự động từ chối do không đủ stock hãng khi duyệt yêu cầu (RequestVehicle liên quan bị từ chối).",
+              "Tự động từ chối do không đủ stock hãng khi duyệt yêu cầu hoặc (RequestVehicle liên quan bị từ chối).",
+            rejected_by: req.user.id,
+            rejected_at: new Date(),
           },
         }
       );

@@ -400,7 +400,7 @@ export async function approveOrderRequest(req, res, next) {
         status: {$nin: ["delivered", "rejected", "canceled"]},
         $or: [{is_deleted: false}, {is_deleted: {$exists: false}}],
       }).session(session);
-
+      console.log(existing);
       if (existing) {
         skippedItems.push({
           vehicle_id: item.vehicle_id,
