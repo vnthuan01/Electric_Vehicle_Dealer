@@ -763,14 +763,14 @@ export async function deleteOrder(req, res, next) {
     // --- Soft delete order requests ---
     const orderRequests = await OrderRequest.find({
       order_id: order._id,
-      status: {$nin: ["canceled", "deleted"]},
+      status: {$nin: ["rejected"]},
     }).session(session);
 
     if (orderRequests.length > 0) {
       const orderRequestIds = orderRequests.map((req) => req._id);
 
       for (const reqDoc of orderRequests) {
-        reqDoc.status = "canceled";
+        reqDoc.status = "rejected";
         reqDoc.notes = reqDoc.notes
           ? `${reqDoc.notes}\n[Auto canceled] Order ${order.code} was deleted`
           : `[Auto canceled] Order ${order.code} was deleted`;
