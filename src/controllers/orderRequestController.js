@@ -397,7 +397,7 @@ export async function approveOrderRequest(req, res, next) {
         vehicle_id: item.vehicle_id,
         dealership_id: request.dealership_id,
         color: normalizedColor,
-        status: {$nin: ["delivered", "rejected"]},
+        status: {$nin: ["delivered", "rejected", "canceled"]},
         $or: [{is_deleted: false}, {is_deleted: {$exists: false}}],
       }).session(session);
 
